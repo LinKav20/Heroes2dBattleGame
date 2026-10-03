@@ -1,0 +1,26 @@
+{
+  "generator": "built-in image_gen",
+  "specs": [
+    {
+      "id": "heroes-atlas",
+      "refs": [
+        "/Users/mdpopov/WebstormProjects/Heroes2dBattleGame/Heroes2dBattleGame/tmp/mocks/2026-10-03/04-heroes-lineup.png"
+      ],
+      "prompt": "Edit the supplied hero design sheet into a transparent 2D tactical battle sprite ATLAS. Preserve the exact five identities, costumes and weapon types, but simplify for small game sprites in the handpainted Heroes III HD style. OUTPUT CANVAS 5:2 landscape, transparent background. EXACTLY FIVE equal-width columns, one character per column, fully isolated with wide transparent gutters. NO text, names, ground, grid, shadows, panels or decorative objects. All characters face RIGHT in an elevated 3/4 SIDE battle view. Put every character's feet on the same baseline at 88 percent of image height; all figures contained between 10 and 90 percent of their own column width and 10 and 88 percent of canvas height. From left Bubsilda navy silver armored elf with compact icy sword held upright close to body; Linda pink sage adult fairy hovering with wings FOLDED UPWARD behind her back, narrow silhouette, dragonfruit staff vertical; Lambert dark green human archer glasses shoulderlength black hair, bow held diagonally close to body, quiver; Golovach Lena masculine charcoal-scaled humanoid dragonborn, short black hair and two horns, compact glowing orange fists, no wings; Thorin bald short bearded dwarf, dark blue fur cloak, backpack and short work hammer held upright close to body, 75 percent human height, NOT same height as others. Crucial game constraints: no weapons or wings crossing column boundaries, at least 15 percent cell padding on each side, clean opaque body silhouettes with genuine transparent surroundings. Crisp dark contours, simplified 3-value shading, keep brighter distinctive face/weapon accents. No fine filigree noise. These are battle-ready idle sprites, not cinematic portraits."
+    },
+    {
+      "id": "enemies-atlas",
+      "refs": [
+        "/Users/mdpopov/WebstormProjects/Heroes2dBattleGame/Heroes2dBattleGame/tmp/mocks/2026-10-03/05-enemies-lineup.png"
+      ],
+      "prompt": "Edit this creature design sheet into a transparent 2D tactical battle sprite ATLAS. Preserve FOUR exact designs in same left-to-right order: red fairy scout, red fairy armored polearm warrior, thorn-bush guardian, ice guardian. OUTPUT CANVAS 2:1 landscape, exactly FOUR equal-width columns with one completely separate full-body creature per cell. No labels, no text, no ground, no shadow, no panels, no grid. Transparent background. Facing LEFT in a slightly elevated 3/4 SIDE battle view. Feet of every figure at 88 percent canvas height; tallest point about 12 percent. Each sprite fully inside middle 70 percent of its own column, 15 percent clear side margins. Most important change: fairies FOLD THEIR BAT WINGS VERTICALLY behind their bodies, entirely inside their own column; warrior carries polearm nearly upright, not across adjacent sprites. Thorn guardian is squat with short folded vine arms, not wide outspread arms; ice guardian holds spear upright close to body. Crisp Heroes of Might and Magic III HD handpainted 2D look, simplified shading into three large readable values, distinctive colors, no glossy 3D or microtexture noise. Keep empty transparent gutters between all sprites. No extra figures."
+    },
+    {
+      "id": "boss-atlas",
+      "refs": [
+        "/Users/mdpopov/WebstormProjects/Heroes2dBattleGame/Heroes2dBattleGame/tmp/mocks/2026-10-03/06-bosses-lineup.png"
+      ],
+      "prompt": "Edit supplied three-boss design sheet into a transparent tactical battle sprite ATLAS. OUTPUT CANVAS 3:1 landscape, EXACTLY THREE equal-width columns: Stroganessa, Netak elf, Netak dragon. All full body, facing LEFT in consistent elevated 3/4 SIDE battle view. Truly transparent background, no text, names, shadows, panels, base circles or ground. Every creature stays within 15 to 85 percent of its own column width, feet at 88 percent canvas height. Stroganessa: short ash-brown hair, crimson gold-trimmed gown, red butterfly wings folded mostly upright behind her, no spreading sideways, tiny controlled green magic and dragonfruit. Netak elf: same short light-brown hair and pointed ears, black silver embroidered long coat, purple magic near one hand, thin upright silhouette. Netak dragon: compact crouched quadruped black purple dragon, four anatomically clear legs, two prominent swept horns, wing membranes folded tightly onto its back, tail CURLED ALONGSIDE body inside its cell, much shorter neck than original. Dragon silhouette approximately square and compact, made for TWO adjoining hex cells, not sprawling. Simplify black scales into broad dark purple planes with a few light edges; tiny violet eyes and chest accent, no all-over glowing fissure noise. Strong painted 2D Heroes III HD unit readability with 3-value shading. Tallest point per figure around 12 percent image height; dwarf dragon presentation scale here only for sheet, will be displayed larger by layout. Preserve character identity. No extra limbs, heads or figures."
+    }
+  ]
+}

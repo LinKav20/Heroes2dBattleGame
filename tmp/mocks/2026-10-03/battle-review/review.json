@@ -1,0 +1,44 @@
+{
+  "version": 4,
+  "date": "2026-10-03",
+  "changes": [
+    "Поле 13×9, персонажи крупнее на 40%.",
+    "Контрастная сетка со светлой линией и тёмной подложкой.",
+    "Исходные камни, деревья и корни возвращены и размечены непроходимыми гексами.",
+    "Маршрут строится по свободным клеткам и непрерывно проверяется на пересечение с фигурами."
+  ],
+  "validation": {
+    "report": "layout-audit-v3.json",
+    "command": "node tmp/mocks/2026-10-03/battle-review/verify-layout.cjs",
+    "sceneSamples": 2121,
+    "routeCases": 351,
+    "blockedDestinationsRejected": 47,
+    "maxUnitBoxOverlap": 0,
+    "unitsOnObstacles": 0,
+    "unitsOutsideField": 0,
+    "denseCount": 40,
+    "uiChecks": [
+      "Клик по колонне отклонён.",
+      "Клик по свободной клетке построил маршрут."
+    ]
+  },
+  "limits": [
+    "Проверка относится к сценам макета. Игровой движок не подключён.",
+    "Препятствия изображены в фоне и имеют отдельные логические занятые клетки. Перетаскивание и разрушение не реализованы.",
+    "Плотный строй использует 112 px вместо 80; основной — масштаб 1.4 от предыдущего. Кадровые анимации не нарисованы.",
+    "Стоимость поверхностей, полёт и боевые правила пока не рассчитываются."
+  ],
+  "effects": {
+    "themes": [
+      "Ice blade and crystal shards",
+      "Crimson retaliation slash",
+      "Golden arrow trail, sparks and impact ring",
+      "Pink pitahaya petals and green healing spirals",
+      "Violet runes, shadowflame and dragon transformation vortex"
+    ],
+    "rendering": "Ground glow behind sprites; trails and particles in front; clipped to battlefield; movement unchanged.",
+    "visualChecks": [
+      "Inspected melee contact, healing, arrow impact and dragon emergence."
+    ]
+  }
+}

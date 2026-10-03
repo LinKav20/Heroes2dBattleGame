@@ -1,0 +1,178 @@
+{
+  "grid": "13x9",
+  "normalScale": 1.4,
+  "denseHeight": 112,
+  "sceneSamples": 2121,
+  "routeCases": 351,
+  "blockedDestinations": 47,
+  "reports": [
+    {
+      "arena": 0,
+      "scenes": [
+        {
+          "scene": 1,
+          "title": "Расстановка",
+          "count": 10,
+          "maxBoxOverlap": 0,
+          "outOfBounds": []
+        },
+        {
+          "scene": 2,
+          "title": "Перемещение",
+          "count": 10,
+          "maxBoxOverlap": 0,
+          "outOfBounds": []
+        },
+        {
+          "scene": 3,
+          "title": "Удар и ответ",
+          "count": 10,
+          "maxBoxOverlap": 0,
+          "outOfBounds": []
+        },
+        {
+          "scene": 4,
+          "title": "Выстрел Ламберта",
+          "count": 10,
+          "maxBoxOverlap": 0,
+          "outOfBounds": []
+        },
+        {
+          "scene": 5,
+          "title": "Поддержка Линды",
+          "count": 10,
+          "maxBoxOverlap": 0,
+          "outOfBounds": []
+        },
+        {
+          "scene": 6,
+          "title": "Нетак: смена фазы",
+          "count": 8,
+          "maxBoxOverlap": 0,
+          "outOfBounds": []
+        },
+        {
+          "scene": 7,
+          "title": "Плотный бой: 40 юнитов",
+          "count": 40,
+          "maxBoxOverlap": 0,
+          "outOfBounds": []
+        }
+      ],
+      "blockedCells": 13,
+      "reachableDestinations": 31
+    },
+    {
+      "arena": 1,
+      "scenes": [
+        {
+          "scene": 1,
+          "title": "Расстановка",
+          "count": 10,
+          "maxBoxOverlap": 0,
+          "outOfBounds": []
+        },
+        {
+          "scene": 2,
+          "title": "Перемещение",
+          "count": 10,
+          "maxBoxOverlap": 0,
+          "outOfBounds": []
+        },
+        {
+          "scene": 3,
+          "title": "Удар и ответ",
+          "count": 10,
+          "maxBoxOverlap": 0,
+          "outOfBounds": []
+        },
+        {
+          "scene": 4,
+          "title": "Выстрел Ламберта",
+          "count": 10,
+          "maxBoxOverlap": 0,
+          "outOfBounds": []
+        },
+        {
+          "scene": 5,
+          "title": "Поддержка Линды",
+          "count": 10,
+          "maxBoxOverlap": 0,
+          "outOfBounds": []
+        },
+        {
+          "scene": 6,
+          "title": "Нетак: смена фазы",
+          "count": 8,
+          "maxBoxOverlap": 0,
+          "outOfBounds": []
+        },
+        {
+          "scene": 7,
+          "title": "Плотный бой: 40 юнитов",
+          "count": 40,
+          "maxBoxOverlap": 0,
+          "outOfBounds": []
+        }
+      ],
+      "blockedCells": 20,
+      "reachableDestinations": 27
+    },
+    {
+      "arena": 2,
+      "scenes": [
+        {
+          "scene": 1,
+          "title": "Расстановка",
+          "count": 10,
+          "maxBoxOverlap": 0,
+          "outOfBounds": []
+        },
+        {
+          "scene": 2,
+          "title": "Перемещение",
+          "count": 10,
+          "maxBoxOverlap": 0,
+          "outOfBounds": []
+        },
+        {
+          "scene": 3,
+          "title": "Удар и ответ",
+          "count": 10,
+          "maxBoxOverlap": 0,
+          "outOfBounds": []
+        },
+        {
+          "scene": 4,
+          "title": "Выстрел Ламберта",
+          "count": 10,
+          "maxBoxOverlap": 0,
+          "outOfBounds": []
+        },
+        {
+          "scene": 5,
+          "title": "Поддержка Линды",
+          "count": 10,
+          "maxBoxOverlap": 0,
+          "outOfBounds": []
+        },
+        {
+          "scene": 6,
+          "title": "Нетак: смена фазы",
+          "count": 8,
+          "maxBoxOverlap": 0,
+          "outOfBounds": []
+        },
+        {
+          "scene": 7,
+          "title": "Плотный бой: 40 юнитов",
+          "count": 40,
+          "maxBoxOverlap": 0,
+          "outOfBounds": []
+        }
+      ],
+      "blockedCells": 14,
+      "reachableDestinations": 31
+    }
+  ]
+}
