@@ -1,6 +1,8 @@
 # Примеры
 
-Обновлено: 2026-10-03. Наброски, не окончательные форматы.
+Примеры JSON и кода. Форматы ещё могут поменяться.
+
+Обновлено 5 октября 2026.
 
 ## Манифест пака
 
@@ -26,7 +28,7 @@
   "name": { "$t": "bridge.name" },
   "ruleset": "core:homm-classic",
   "field": {
-    "cols": 15, "rows": 11, "heroColumns": true, "battlefield": "core:grass",
+    "cols": 15, "rows": 11, "battlefield": "core:grass",
     "impassable": [[5, 3], [5, 4]],
     "hazards": [{ "hexes": [[8, 5]], "effect": "core:quicksand", "hidden": true }]
   },
@@ -34,48 +36,48 @@
   "siege": null,
   "sides": [
     {
-      "id": "attacker", "seat": "a",
-      "hero": { "def": "demo-homm:gelu", "level": 8 },
+      "id": "attacker",
+      "effects": ["demo-homm:commander-gelu-bonuses"],
+      "abilities": ["demo-homm:commander-gelu-spellbook"],
       "deployment": { "zone": { "cols": [1, 2] }, "tactics": true },
       "units": [{ "id": "a1", "def": "demo-homm:marksman", "count": 40, "at": [1, 2] }]
     },
-    { "id": "defender", "seat": "b", "units": [] }
+    { "id": "defender", "units": [] }
   ],
   "vars": { "reinforced": { "type": "boolean", "initial": false } },
   "triggers": [
     {
       "id": "reinforce",
-      "on": { "event": "roundStarted", "round": 3 },
+      "on": { "event": "RoundStarted", "round": 3 },
       "once": true,
       "if": { "all": [
         { "fn": "sideStrengthBelow", "args": { "side": "defender", "pct": 50 } },
         { "not": { "var": "reinforced", "eq": true } }
       ] },
       "do": [
-        { "op": "summon", "creature": "demo-homm:pikeman", "count": 20, "at": { "hex": [15, 5], "fallback": "nearestFree" } },
-        { "op": "setVar", "var": "reinforced", "value": true },
-        { "op": "message", "text": { "$t": "bridge.reinforce" } }
+        { "op": "summon", "creature": "demo-homm:pikeman", "count": 20, "at": { "hex": [14, 5], "fallback": "nearestFree" } },
+        { "op": "setVar", "var": "reinforced", "value": true }
       ]
     }
   ],
   "objectives": [
     { "id": "win-a", "type": "victory", "side": "attacker", "when": { "fn": "sideEliminated", "args": { "side": "defender" } } },
-    { "id": "timeout", "type": "defeat", "side": "attacker", "when": { "cmp": ">", "a": { "ref": "round" }, "b": 20 } }
+    { "id": "round-limit", "type": "defeat", "side": "attacker", "when": { "cmp": ">", "a": { "ref": "round" }, "b": 20 } }
   ]
 }
 ```
 
 ## Конфигурация боя от хоста
 
-Хост выбирает наш сценарий и передаёт параметры участников поверх него.
+Хост выбирает наш сценарий, передаёт параметры юнитов, которые накладываются на данные сценария, и перечисляет акторов с их правами и агентами.
 
 ```json
 {
   "formatVersion": 1,
   "scenario": "demo-d20:tavern-brawl",
-  "participants": [
+  "units": [
     {
-      "unit": "hero-lambert",
+      "unit": "lambert",
       "state": {
         "resources": { "hp": 23 },
         "effects": [{ "def": "core:inspired", "remaining": 1 }],
@@ -84,17 +86,23 @@
       }
     }
   ],
-  "seats": [
-    { "id": "party", "sides": ["attacker"], "agent": { "kind": "ui" }, "role": "gm" },
-    { "id": "enemies", "sides": ["defender"], "agent": { "kind": "utility-ai", "profile": "core:aggressive" } }
+  "actors": [
+    { "id": "lead", "grant": "lead", "agent": { "kind": "ui" } },
+    { "id": "enemies", "grant": { "preset": "commander", "sides": ["defender"] }, "agent": { "kind": "utility-ai", "profile": "aggressive" } }
   ],
-  "rulesetOverrides": { "dice": { "default": "digital", "byPurpose": { "attack": "gm" } } },
-  "options": { "seed": null, "rewind": "gm-only", "locale": "ru", "skin": "default", "timeScale": 1 },
+  "rulesetOverrides": { "dice": { "default": "generator", "byPurpose": { "attack": "external" } } },
+  "seed": null,
   "hostRef": "campaign-42/session-7/encounter-3"
 }
 ```
 
-`hostRef` — непрозрачная для нас метка хоста. Мы возвращаем её в результате, чтобы хост связал результат со своими данными.
+Актор `lead` получает готовый набор прав «ведущий»: может всё и видит всё. Актор `enemies` получает набор «командующий» для обороняющихся, а действует от его имени ИИ. Готовые наборы и профили ИИ регистрируют адаптеры политики доступа и агентов, поэтому у них нет префикса пака.
+
+Броски атаки по этой конфигурации вводятся извне. Запрос на бросок атаки обороняющихся политика направит актору `enemies`: его права относятся к стороне запроса, а такие права важнее общих. Запрос на бросок атакующих достанется `lead`, потому что других претендентов нет.
+
+Координаты гексов считаются с нуля: на поле шириной 15 столбцы нумеруются от 0 до 14.
+
+В `hostRef` хост пишет любую свою метку. Мы её не разбираем и возвращаем в результате, чтобы хост понял, к чему этот результат относится.
 
 ## Результат боя
 
@@ -107,7 +115,7 @@
   "rounds": 6,
   "units": [
     {
-      "unit": "hero-lambert", "side": "attacker", "alive": true,
+      "unit": "lambert", "side": "attacker", "alive": true,
       "countStart": 1, "countEnd": 1,
       "resources": { "hp": 11 },
       "effects": [{ "def": "core:burning", "remaining": 1 }],
@@ -136,7 +144,7 @@ window.addEventListener('message', (event) => {
   switch (msg.type) {
     case 'ready':
       frame.contentWindow?.postMessage(
-        { type: 'createBattle', protocol: 1, requestId: crypto.randomUUID(), setup },
+        { type: 'createBattle', protocol: 1, requestId: crypto.randomUUID(), setup, client: { locale: 'ru', skin: 'default', timeScale: 1 } },
         ORIGIN,
       );
       break;

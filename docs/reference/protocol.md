@@ -1,65 +1,65 @@
 # Протоколы
 
-Обновлено: 2026-10-03. Наброски, не окончательные определения.
+Форматы сообщений между частями системы. Это наброски, окончательные определения появятся в пакете `protocol`.
+
+Обновлено 5 октября 2026.
 
 ## Протокол боя
 
-Между участниками и источником истины. Одинаков для канала в памяти, WebSocket и BroadcastChannel.
+По этому протоколу акторы общаются с арбитром. Он один и тот же для канала в памяти, WebSocket и BroadcastChannel.
 
 ```ts
 type IntentEnvelope = {
   battleId: string;
   intentId: string;                 // уникален, ключ повторной отправки
-  seat: SeatId;
-  principal: { id: string; role: 'gm' | 'player' | 'observer' | 'system' };
+  actor: ActorId;                   // кто отправил; ролей в протоколе нет
   agentKind: string;
-  expectedSeq: number;              // версия состояния, на которую рассчитана команда
+  expectedSeq: number;              // номер последней записи журнала, который видел отправитель
   epoch: number;
-  decisionId?: string;              // если это ответ на запрос решения
-  command: Command;
+  command: Command | SessionCommand;   // ответ на запрос ввода — команда Answer
 };
 
 type Ack =
   | { ok: true; intentId: string; seq: number }
   | { ok: false; intentId: string; currentSeq: number; detail?: string;
-      code: 'STALE' | 'ILLEGAL' | 'NOT_YOUR_SEAT' | 'DUPLICATE_MISMATCH' | 'NO_PENDING' | 'STALE_EPOCH' };
+      code: 'STALE' | 'ILLEGAL' | 'FORBIDDEN' | 'DUPLICATE_MISMATCH' | 'NO_PENDING' | 'STALE_EPOCH' };   // FORBIDDEN — отказала политика доступа
 
-type EventBatchForViewer = {
+type EventBatchForActor = {
   battleId: string;
-  seq: number;
-  fromRev: number;
-  toRev: number;
+  seq: number;                      // номер записи журнала; он же версия состояния после неё
   intentId: string;
-  actor: SeatId | 'system';
-  events: BattleEvent[];            // уже отфильтрованы для получателя
+  actor: ActorId | 'arbiter';
+  events: BattleEvent[];            // уже в проекции получателя
 };
 
 type WireMessage =
-  | { type: 'hello'; protocol: 1; battleId: string; seatToken?: string; lastSeq?: number }
-  | { type: 'welcome'; viewer: Viewer; snapshot: ViewSnapshot; epoch: number }
+  | { type: 'hello'; protocol: 1; battleId: string; actorToken?: string; lastSeq?: number }
+  | { type: 'welcome'; actor: ActorId; visibility: Visibility; projection: Projection; seq: number; epoch: number }
   | { type: 'intent'; intent: IntentEnvelope }
   | { type: 'ack'; ack: Ack }
-  | { type: 'batch'; batch: EventBatchForViewer }
+  | { type: 'batch'; batch: EventBatchForActor }
   | { type: 'resync'; fromSeq: number }
-  | { type: 'resyncResult'; batches?: EventBatchForViewer[]; snapshot?: ViewSnapshot }
-  | { type: 'decisionRequest'; request: DecisionRequest }
+  | { type: 'resyncResult'; batches?: EventBatchForActor[]; projection?: Projection; seq: number }
+  | { type: 'rewound'; toSeq: number; projection: Projection; seq: number }   // откат: всем приходит новая проекция
+  | { type: 'agentRequest'; request: AgentRequest }
   | { type: 'ping' } | { type: 'pong' };
 ```
 
-Правила:
+Если `intent` пришёл повторно с тем же `intentId`, арбитр возвращает тот же `ack`. Ответ `FORBIDDEN` значит, что политика доступа не разрешила актору эту команду. Ответ `STALE` значит, что состояние уже ушло вперёд, и клиенту нужно отправить `resync`. Ответ `STALE_EPOCH` значит, что арбитр переехал, и клиенту нужно переподключиться. Сообщение `agentRequest` получает только тот актор, которого назвала политика доступа. После отката все получают `rewound` со свежей проекцией.
 
-- Повторная `intent` с тем же `intentId` возвращает тот же `ack`.
-- `STALE`: состояние ушло вперёд, клиент делает `resync`.
-- `STALE_EPOCH`: источник истины сменился, клиент переподключается.
-- `decisionRequest` получает только участник, чей агент должен ответить.
+Какие кнопки показывать, клиент узнаёт не из прав, а из подсказок `BattlePlay`: они уже отфильтрованы политикой доступа. Поэтому протокол не зависит от того, как политика хранит права.
 
 ## Протокол встраивания
 
-Между хостом и нашим клиентом в iframe через `postMessage`. Все сообщения имеют поле `protocol` с версией.
+По этому протоколу хост общается с нашим клиентом внутри iframe через `postMessage`. В каждом сообщении есть поле `protocol` с номером версии.
+
+Конфигурация боя (`BattleSetup`) описывает только бой и попадает в журнал. Настройки экрана — язык, оформление, скорость анимаций — передаются отдельно в `ClientOptions` и в журнал не попадают.
 
 ```ts
+type ClientOptions = { locale?: string; skin?: string; timeScale?: number };
+
 type HostInbound =                                   // хост → клиент
-  | { type: 'createBattle'; protocol: 1; requestId: string; setup: BattleSetup }
+  | { type: 'createBattle'; protocol: 1; requestId: string; setup: BattleSetup; client?: ClientOptions }
   | { type: 'resumeBattle'; protocol: 1; requestId: string; battleId: string }
   | { type: 'openReplay'; protocol: 1; requestId: string; battleId: string }
   | { type: 'getJournal'; protocol: 1; requestId: string; battleId: string };
@@ -73,20 +73,16 @@ type HostOutbound =                                  // клиент → хос�
   | { type: 'error'; protocol: 1; requestId?: string; errors: Diagnostic[] };
 ```
 
-Правила:
-
-- Клиент отправляет сообщения только на точный адрес хоста из списка разрешённых.
-- Клиент принимает сообщения только с разрешённых адресов и проверяет каждое по схеме.
-- `requestId` связывает ответ с запросом.
+Клиент отправляет сообщения только на точный адрес хоста из списка разрешённых и принимает их только с разрешённых адресов. Каждое входящее сообщение он сверяет со схемой. По полю `requestId` ответ связывается с запросом.
 
 ## HTTP API сервера
 
-Только для сетевого боя.
+Нужен только для сетевого боя.
 
 | Метод | Путь | Что делает |
 |---|---|---|
-| `POST` | `/battles` | Создать бой из конфигурации. Ответ: идентификатор боя и ссылки для мест |
-| `GET` | `/battles/{id}` | Состояние боя: идёт или окончен, раунд |
-| `GET` | `/battles/{id}/result` | Результат боя |
-| `GET` | `/battles/{id}/journal` | Журнал боя |
-| `GET` | `/battles/{id}/ws` | Подключение участника по WebSocket с токеном места |
+| `POST` | `/battles` | Создаёт бой по конфигурации и возвращает номер боя и ссылки для акторов |
+| `GET` | `/battles/{id}` | Сообщает, идёт ли бой, и текущий раунд |
+| `GET` | `/battles/{id}/result` | Возвращает результат боя |
+| `GET` | `/battles/{id}/journal` | Возвращает журнал боя |
+| `GET` | `/battles/{id}/ws` | Подключает актора по WebSocket с его токеном |

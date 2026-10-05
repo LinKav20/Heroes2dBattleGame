@@ -1,18 +1,22 @@
 # Типы
 
-Обновлено: 2026-10-03. Наброски, не окончательные определения.
+Наброски интерфейсов и типов. Окончательные определения появятся в пакетах `kernel`, `protocol`, `application` и `presentation`.
+
+Обновлено 5 октября 2026.
 
 ## Входящие порты (`application`)
 
 ```ts
 interface BattlePlay {
-  submit(intent: IntentEnvelope): Promise<Ack>;
-  view(viewer: Viewer): ViewSnapshot;
-  subscribe(viewer: Viewer, fromSeq: number, onBatch: (b: EventBatchForViewer) => void): Unsubscribe;
-  legalActions(viewer: Viewer, actor: ActorRef): LegalActions;
-  path(viewer: Viewer, unit: UnitId, to: Hex): Hex[] | null;
-  preview(viewer: Viewer, cmd: Command): ActionPreview;
-  turnQueue(viewer: Viewer, rounds: number): UnitId[];
+  submit(intent: IntentEnvelope): Promise<Ack>;          // команды ядра и команды сессии
+  view(actor: ActorId): Projection;                      // проекция в пределах области видимости актора
+  subscribe(actor: ActorId, fromSeq: number, onBatch: (b: EventBatchForActor) => void): Unsubscribe;
+  // Подсказки уже отфильтрованы политикой доступа: актор видит только то, что ему можно сделать
+  legalActions(actor: ActorId, owner: TurnOwner): LegalActions;
+  allowedSessionCommands(actor: ActorId): SessionCommand['t'][];
+  path(actor: ActorId, unit: UnitId, to: Hex): Hex[] | null;
+  preview(actor: ActorId, cmd: Command): ActionPreview;
+  turnQueue(actor: ActorId, rounds: number): TurnOwner[];
 }
 
 interface BattleHosting {
@@ -23,17 +27,16 @@ interface BattleHosting {
 }
 
 interface BattleHistory {
-  stateAt(seq: number): Promise<ViewSnapshot>;
-  rewind(toSeq: number, by: Principal): Promise<Ack>;
-  fork(fromSeq: number): Promise<{ battleId: string }>;
+  projectionAt(actor: ActorId, seq: number): Promise<Projection>;
+  entries(actor: ActorId, fromSeq: number, toSeq: number): Promise<EventBatchForActor[]>;
+  fork(actor: ActorId, fromSeq: number): Promise<{ battleId: string }>;
 }
 
-interface BattleAdmin {
-  pause(by: Principal): Promise<Ack>;
-  resume(by: Principal): Promise<Ack>;
-  assignAgent(seat: SeatId, agent: AgentRef, by: Principal): Promise<Ack>;
-  override(edit: GmEdit, by: Principal): Promise<Ack>;
-}
+// Команды сессии. Ядро их не видит: их выполняет арбитр
+type SessionCommand =
+  | { t: 'Rewind'; toSeq: number }
+  | { t: 'AssignAgent'; actor: ActorId; agent: AgentRef }
+  | { t: 'Pause' } | { t: 'Resume' };
 ```
 
 ## Исходящие порты (`application`, `presentation`)
@@ -42,34 +45,54 @@ interface BattleAdmin {
 interface JournalStore {
   createBattle(header: JournalHeader): Promise<void>;
   append(battleId: string, entries: JournalEntry[]): Promise<void>;
-  read(battleId: string, fromSeq: number): Promise<JournalEntry[]>;
+  read(battleId: string, fromSeq: number, toSeq?: number): Promise<JournalEntry[]>;
   saveSnapshot(battleId: string, snapshot: Snapshot): Promise<void>;
   latestSnapshot(battleId: string, atOrBefore?: number): Promise<Snapshot | null>;
   saveResult(battleId: string, result: BattleResult): Promise<void>;
   list(): Promise<BattleSummary[]>;
 }
 
-interface Authority {
+interface Arbiter {
   readonly epoch: number;
   propose(intent: IntentEnvelope): Promise<Ack>;
-  onCommitted(cb: (batch: EventBatch) => void): Unsubscribe;
+  subscribe(actor: ActorId, fromSeq: number, cb: (batch: EventBatchForActor) => void): Unsubscribe;
 }
 
 interface Channel {
-  send(message: WireMessage): void;
+  send(message: WireMessage): void;              // в том числе запрос пропущенного (resync)
   onMessage(cb: (message: WireMessage) => void): Unsubscribe;
   status(): 'connected' | 'reconnecting' | 'offline';
   close(): void;
 }
 
 interface Agent {
-  readonly kind: string;                       // 'ui' | 'utility-ai' | 'mcts' | 'llm' | 'remote' | ...
-  decide(view: ViewSnapshot, request: DecisionRequest, signal: AbortSignal): Promise<Command>;
-  notify?(batch: EventBatchForViewer): void;
+  readonly kind: string;                         // 'ui' | 'utility-ai' | 'mcts' | 'llm' | 'remote' | ...
+  decide(view: Projection, request: AgentRequest, signal: AbortSignal): Promise<Command>;
+  notify?(batch: EventBatchForActor): void;
+}
+
+type AgentRequest =
+  | { kind: 'turn'; owner: TurnOwner; legal: LegalActions }
+  | { kind: 'input'; request: InputRequest };
+
+type AgentRef = { kind: string; profile?: string; options?: Json };
+
+// Запасной агент: отвечает, если основной агент не уложился в отведённое время или упал.
+// Выбирает из допустимых вариантов; ядро о нём не знает
+interface FallbackAgent {
+  decide(view: Projection, request: AgentRequest): Command;
+}
+
+// Политика доступа. Ядро о ней не знает
+interface AccessPolicy {
+  canSubmit(actor: ActorId, cmd: Command | SessionCommand, state: BattleState): boolean;
+  visibility(actor: ActorId): Visibility;
+  routeTurn(owner: TurnOwner, state: BattleState): ActorId;        // кто действует в текущий ход
+  routeInput(request: InputRequest, state: BattleState): ActorId;  // вызывается только для внешнего ввода
 }
 
 interface HostBridge {
-  onCommand(cb: (msg: HostInbound) => void): Unsubscribe;   // createBattle, resumeBattle, openReplay, getJournal
+  onMessage(cb: (msg: HostInbound) => void): Unsubscribe;   // createBattle, resumeBattle, openReplay, getJournal
   send(msg: HostOutbound): void;                            // ready, battleStarted, battleProgress, battleFinished, journal, error
 }
 
@@ -77,62 +100,104 @@ interface ContentSource {
   loadPacks(refs: PackRef[]): Promise<RawPack[]>;
 }
 
-interface Renderer {
-  mount(host: HTMLElement | null, field: FieldView, catalog: ContentCatalog, skin: SkinManifest): void;
+interface SkinSource {                           // presentation
+  loadSkin(id: string): Promise<SkinManifest>;
+}
+
+interface Renderer {                             // presentation
+  mount(container: HTMLElement | null, field: FieldView, catalog: ContentCatalog, skin: SkinManifest): void;
   applyState(state: DisplayedState): void;
-  play(event: BattleEvent, ctx: CueContext): Promise<void> | void;
+  play(event: BattleEvent, entry: SkinEntry): Promise<void> | void;
   finish(event: BattleEvent): void;
   highlight(h: Highlights): void;
   pick(x: number, y: number): PickResult;
   dispose(): void;
 }
 
-interface Clock { now(): number }
-interface Entropy { seed(): string }
-interface SeatPolicy { canAct(principal: Principal, seat: SeatId): boolean; seatsOf(principal: Principal): SeatId[] }
+interface Clock { now(): number }                // только прикладной слой: отметки в журнале, время на ответ агента
+interface Entropy { seed(): string }             // зерно генератора для нового боя
 ```
+
+## Доступ и видимость (`application`)
+
+```ts
+type ActorId = string;
+
+type Visibility = 'all' | { sides: SideId[] };
+
+type TurnOwner = { unit: UnitId } | { side: SideId };   // ход юнита или стороны целиком
+
+// Набор прав для политики «по таблице». Другие политики могут хранить права иначе
+type Grant = {
+  play: { sides: SideId[] | 'all'; units?: UnitId[] };   // чьими ходами актор может распоряжаться
+  answer: 'own-sides' | 'all' | 'none';                  // на какие запросы ввода отвечает
+  edit: boolean;                                         // правки состояния
+  session: SessionCommand['t'][];
+  sees: Visibility;
+};
+
+// В конфигурации боя права задаются готовым набором или явно.
+// Готовые наборы регистрирует адаптер политики: 'lead' (ведущий), 'commander' (командующий), 'observer' (наблюдатель)
+type GrantRef = string | { preset: string; sides?: SideId[] } | Grant;
+```
+
+Если на внешний запрос ввода могут ответить несколько акторов, политика «по таблице» выбирает того, у кого права относятся к стороне запроса (`answer: 'own-sides'`). Актор с `answer: 'all'` получает запрос, только если такого нет.
 
 ## Ядро (`kernel`)
 
 ```ts
 interface Kernel {
-  init(setup: ResolvedBattleSetup, content: ContentRegistry): { state: BattleState; events: BattleEvent[] };
+  init(setup: KernelSetup, content: ContentRegistry): { state: BattleState; events: BattleEvent[] };
   decide(state: BattleState, cmd: Command): Result<BattleEvent[], RuleError>;
   apply(state: BattleState, event: BattleEvent): BattleState;
-  legalActions(state: BattleState, actor: ActorRef): LegalActions;
+  legalActions(state: BattleState, owner: TurnOwner): LegalActions;
   reachable(state: BattleState, unit: UnitId): Reach[];
   preview(state: BattleState, cmd: Command): ActionPreview;
-  turnQueue(state: BattleState, rounds: number): UnitId[];
-  pendingDecision(state: BattleState): Decision | null;
-  project(state: BattleState, viewer: Viewer): ViewSnapshot;
-  projectEvents(events: BattleEvent[], viewer: Viewer, before: BattleState): BattleEvent[];
+  turnQueue(state: BattleState, rounds: number): TurnOwner[];
+  pendingInput(state: BattleState): InputRequest | null;
+  project(state: BattleState, visibility: Visibility): Projection;
+  projectEvents(events: BattleEvent[], visibility: Visibility, before: BattleState): BattleEvent[];
 }
 
-// Контракты расширений
+// Всё, что нужно ядру для старта: ни акторов, ни прав, ни настроек экрана
+type KernelSetup = {
+  scenario: string;
+  ruleset: RulesetDef;                             // уже с правками хоста
+  units: UnitOverride[];                           // параметры юнитов поверх сценария
+  seed: string;
+};
+
+// Интерфейсы расширений
 interface OpHandler<P> { id: string; run(params: P, ctx: OpContext, state: BattleState): Step[] }
 interface ConditionHandler<P> { id: string; test(params: P, ctx: OpContext, state: BattleState): boolean }
-interface Scheduler { id: string; next(state: BattleState): { kind: 'activate'; unit: UnitId } | { kind: 'newRound' }; queue(state: BattleState, rounds: number): UnitId[] }
+interface Scheduler {
+  id: string;
+  next(state: BattleState): { kind: 'turn'; owner: TurnOwner } | { kind: 'newRound' };
+  queue(state: BattleState, rounds: number): TurnOwner[];
+}
 ```
 
 ## Набор правил
 
+Набор правил лежит в паке как JSON. Поля `scheduler`, `attack.resolve` и `damage.pipeline` ссылаются на варианты механик из реестров.
+
 ```ts
 type RulesetDef = {
   id: string;
-  scheduler: string;                         // 'speed-phases' | 'initiative-roll'
-  actionEconomy: 'single-activation' | 'action-move-bonus';
+  turnOwner: 'unit' | 'side';                      // чей ход: отдельного юнита или стороны целиком
+  scheduler: string;                               // 'speed-phases' | 'initiative-roll' | 'sides-alternate'
+  turnBudget: 'one-action' | 'action-move-bonus';  // что можно успеть за ход
   unitModel: { stacks: boolean; maxStacksPerSide?: number };
-  heroMode: 'commander' | 'combatant' | 'none';
   attack: { resolve: string; retaliation?: { perRound: number } };
   damage: { pipeline: string[] };
   wait: { enabled: boolean; oncePerRound: boolean };
   defend: { enabled: boolean; effect: string };
   morale?: { enabled: boolean; table: Record<string, number> };
   luck?: { enabled: boolean; table: Record<string, number> };
-  dice: { default: DicePolicy; byPurpose?: Record<string, DicePolicy> };
+  dice: { default: DiceSource; byPurpose?: Record<string, DiceSource> };
   scopes: Scope[];
 };
-type DicePolicy = 'digital' | 'gm' | 'owner';
+type DiceSource = 'generator' | 'external';        // generator — ядро бросает само; external — запрос ввода
 type Scope = 'turn' | 'round' | 'battle';
 ```
 
@@ -160,6 +225,7 @@ type Predicate =
   | { all: Predicate[] } | { any: Predicate[] } | { not: Predicate }
   | { tag: string; on: Subject; exact?: boolean }
   | { cmp: '>=' | '<=' | '==' | '>' | '<'; a: ValueExpr; b: ValueExpr }
+  | { var: string; eq: Json }                      // переменная сценария
   | { fn: string; args?: unknown };
 
 type Op =
@@ -172,9 +238,10 @@ type Op =
   | { op: 'modifyResource'; res: string; amount: ValueExpr; to: TargetRef }
   | { op: 'summon'; creature: string; count: ValueExpr; at: HexSelector }
   | { op: 'move' | 'push' | 'teleport'; to: HexSelector }
+  | { op: 'setVar'; var: string; value: Json }
   | { op: 'if'; when: Predicate; then: Op[]; else?: Op[] }
   | { op: 'forEach'; targets: TargetSelector; do: Op[] }
-  | { op: 'choose'; actor: Subject; options: { id: string; label: I18n; do: Op[] }[] };
+  | { op: 'choose'; side?: SideId; options: { id: string; label: I18n; do: Op[] }[] };
 ```
 
 ## Эффект, триггер, способность, предмет
@@ -182,11 +249,15 @@ type Op =
 ```ts
 type EffectDef = {
   id: string;
-  assetTags: string[];
+  name: I18n;                                      // текст контента; как показывать — решает манифест оформления
+  description?: I18n;
+  tags: string[];
   grantedTags?: string[];
+  hiddenFrom?: 'enemies' | 'all';                  // игровое правило видимости
   duration:
     | { kind: 'instant' | 'permanent' | 'battle' }
-    | { kind: 'rounds' | 'turns'; n: ValueExpr; tickOn?: 'ownerTurnStart' | 'ownerTurnEnd' | 'roundEnd' };
+    | { kind: 'rounds' | 'turns'; n: ValueExpr; tickOn?: 'carrierTurnStart' | 'carrierTurnEnd' | 'roundEnd' };
+    // carrier — носитель эффекта; если ход у стороны, считается ход его стороны
   expireOn?: EventFilter[];
   modifiers?: Modifier[];
   applyRequires?: Predicate;
@@ -206,11 +277,10 @@ type EffectDef = {
   onRemove?: Op[];
   triggers?: TriggerDef[];
   aura?: { radius: number; affects: Predicate; effect: string };
-  ui?: { name: I18n; description?: I18n; icon?: string; cue?: string; hidden?: boolean };
 };
 
 type TriggerDef = {
-  on: GameEventKind;
+  on: BattleEvent['e'];
   filter?: Predicate;
   ops?: Op[];
   replace?: Op[];
@@ -218,12 +288,22 @@ type TriggerDef = {
   priority?: number;
 };
 
+type ScenarioTrigger = {
+  id: string;
+  on: { event: BattleEvent['e']; round?: number };
+  once?: boolean;
+  priority?: number;
+  if?: Predicate;
+  do: Op[];
+};
+
 type AbilityDef = {
   id: string;
   name: I18n;
+  owner: 'unit' | 'side';                          // способность юнита или стороны целиком
   kind: 'attack' | 'shoot' | 'spell' | 'skill' | 'itemUse' | 'move';
   tags: string[];
-  actionCost: 'activation' | 'action' | 'move' | 'bonus' | 'free';
+  actionCost: 'turn' | 'action' | 'move' | 'bonus' | 'free';   // 'turn' — тратит весь ход
   costs?: { res: string; amount: ValueExpr }[];
   cooldown?: { rounds: number };
   uses?: { max: ValueExpr; per: Scope };
@@ -237,7 +317,6 @@ type AbilityDef = {
     count?: number;
   };
   ops: Op[];
-  cues?: { cast?: string; travel?: string; impact?: string };
 };
 
 type ItemDef = {
@@ -259,74 +338,73 @@ type ItemDef = {
 };
 ```
 
-## Состояние, команды, события, запросы решений
+## Состояние, команды, события, запросы ввода
 
 ```ts
 type BattleState = {
   v: number;
   content: { packs: PackLock[]; hash: string; ruleset: string };
-  seq: number;
   round: number;
   lastActedSide: SideId | null;
   phase:
     | { kind: 'deployment'; side: SideId }
     | { kind: 'roundStart' }
-    | { kind: 'activation'; unit: UnitId; budget: ActionBudget }
+    | { kind: 'turn'; owner: TurnOwner; budget: TurnBudget }
     | { kind: 'ended'; outcome: Outcome };
-  sides: Record<SideId, SideState>;
+  sides: Record<SideId, SideState>;                // эффекты и способности стороны
   units: Record<UnitId, UnitState>;
   field: FieldState;
   vars: Record<string, Json>;
   triggers: Record<string, { fired: number; enabled: boolean }>;
   stack: Step[];
-  pending: Decision | null;
-  rng: RngState;
+  pending: InputRequest | null;
+  rng: RngState;                                   // ядро бросает само и сдвигает генератор событием DiceRolled
 };
 
+// Команды ядра. Кто их отправил, ядро не знает
 type Command =
   | { t: 'Deploy'; unit: UnitId; to: Hex } | { t: 'EndDeployment' }
   | { t: 'Move'; unit: UnitId; to: Hex }
   | { t: 'Attack'; unit: UnitId; target: UnitId; from?: Hex }
   | { t: 'Shoot'; unit: UnitId; target: UnitId }
-  | { t: 'Cast'; caster: CasterRef; spell: string; target: TargetSpec }
-  | { t: 'UseAbility'; unit: UnitId; ability: string; target: TargetSpec }
+  | { t: 'Cast'; caster: { unit: UnitId } | { side: SideId }; spell: string; target: TargetSpec }
+  | { t: 'UseAbility'; owner: { unit: UnitId } | { side: SideId }; ability: string; target: TargetSpec }
   | { t: 'UseItem'; unit: UnitId; item: string; target: TargetSpec }
-  | { t: 'Wait'; unit: UnitId } | { t: 'Defend'; unit: UnitId } | { t: 'EndActivation'; unit: UnitId }
+  | { t: 'Wait'; unit: UnitId } | { t: 'Defend'; unit: UnitId }
+  | { t: 'EndTurn' }                                // владелец хода берётся из phase
   | { t: 'Retreat'; side: SideId } | { t: 'Surrender'; side: SideId }
-  | { t: 'Resolve'; decisionId: string; answer: DecisionAnswer }
-  | { t: 'GmOverride'; edit: GmEdit }
-  | { t: 'AssignAgent'; seat: SeatId; agent: AgentRef }
-  | { t: 'Rewind'; toSeq: number };
+  | { t: 'Answer'; inputId: string; answer: InputAnswer }
+  | { t: 'Edit'; edit: StateEdit };                 // правка в обход правил: здоровье, эффекты, позиция
 
-type BattleEvent = { id: string; causeId?: string; visibility: 'all' | SideId[] | 'gm'; cue?: Cue } & (
-  | { e: 'BattleStarted' } | { e: 'RoundStarted'; round: number } | { e: 'ActivationStarted'; unit: UnitId }
+// Событие сообщает только, что произошло. Как его показать, решает слой визуализации
+type BattleEvent = { id: string; causeId?: string; visibleTo: 'all' | SideId[] } & (   // [] — только при полной видимости
+  | { e: 'BattleStarted' } | { e: 'RoundStarted'; round: number }
+  | { e: 'TurnStarted'; owner: TurnOwner } | { e: 'TurnEnded'; owner: TurnOwner }
   | { e: 'UnitMoved'; unit: UnitId; path: Hex[] }
   | { e: 'AttackResolved'; attacker: UnitId; target: UnitId; rolls: number[]; hit: boolean; crit: boolean }
   | { e: 'DamageDealt'; target: UnitId; amount: number; killed: number; countAfter: number; topHpAfter: number }
   | { e: 'Healed'; target: UnitId; amount: number; countAfter: number; topHpAfter: number }
-  | { e: 'EffectApplied' | 'EffectExpired' | 'EffectTicked'; target: UnitId; effect: EffectInstance }
+  | { e: 'EffectApplied' | 'EffectExpired' | 'EffectTicked'; target: { unit: UnitId } | { side: SideId }; effect: EffectInstance }
   | { e: 'ResourceChanged'; target: UnitId; res: string; after: number }
   | { e: 'ItemUsed'; unit: UnitId; item: string; qtyAfter: number }
   | { e: 'UnitDied' | 'UnitRevealed' | 'UnitHidden'; unit: UnitId }
   | { e: 'UnitSummoned'; unit: UnitState }
-  | { e: 'DecisionRequested'; decision: Decision } | { e: 'DecisionResolved'; decisionId: string; answer: DecisionAnswer }
-  | { e: 'DiceRolled'; purpose: string; values: number[]; source: DicePolicy }
+  | { e: 'InputRequested'; request: InputRequest } | { e: 'InputAnswered'; inputId: string; answer: InputAnswer }
+  | { e: 'DiceRolled'; purpose: string; values: number[]; source: DiceSource; rngAfter?: RngState }
   | { e: 'VarChanged'; name: string; value: Json } | { e: 'TriggerFired'; trigger: string }
-  | { e: 'AgentAssigned'; seat: SeatId; agent: AgentRef; by: string }
-  | { e: 'GmEdited'; edit: GmEdit } | { e: 'Rewound'; toSeq: number }
+  | { e: 'Edited'; edit: StateEdit }
   | { e: 'BattleEnded'; outcome: Outcome; stateHash: string }
 );
 
-type Cue = { id: string; mode: 'blocking' | 'parallel' | 'persistentAdd' | 'persistentRemove'; group?: string };
-
-type Decision =
-  | { id: string; kind: 'roll'; spec: { dice: string; purpose: string; subject?: UnitId }; policy: DicePolicy; by?: SideId | 'gm' }
-  | { id: string; kind: 'choice'; actor: SideId | 'gm'; options: { id: string; label: I18n }[]; default: string; deadlineMs?: number }
-  | { id: string; kind: 'target'; actor: SideId; ability: string; legal: TargetOption[]; default?: TargetOption }
-  | { id: string; kind: 'gmRuling'; question: I18n; options: { id: string; label: I18n }[] };
+// Запрос внешнего ввода. Ядро указывает, к какой стороне он относится, но не кто ответит.
+// Ответа по умолчанию у ядра нет: что делать, если никто не ответил, решает запасной агент
+type InputRequest =
+  | { id: string; kind: 'roll'; spec: { dice: string; purpose: string; subject?: UnitId }; side?: SideId }
+  | { id: string; kind: 'choice'; side?: SideId; options: { id: string; label: I18n }[] }
+  | { id: string; kind: 'target'; side?: SideId; ability: string; legal: TargetOption[] };
 ```
 
-## Журнал
+## Журнал (`application`)
 
 ```ts
 type JournalHeader = {
@@ -336,20 +414,25 @@ type JournalHeader = {
   packs: PackLock[];
   contentHash: string;
   ruleset: string;
-  setup: BattleSetup;
+  setup: BattleSetup;                              // без клиентских настроек экрана
   seed: string;
   forkedFrom?: { battleId: string; seq: number };
 };
 
+// seq — номер записи; он же номер версии состояния после записи
 type JournalEntry = {
   seq: number;
   epoch: number;
+  at: number;                                      // время от Clock; на расчёт боя не влияет
   intentId: string;
-  actor: { seat: SeatId | 'system'; principal: string; agentKind: string };
-  command: Command;
-  events: BattleEvent[];
-  stateHash: string;
-};
+  actor: ActorId | 'arbiter';                      // 'arbiter' — действия самого арбитра
+  agentKind?: string;
+} & (
+  | { kind: 'battle'; command: Command; events: BattleEvent[]; stateHash: string }
+  | { kind: 'session'; command: SessionCommand }    // откат, пауза, смена агента
+);
+
+type EventBatch = { seq: number; intentId: string; actor: ActorId | 'arbiter'; events: BattleEvent[] };
 
 type Snapshot = { seq: number; state: BattleState };
 ```
