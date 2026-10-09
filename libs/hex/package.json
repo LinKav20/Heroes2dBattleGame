@@ -1,0 +1,46 @@
+{
+  "name": "@heroes2dgame/hex",
+  "version": "0.0.0",
+  "description": "Hex grid geometry: coordinates, neighbors, distances, lines and areas.",
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LinKav20/Heroes2dBattleGame.git",
+    "directory": "libs/hex"
+  },
+  "homepage": "https://github.com/LinKav20/Heroes2dBattleGame#readme",
+  "bugs": {
+    "url": "https://github.com/LinKav20/Heroes2dBattleGame/issues"
+  },
+  "author": "Matvei Dmitrievich Popov <mdpopov11@gmail.com>",
+  "type": "module",
+  "sideEffects": false,
+  "heroes2dgame": {
+    "deterministic": true
+  },
+  "exports": {
+    ".": {
+      "@heroes2dgame/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "LICENSE.md",
+    "CHANGELOG.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "build": "pnpm run clean && tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.lib.json && tsc -p tsconfig.test.json",
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "prepack": "pnpm run build"
+  }
+}

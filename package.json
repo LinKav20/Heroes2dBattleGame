@@ -1,0 +1,47 @@
+{
+  "name": "heroes2dgame",
+  "private": true,
+  "type": "module",
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LinKav20/Heroes2dBattleGame.git"
+  },
+  "homepage": "https://github.com/LinKav20/Heroes2dBattleGame#readme",
+  "bugs": {
+    "url": "https://github.com/LinKav20/Heroes2dBattleGame/issues"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "packageManager": "pnpm@12.10.1",
+  "scripts": {
+    "build": "pnpm -r --filter \"!./apps/**\" run build",
+    "typecheck": "tsc -p tsconfig.json && pnpm -r run typecheck",
+    "lint": "eslint . --max-warnings 0",
+    "deps": "depcruise \"{libs,adapters,apps,packs}/*/src/**/*.ts\" --config .dependency-cruiser.cjs",
+    "test": "vitest run",
+    "packages": "node scripts/check-packages.js",
+    "publint": "pnpm -r --filter \"!./apps/**\" exec publint",
+    "attw": "pnpm -r --filter \"!./apps/**\" exec attw --pack . --profile esm-only",
+    "verify-dist": "pnpm publint && pnpm attw && node scripts/check-dist.js",
+    "check": "pnpm lint && pnpm typecheck && pnpm deps && pnpm packages && pnpm test",
+    "changeset": "changeset",
+    "release": "pnpm build && pnpm verify-dist && changeset publish"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "0.18.5",
+    "@changesets/cli": "^3.0.3",
+    "@eslint/js": "^10.0.1",
+    "@stylistic/eslint-plugin": "^5.10.0",
+    "@types/node": "^26.6.4",
+    "dependency-cruiser": "^18.5.0",
+    "eslint": "^10.12.0",
+    "eslint-plugin-perfectionist": "5.12.1",
+    "fast-check": "^4.10.2",
+    "publint": "^0.3.25",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.71.1",
+    "vitest": "^5.0.3"
+  }
+}
