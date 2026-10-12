@@ -17,11 +17,12 @@ import {
   anyRadius,
   countDistinct,
   FIELD_HEIGHT,
+  EDGE_CUBE,
   FIELD_WIDTH,
   nonAdjacentSteps,
+  NOT_SAFE_INTEGERS,
+  ORIGIN,
 } from './helpers.ts';
-
-const origin = cube(0, 0);
 
 describe('range', () => {
   it('a range of radius R has 3R(R+1)+1 distinct hexes, none farther than R', () => {
@@ -39,7 +40,7 @@ describe('range', () => {
   it('is the range around the origin moved to the center', () => {
     fc.assert(
       fc.property(anyCube, anyRadius, (center, radius) => {
-        const moved = cubeRange(origin, radius).map((hex) => cubeAdd(hex, center));
+        const moved = cubeRange(ORIGIN, radius).map((hex) => cubeAdd(hex, center));
 
         expect(cubeRange(center, radius)).toStrictEqual(moved);
       }),
@@ -47,9 +48,9 @@ describe('range', () => {
   });
 
   it('keeps a fixed order', () => {
-    expect(cubeRange(origin, 0)).toStrictEqual([origin]);
+    expect(cubeRange(ORIGIN, 0)).toStrictEqual([ORIGIN]);
 
-    expect(cubeRange(origin, 2)).toStrictEqual([
+    expect(cubeRange(ORIGIN, 2)).toStrictEqual([
       cube(-2, 0),
       cube(-2, 1),
       cube(-2, 2),
@@ -99,9 +100,9 @@ describe('ring', () => {
   });
 
   it('keeps a fixed order', () => {
-    expect(cubeRing(origin, 0)).toStrictEqual([origin]);
+    expect(cubeRing(ORIGIN, 0)).toStrictEqual([ORIGIN]);
 
-    expect(cubeRing(origin, 2)).toStrictEqual([
+    expect(cubeRing(ORIGIN, 2)).toStrictEqual([
       cube(-2, 2),
       cube(-1, 2),
       cube(0, 2),
@@ -120,13 +121,20 @@ describe('ring', () => {
 
 describe('radius', () => {
   it('a negative radius gives an empty area', () => {
-    expect(cubeRange(origin, -1)).toStrictEqual([]);
-    expect(cubeRing(origin, -1)).toStrictEqual([]);
+    expect(cubeRange(ORIGIN, -1)).toStrictEqual([]);
+    expect(cubeRing(ORIGIN, -1)).toStrictEqual([]);
   });
 
-  it.each([0.5, Number.NaN, Infinity, -Infinity])('rejects the radius %d', (radius) => {
-    expect(() => cubeRange(origin, radius)).toThrow(RangeError);
-    expect(() => cubeRing(origin, radius)).toThrow(RangeError);
+  it.each(NOT_SAFE_INTEGERS)('rejects the radius %d', (radius) => {
+    expect(() => cubeRange(ORIGIN, radius)).toThrow(RangeError);
+    expect(() => cubeRing(ORIGIN, radius)).toThrow(RangeError);
+  });
+});
+
+describe('overflow', () => {
+  it('rejects an area whose hexes are not safe integers', () => {
+    expect(() => cubeRange(EDGE_CUBE, 1)).toThrow(RangeError);
+    expect(() => cubeRing(EDGE_CUBE, 1)).toThrow(RangeError);
   });
 });
 

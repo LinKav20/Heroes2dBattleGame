@@ -6,7 +6,7 @@ export function cubeAdd(a: Cube, b: Cube): Cube {
 }
 
 /**
- * The difference of two cube vectors: the offset from `b` to `a`.
+ * The difference of two cube vectors: the vector from `b` to `a`.
  * Throws `RangeError` if the result is not a safe integer.
  */
 export function cubeSubtract(a: Cube, b: Cube): Cube {

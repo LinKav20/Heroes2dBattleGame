@@ -10,7 +10,7 @@ export interface GridSize {
 
 /**
  * All hexes within `radius` of the center, including the center: 3R(R + 1) + 1 hexes for radius R.
- * They are ordered by the q offset from the center, then by the r offset, both ascending.
+ * They are ordered by the q difference from the center, then by the r difference, both ascending.
  * The result grows with the square of the radius, so keep the radius within what the field needs.
  * A negative radius gives an empty list. Throws `RangeError` if the radius is not a safe integer
  * or if a hex of the area is not a safe integer.

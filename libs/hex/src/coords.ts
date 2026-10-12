@@ -3,7 +3,8 @@
  * Hexes are pointy-topped, and odd rows are shifted right by half a hex (the "odd-r" layout).
  * Create values with `offset` or the other functions of this package: they check every coordinate.
  * The type carries a type-only brand, so a plain object literal does not type-check, and data from JSON
- * goes through `offset` as well. A spread copy, `as` or `any` still bypass the brand: do not build hexes that way.
+ * goes through `offset` as well. Spread copies, `Object.assign`, `as`, `any` and a literal that spells out
+ * the brand key still bypass the brand: do not build hexes that way.
  */
 export interface Offset {
   readonly col: number;
@@ -17,7 +18,8 @@ export interface Offset {
  * A hex in cube coordinates. The sum q + r + s is always zero.
  * Create values with `cube` or the other functions of this package: they check every coordinate.
  * The type carries a type-only brand, so a plain object literal does not type-check, and data from JSON
- * goes through `cube` as well. A spread copy, `as` or `any` still bypass the brand: do not build hexes that way.
+ * goes through `cube` as well. Spread copies, `Object.assign`, `as`, `any` and a literal that spells out
+ * the brand key still bypass the brand: do not build hexes that way.
  */
 export interface Cube {
   readonly q: number;

@@ -14,6 +14,9 @@ import {
 } from '../index.ts';
 
 export const FIELD_WIDTH = 15;
+export const ORIGIN = cube(0, 0);
+export const EDGE_CUBE = cube(Number.MAX_SAFE_INTEGER, -Number.MAX_SAFE_INTEGER);
+export const NOT_SAFE_INTEGERS = [0.5, -1.5, Number.NaN, Infinity, -Infinity, Number.MAX_SAFE_INTEGER + 1];
 export const FIELD_HEIGHT = 11;
 
 export const coordinate = fc.integer({ min: -200, max: 200 });

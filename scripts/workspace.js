@@ -22,3 +22,18 @@ export function deterministicPackageDirs() {
     .filter(({ manifest }) => manifest.heroes2dgame?.deterministic === true)
     .map(({ dir }) => dir);
 }
+
+export function workspaceImports(dir) {
+  const sourceDir = join(ROOT_DIR, dir, 'src');
+
+  if (!existsSync(sourceDir)) return [];
+
+  const sources = readdirSync(sourceDir, { recursive: true })
+    .map(String)
+    .filter((file) => file.endsWith('.ts') && !file.endsWith('.test.ts') && !file.split(/[\\/]/).includes('tests'));
+  const names = sources.flatMap((file) => [
+    ...readFileSync(join(sourceDir, file), 'utf8').matchAll(/from\s+'(@heroes2dgame\/[a-z0-9-]+)/g),
+  ].map((match) => match[1]));
+
+  return [...new Set(names)].sort();
+}

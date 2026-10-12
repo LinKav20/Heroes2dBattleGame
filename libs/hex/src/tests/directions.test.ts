@@ -12,7 +12,7 @@ import {
   oppositeDirection,
   type Direction,
 } from '../index.ts';
-import { anyCube, anyDirection, countDistinct, fieldHexes } from './helpers.ts';
+import { anyCube, anyDirection, countDistinct, EDGE_CUBE, fieldHexes, hexKey } from './helpers.ts';
 
 describe('directions', () => {
   it('keeps a fixed order: east, then counterclockwise', () => {
@@ -88,18 +88,16 @@ describe('neighbors', () => {
   it('finds a direction exactly between neighbors on the whole field', () => {
     const field = fieldHexes();
 
-    for (const a of field) {
-      for (const b of field) {
-        expect(directionTo(a, b) !== null).toBe(cubeDistance(a, b) === 1);
-      }
-    }
+    const wrong = field.flatMap((a) => field
+      .filter((b) => (directionTo(a, b) !== null) !== (cubeDistance(a, b) === 1))
+      .map((b) => `${hexKey(a)} -> ${hexKey(b)}`));
+
+    expect(wrong).toStrictEqual([]);
   });
 
   it('rejects a neighbor that is not a safe integer', () => {
-    const big = cube(Number.MAX_SAFE_INTEGER, -Number.MAX_SAFE_INTEGER);
-
-    expect(() => cubeNeighbor(big, 'east')).toThrow(RangeError);
-    expect(() => cubeNeighbors(big)).toThrow(RangeError);
+    expect(() => cubeNeighbor(EDGE_CUBE, 'east')).toThrow(RangeError);
+    expect(() => cubeNeighbors(EDGE_CUBE)).toThrow(RangeError);
   });
 
   it('has no direction to a far hex or to the hex itself', () => {

@@ -14,9 +14,9 @@ import {
   type Direction,
   type Offset,
 } from '../index.ts';
-import { anyDirection, anyOffset, hugeCoordinate, nearbyPair } from './helpers.ts';
+import { anyDirection, anyOffset, hugeCoordinate, nearbyPair, NOT_SAFE_INTEGERS } from './helpers.ts';
 
-const notSafeInteger = fc.constantFrom(0.5, -1.5, Number.NaN, Infinity, -Infinity, Number.MAX_SAFE_INTEGER + 1);
+const notSafeInteger = fc.constantFrom(...NOT_SAFE_INTEGERS);
 const keyCharacters = fc.constantFrom('0', '1', '2', '7', '9', ',', '-');
 
 const EVEN_ROW_STEPS: Readonly<Record<Direction, readonly [number, number]>> = {
@@ -178,7 +178,7 @@ describe('hex keys', () => {
 });
 
 describe('types', () => {
-  it('accepts only hexes created by the package', () => {
+  it('rejects a plain object literal as a Cube or an Offset', () => {
     // @ts-expect-error A plain object literal is not a Cube.
     const literalCube: Cube = { q: 1, r: 2, s: -3 };
     // @ts-expect-error A plain object literal is not an Offset.

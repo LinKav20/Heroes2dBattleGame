@@ -19,7 +19,7 @@ export const DIRECTIONS: readonly Direction[] = Object.freeze<Direction[]>([
 ]);
 
 /**
- * The offset of one step in a direction: east (1, 0), northEast (1, -1), northWest (0, -1),
+ * The vector of one step in a direction: east (1, 0), northEast (1, -1), northWest (0, -1),
  * west (-1, 0), southWest (-1, 1), southEast (0, 1) as (q, r). The returned object is frozen.
  * Throws `RangeError` for an unknown direction.
  */

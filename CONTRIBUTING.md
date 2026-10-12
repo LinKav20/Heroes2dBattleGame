@@ -21,9 +21,8 @@ pnpm install
 pnpm check
 ```
 
-`pnpm check` runs the linter, the type check, the dependency rules, the package rules and the
-tests. The code style is enforced by the linter, so a green `pnpm check` means the style is
-right.
+`pnpm check` runs the linter, the type check, the dependency rules, the package rules, the
+changeset check and the tests. The linter enforces most of the code style rules.
 
 ## Making a change
 
@@ -31,7 +30,10 @@ right.
 2. Make the change. Put tests in the `tests` folder next to the code they test.
 3. Run `pnpm check`.
 4. If the change affects a published package, run `pnpm changeset` and describe the change for
-   the changelog. Changes to tests and to the documentation in `docs/` need no changeset.
+   the changelog. Never add an empty changeset: describe a change without a release as a patch.
+   A change to shared build settings, such as `tsconfig.base.json` or the TypeScript version, needs
+   a changeset for every published package. Changes to tests and to the documentation in `docs/`
+   need no changeset.
 5. Open a pull request. CI runs the same checks and also builds the packages.
 
 Code, comments and package READMEs are in English. The architecture documentation in

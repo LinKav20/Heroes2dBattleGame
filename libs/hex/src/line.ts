@@ -64,13 +64,13 @@ function roundCubeFraction(x: number, y: number, z: number, denominator: number)
   let r = roundDiv(y, denominator);
   const s = roundDiv(z, denominator);
 
-  const dq = Math.abs(q * denominator - x);
-  const dr = Math.abs(r * denominator - y);
-  const ds = Math.abs(s * denominator - z);
+  const errorQ = Math.abs(q * denominator - x);
+  const errorR = Math.abs(r * denominator - y);
+  const errorS = Math.abs(s * denominator - z);
 
-  if (dq > dr && dq > ds) {
+  if (errorQ > errorR && errorQ > errorS) {
     q = 0 - r - s;
-  } else if (dr > ds) {
+  } else if (errorR > errorS) {
     r = 0 - q - s;
   }
 

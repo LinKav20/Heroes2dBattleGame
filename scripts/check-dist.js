@@ -3,19 +3,16 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { ROOT_DIR, workspacePackages } from './workspace.js';
 
-const require = createRequire(import.meta.url);
 const failures = [];
 
 for (const { dir, manifest } of workspacePackages().filter(({ folder }) => folder !== 'apps')) {
-  const entry = manifest.exports?.['.']?.default;
-
-  if (typeof entry !== 'string') continue;
-
-  const file = join(ROOT_DIR, dir, entry);
+  if (manifest.exports?.['.'] === undefined) continue;
 
   try {
+    const requireFromPackage = createRequire(join(ROOT_DIR, dir, 'package.json'));
+    const file = requireFromPackage.resolve(manifest.name);
     const imported = await import(pathToFileURL(file).href);
-    const required = require(file);
+    const required = requireFromPackage(manifest.name);
 
     if (imported !== required) {
       failures.push(`${dir}: import and require load two different module instances`);

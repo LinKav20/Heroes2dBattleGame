@@ -26,10 +26,10 @@
     "publint": "pnpm -r --filter \"!./apps/**\" exec publint",
     "attw": "pnpm -r --filter \"!./apps/**\" exec attw --pack . --profile esm-only",
     "verify-dist": "pnpm publint && pnpm attw && node scripts/check-dist.js",
-    "check": "pnpm lint && pnpm typecheck && pnpm deps && pnpm packages && pnpm test",
+    "check": "pnpm lint && pnpm typecheck && pnpm deps && pnpm packages && node scripts/check-changesets.js && pnpm test",
     "changeset": "changeset",
-    "version-packages": "changeset version && node scripts/check-peer-bumps.js",
-    "release": "pnpm build && pnpm verify-dist && node scripts/check-release.js && changeset publish"
+    "version-packages": "changeset version && node scripts/sync-pack-versions.js && node scripts/check-peer-bumps.js",
+    "release": "node scripts/check-release.js && changeset publish"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "0.18.5",

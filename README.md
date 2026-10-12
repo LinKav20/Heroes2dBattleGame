@@ -41,7 +41,7 @@ Each library, adapter and content pack is published as a separate package.
 
 | Folder | Contents |
 |---|---|
-| `libs/` | Libraries that any configuration is built from |
+| `libs/` | Shared libraries, one package each |
 | `adapters/` | Adapters to ports, one package per technology |
 | `apps/` | Applications built from libraries and adapters. They are not published |
 | `packs/` | Content packs: rulesets, creatures, items, effects, scenarios |
@@ -68,8 +68,8 @@ Other commands:
 | `pnpm changeset` | Records a change for the next release |
 
 Releases are started manually in CI, only from the `main` branch. If `main` has changesets, the release
-opens a pull request with the new versions. Otherwise it publishes the new versions to npm, tags them
-in git and creates GitHub releases.
+opens a pull request with the new versions. After that pull request is merged, run the release again:
+it publishes the new versions to npm, tags them in git and creates GitHub releases.
 
 ## Documentation
 

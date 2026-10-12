@@ -21,7 +21,8 @@ Hexes are pointy-topped, and odd rows are shifted right by half a hex. Store and
 Create hexes with `offset`, `cube` or the other functions of the package: they check that every
 coordinate is a safe integer. The `Offset` and `Cube` types carry a type-only brand, so TypeScript
 rejects a plain object literal, and data read from JSON goes through `offset` or `cube` as well.
-A spread copy, `as` or `any` still bypass the brand, so do not build hexes that way.
+Spread copies, `Object.assign`, `as`, `any` and a literal that spells out the brand key still bypass
+the brand, so do not build hexes that way.
 
 ```ts
 import {

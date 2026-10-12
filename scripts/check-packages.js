@@ -1,12 +1,14 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { ROOT_DIR, workspacePackages } from './workspace.js';
+import { PACKAGE_FOLDERS, ROOT_DIR, workspaceImports, workspacePackages } from './workspace.js';
 
 const LICENSE = 'PolyForm-Noncommercial-1.0.0';
 const NODE_ENGINES = '>=22.12';
 const KERNEL = '@heroes2dgame/kernel';
 const NAME_PREFIXES = { libs: '', adapters: 'adapter-', packs: 'pack-' };
-const REQUIRED_DETERMINISTIC = ['libs/hex', 'libs/kernel'];
+const DETERMINISTIC_CORE_PACKAGES = ['libs/hex', 'libs/kernel'];
+const WORKSPACE_RANGE = 'workspace:^';
+const FOLDER_GLOB = `{${PACKAGE_FOLDERS.join(',')}}`;
 const KERNEL_FORBIDDEN_IN = ['dependencies', 'optionalDependencies', 'bundleDependencies', 'bundledDependencies'];
 const PUBLISHED_DEPENDENCY_FIELDS = ['dependencies', 'peerDependencies', 'optionalDependencies'];
 const TSCONFIGS = ['tsconfig.json', 'tsconfig.lib.json', 'tsconfig.test.json', 'tsconfig.build.json'];
@@ -39,9 +41,12 @@ const expectedLicenseText = readFileSync(join(ROOT_DIR, 'LICENSE.md'), 'utf8')
 
 const problems = packages.flatMap((pkg) => checkPackage(pkg).map((problem) => `${pkg.dir}: ${problem}`));
 
-for (const dir of REQUIRED_DETERMINISTIC) {
+for (const dir of DETERMINISTIC_CORE_PACKAGES) {
   if (!packages.some((pkg) => pkg.dir === dir)) problems.push(`${dir}: the package must exist`);
 }
+
+if (!readText('vitest.config.ts')?.includes(FOLDER_GLOB)) problems.push(`vitest.config.ts must include ${FOLDER_GLOB}`);
+if (!rootManifest.scripts.deps.includes(FOLDER_GLOB)) problems.push(`the deps script must include ${FOLDER_GLOB}`);
 
 if (problems.length > 0) {
   console.error(problems.join('\n'));
@@ -62,15 +67,16 @@ function checkPackage({ folder, name, dir, manifest }) {
     [readText(join(dir, 'LICENSE.md')) === expectedLicenseText, 'LICENSE.md must match the package license text'],
     [!published || existsSync(join(ROOT_DIR, dir, 'README.md')), 'published packages need README.md'],
     [manifest.type === 'module', 'type must be module'],
-    [same(manifest.publishConfig, { access: 'public' }), 'publishConfig must be exactly { "access": "public" }'],
+    [sameJson(manifest.publishConfig, { access: 'public' }), 'publishConfig must be exactly { "access": "public" }'],
     [manifest.engines?.node === NODE_ENGINES, `engines.node must be ${NODE_ENGINES}`],
     [manifest.repository?.url === rootManifest.repository.url, 'repository.url must match the root package.json'],
     [manifest.repository?.directory === dir, `repository.directory must be ${dir}`],
     [manifest.homepage === rootManifest.homepage, 'homepage must match the root package.json'],
-    [same(manifest.bugs, rootManifest.bugs), 'bugs must match the root package.json'],
+    [sameJson(manifest.bugs, rootManifest.bugs), 'bugs must match the root package.json'],
     [manifest.author === rootManifest.author, 'author must match the root package.json'],
     [deterministic === undefined || typeof deterministic === 'boolean', 'heroes2dgame.deterministic must be a boolean'],
-    [!REQUIRED_DETERMINISTIC.includes(dir) || deterministic === true, 'heroes2dgame.deterministic must be true'],
+    [!DETERMINISTIC_CORE_PACKAGES.includes(dir) || deterministic === true, 'heroes2dgame.deterministic must be true'],
+    ...dependencyRequirements(dir, manifest),
     ...KERNEL_FORBIDDEN_IN.map((field) => [
       !hasDependency(manifest[field], KERNEL),
       `${KERNEL} must be a peer dependency, not in ${field}`,
@@ -85,10 +91,39 @@ function checkPackage({ folder, name, dir, manifest }) {
   return requirements.filter(([satisfied]) => !satisfied).map(([, problem]) => problem);
 }
 
+function dependencyRequirements(dir, manifest) {
+  const workspacePeers = Object.entries(manifest.peerDependencies ?? {})
+    .filter(([name]) => name.startsWith('@heroes2dgame/'));
+
+  return [
+    ...workspacePeers.map(([name, range]) => [range === WORKSPACE_RANGE, `peer ${name} must use ${WORKSPACE_RANGE}`]),
+    ...workspaceImports(dir)
+      .filter((name) => name !== manifest.name)
+      .flatMap((name) => importRequirements(name, manifest)),
+  ];
+}
+
+function importRequirements(name, manifest) {
+  if (name === KERNEL) {
+    return [
+      [manifest.peerDependencies?.[KERNEL] === WORKSPACE_RANGE, `${KERNEL} must be in peerDependencies`],
+      [manifest.devDependencies?.[KERNEL] === WORKSPACE_RANGE, `${KERNEL} must also be in devDependencies`],
+    ];
+  }
+
+  return [
+    [
+      manifest.dependencies?.[name] !== undefined || manifest.peerDependencies?.[name] !== undefined,
+      `${name} is imported, so it must be in dependencies or peerDependencies`,
+    ],
+  ];
+}
+
 function packRequirements(dir, manifest) {
   const packManifest = readText(join(dir, 'pack.json'));
 
   return [
+    [packManifest !== undefined, 'a pack needs pack.json'],
     [
       packManifest === undefined || JSON.parse(packManifest).version === manifest.version,
       'the package version must match pack.json',
@@ -99,9 +134,9 @@ function packRequirements(dir, manifest) {
 function codeRequirements(dir, manifest) {
   return [
     [manifest.sideEffects === false, 'sideEffects must be false'],
-    [same(manifest.exports, CODE_EXPORTS), `exports must be exactly ${JSON.stringify(CODE_EXPORTS)}`],
-    [same(manifest.files, CODE_FILES), `files must be exactly ${JSON.stringify(CODE_FILES)}`],
-    [same(manifest.scripts, CODE_SCRIPTS), `scripts must be exactly ${JSON.stringify(CODE_SCRIPTS)}`],
+    [sameJson(manifest.exports, CODE_EXPORTS), `exports must be exactly ${JSON.stringify(CODE_EXPORTS)}`],
+    [sameJson(manifest.files, CODE_FILES), `files must be exactly ${JSON.stringify(CODE_FILES)}`],
+    [sameJson(manifest.scripts, CODE_SCRIPTS), `scripts must be exactly ${JSON.stringify(CODE_SCRIPTS)}`],
     [existsSync(join(ROOT_DIR, dir, 'src', 'index.ts')), 'the package needs src/index.ts'],
     [
       TSCONFIGS.every((file) => existsSync(join(ROOT_DIR, dir, file))),
@@ -114,7 +149,7 @@ function privateDependencies(field) {
   return Object.keys(field ?? {}).filter((dependency) => privateNames.has(dependency));
 }
 
-function same(actual, expected) {
+function sameJson(actual, expected) {
   return JSON.stringify(actual) === JSON.stringify(expected);
 }
 

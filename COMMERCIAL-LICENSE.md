@@ -16,9 +16,8 @@ Russian versions of this page differ, the English version prevails.
 
 You do not need a commercial license if you use the packages:
 
-- for personal projects that earn no money;
+- for personal projects, game jams and prototypes that are not intended for commercial use;
 - for learning, teaching and academic research;
-- in game jams and prototypes that are not sold or monetized;
 - in noncommercial open-source projects and mods;
 - inside charitable organizations, educational institutions, public research organizations,
   public safety or health organizations, environmental protection organizations and government
@@ -32,7 +31,7 @@ supports a business, directly or indirectly. For example:
 - a game or app that is sold, including early access;
 - a free game or app with ads, in-app purchases, subscriptions or paid content;
 - a paid service, including a hosted battle server or any software offered as a service;
-- products, tools or internal systems of a for-profit company;
+- products, tools or internal systems of a for-profit company, including prototypes;
 - work for a client, for example a contractor building a product with the engine;
 - a project funded by donations, crowdfunding or sponsorship that sells or monetizes
   the result.

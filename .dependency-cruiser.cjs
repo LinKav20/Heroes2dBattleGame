@@ -1,7 +1,8 @@
-const { deterministicPackageDirs } = require('./scripts/workspace.js');
+const { deterministicPackageDirs, PACKAGE_FOLDERS } = require('./scripts/workspace.js');
 
-const ANY_PACKAGE = '^(libs|adapters|apps|packs)/';
-const OWN_PACKAGE = '^(libs|adapters|apps|packs)/([^/]+)/';
+const FOLDERS = `(${PACKAGE_FOLDERS.join('|')})`;
+const ANY_PACKAGE = `^${FOLDERS}/`;
+const OWN_PACKAGE = `^${FOLDERS}/([^/]+)/`;
 const DETERMINISTIC_PACKAGES = `^(${deterministicPackageDirs().map((dir) => dir.replaceAll('.', '\\.')).join('|')})/`;
 const DETERMINISTIC = `${DETERMINISTIC_PACKAGES}src/`;
 
@@ -67,7 +68,14 @@ module.exports = {
       comment: 'The battle server does not depend on user interface and rendering libraries.',
       severity: 'error',
       from: { path: '^apps/server/' },
-      to: { path: '(^|/)node_modules/(react|react-dom|pixi\\.js)/' },
+      to: { path: ['(^|/)node_modules/(react|react-dom|pixi\\.js)/', '^libs/presentation/'], reachable: true },
+    },
+    {
+      name: 'rules-and-content-have-no-presentation',
+      comment: 'The kernel and content loading do not import the presentation layer.',
+      severity: 'error',
+      from: { path: '^libs/(kernel|content)/', pathNot: '/tests/' },
+      to: { path: '^libs/presentation/' },
     },
     {
       name: 'no-undeclared-npm-deps',
@@ -106,7 +114,7 @@ module.exports = {
       comment: 'Another package is used only through its exports entry point.',
       severity: 'error',
       from: { path: OWN_PACKAGE },
-      to: { path: ANY_PACKAGE, pathNot: ['^$1/$2/', '^(libs|adapters|apps|packs)/[^/]+/src/index\\.ts$'] },
+      to: { path: ANY_PACKAGE, pathNot: ['^$1/$2/', `^${FOLDERS}/[^/]+/src/index\\.ts$`] },
     },
     {
       name: 'cross-package-via-package-name',
@@ -126,13 +134,13 @@ module.exports = {
       name: 'no-unreachable-code',
       comment: 'Every source file is reachable from the entry point of its package.',
       severity: 'error',
-      from: { path: '^(libs|adapters|apps|packs)/([^/]+)/src/index\\.ts$' },
+      from: { path: `^${FOLDERS}/([^/]+)/src/index\\.ts$` },
       to: { path: '^$1/$2/src/', pathNot: ['/tests/', '\\.d\\.ts$'], reachable: false },
     },
   ],
   options: {
     doNotFollow: { path: 'node_modules' },
-    exclude: { path: '^(libs|adapters|apps|packs)/[^/]+/dist/' },
+    exclude: { path: `^${FOLDERS}/[^/]+/dist/` },
     tsConfig: { fileName: 'tsconfig.json' },
     tsPreCompilationDeps: true,
     enhancedResolveOptions: {

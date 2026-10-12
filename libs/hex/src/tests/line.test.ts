@@ -11,7 +11,7 @@ describe('line', () => {
   it('starts and ends at the endpoints, has distance + 1 hexes and moves between neighbors', () => {
     fc.assert(
       fc.property(anyCube, anyCube, (a, b) => {
-        expectValidLine(a, b, cubeLine(a, b));
+        expectValidLine(a, b);
       }),
     );
   });
@@ -103,12 +103,14 @@ describe('line', () => {
   it('accepts the longest exact line and rejects a longer one', () => {
     const a = cube(-30_000, 0);
 
-    expectValidLine(a, cube(MAX_DISTANCE - 30_000, 0), cubeLine(a, cube(MAX_DISTANCE - 30_000, 0)));
+    expectValidLine(a, cube(MAX_DISTANCE - 30_000, 0));
     expect(() => cubeLine(a, cube(MAX_DISTANCE + 1 - 30_000, 0))).toThrow(RangeError);
   });
 });
 
-function expectValidLine(from: Cube, to: Cube, line: Cube[]): void {
+function expectValidLine(from: Cube, to: Cube): void {
+  const line = cubeLine(from, to);
+
   expect(line).toHaveLength(cubeDistance(from, to) + 1);
   expect(line.at(0)).toStrictEqual(from);
   expect(line.at(-1)).toStrictEqual(to);

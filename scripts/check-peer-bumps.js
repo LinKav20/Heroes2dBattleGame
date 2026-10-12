@@ -11,12 +11,15 @@ for (const { manifest } of packages) {
   for (const peer of Object.keys(manifest.peerDependencies ?? {})) {
     const peerBefore = previousVersions.get(peer);
     const peerAfter = packages.find((candidate) => candidate.manifest.name === peer)?.manifest.version;
-    const leavesRange = peerBefore !== undefined && peerAfter !== undefined && !withinCaret(peerAfter, peerBefore);
+    const range = manifest.peerDependencies?.[peer] ?? '';
+    const known = peerBefore !== undefined && peerAfter !== undefined;
+    const leavesRange = known && !withinRange(range, peerAfter, peerBefore);
+    const level = before === undefined ? 'new' : bumpLevel(before, manifest.version);
 
-    if (leavesRange && before !== undefined && bumpLevel(before, manifest.version) === 'patch') {
+    if (leavesRange && (level === 'patch' || level === 'none')) {
       problems.push(
-        `${manifest.name} ${before} -> ${manifest.version}: ${peer} left the ^${peerBefore} range, `
-        + 'so the bump must be minor or major',
+        `${manifest.name} ${before} -> ${manifest.version}: `
+        + `${peer} ${peerBefore} -> ${peerAfter} left its ${range} range, so the bump must be minor or major`,
       );
     }
   }
@@ -25,23 +28,44 @@ for (const { manifest } of packages) {
 if (problems.length > 0) {
   console.error(problems.join('\n'));
   process.exitCode = 1;
+} else {
+  console.log('Every package whose peer left its range got a minor or major bump.');
 }
 
 function previousVersion(dir) {
   try {
-    return JSON.parse(execFileSync('git', ['show', `HEAD:${dir}/package.json`], { encoding: 'utf8' })).version;
+    const text = execFileSync('git', ['show', `HEAD:${dir}/package.json`], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+
+    return JSON.parse(text).version;
   } catch {
     return undefined;
   }
 }
 
-function parse(version) {
+function versionParts(version) {
   return version.split('-')[0].split('.').map(Number);
 }
 
+function withinRange(range, version, base) {
+  const kind = range.replace(/^workspace:/, '');
+
+  if (kind === '*') return true;
+  if (kind === '~') return sameParts(version, base, 2);
+  if (kind !== '^') return version === base;
+
+  return withinCaret(version, base);
+}
+
+function sameParts(version, base, count) {
+  return versionParts(version).slice(0, count).join('.') === versionParts(base).slice(0, count).join('.');
+}
+
 function withinCaret(version, base) {
-  const [major, minor, patch] = parse(version);
-  const [baseMajor, baseMinor, basePatch] = parse(base);
+  const [major, minor, patch] = versionParts(version);
+  const [baseMajor, baseMinor, basePatch] = versionParts(base);
 
   if (baseMajor > 0) return major === baseMajor;
   if (baseMinor > 0) return major === 0 && minor === baseMinor;
@@ -50,8 +74,8 @@ function withinCaret(version, base) {
 }
 
 function bumpLevel(before, after) {
-  const [major, minor] = parse(after);
-  const [beforeMajor, beforeMinor] = parse(before);
+  const [major, minor] = versionParts(after);
+  const [beforeMajor, beforeMinor] = versionParts(before);
 
   if (major !== beforeMajor) return 'major';
   if (minor !== beforeMinor) return 'minor';

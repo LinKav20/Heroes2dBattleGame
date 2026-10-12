@@ -56,8 +56,8 @@ const STYLE_SELECTORS = [
     message: 'Loops always use braces.',
   },
   {
-    selector: 'TSTypeAliasDeclaration TSNullKeyword',
-    message: 'Do not put null into a type alias; add it where the type is used.',
+    selector: 'TSTypeAliasDeclaration > TSUnionType > :matches(TSNullKeyword, TSUndefinedKeyword)',
+    message: 'Do not put null or undefined into a type alias union; add it where the type is used.',
   },
   {
     selector: "ExportNamedDeclaration > VariableDeclaration[kind!='const']",
@@ -73,10 +73,13 @@ const DETERMINISM_SELECTORS = [
   { selector: "BinaryExpression[operator='**']", message: FLOAT },
   { selector: "AssignmentExpression[operator='**=']", message: FLOAT },
   {
-    selector: "Identifier[name='Math']:not(MemberExpression[computed=false] > Identifier.object)",
+    selector: "Identifier[name='Math']:not(MemberExpression[computed=false] > Identifier.object)"
+      + ':not(MemberExpression > Identifier.property):not(Property > Identifier.key)'
+      + ':not(TSPropertySignature > Identifier.key):not(TSTypeQuery Identifier)',
     message: 'Use Math only as Math.name, so that the bans apply.',
   },
-  { selector: "MemberExpression[property.name='constructor']", message: RUNTIME },
+  { selector: "MemberExpression[property.name='constructor'], Literal[value='constructor']", message: RUNTIME },
+  { selector: "MemberExpression[property.name='stack']", message: RUNTIME },
   { selector: "MetaProperty[meta.name='import']", message: RUNTIME },
   { selector: ':function[async=true]', message: 'Deterministic code is synchronous.' },
   { selector: 'ImportExpression', message: RUNTIME },
@@ -179,9 +182,9 @@ export default defineConfig(
       'one-var': ['error', 'never'],
       'no-var': 'error',
       'prefer-const': 'error',
-      'func-style': ['error', 'declaration'],
+      'func-style': ['error', 'declaration', { allowTypeAnnotation: true }],
       'default-case': 'error',
-      '@typescript-eslint/switch-exhaustiveness-check': ['error', { considerDefaultExhaustiveForUnions: true }],
+      '@typescript-eslint/switch-exhaustiveness-check': ['error', { considerDefaultExhaustiveForUnions: false }],
     },
   },
   {
@@ -189,11 +192,11 @@ export default defineConfig(
     rules: { 'no-restricted-exports': 'off' },
   },
   {
-    files: ['**/*.js', '**/*.cjs'],
+    files: ['**/*.js', '**/*.cjs', '**/*.mjs'],
     ...tseslint.configs.disableTypeChecked,
   },
   {
-    files: ['**/*.js', '**/*.cjs'],
+    files: ['**/*.js', '**/*.cjs', '**/*.mjs'],
     rules: {
       '@typescript-eslint/explicit-module-boundary-types': 'off',
       '@typescript-eslint/naming-convention': NAMING,
@@ -226,6 +229,7 @@ export default defineConfig(
                 .map((name) => ({ name, message: TIME })),
               { name: 'crypto', message: RANDOM },
               { name: 'Intl', message: LOCALE },
+              { name: 'Promise', message: 'Deterministic code is synchronous.' },
               { name: 'WeakRef', message: GARBAGE_COLLECTOR },
               { name: 'FinalizationRegistry', message: GARBAGE_COLLECTOR },
             ],
@@ -235,6 +239,7 @@ export default defineConfig(
             { object: 'Math', property: 'random', message: RANDOM },
             ...TRANSCENDENTAL_MATH.map((property) => ({ object: 'Math', property, message: FLOAT })),
             ...LOCALE_METHODS.map((property) => ({ property, message: LOCALE })),
+            { property: 'normalize', message: 'Unicode normalization depends on the Unicode version of the runtime.' },
           ],
           'no-restricted-syntax': ['error', ...ORDER_SELECTORS, ...STYLE_SELECTORS, ...DETERMINISM_SELECTORS],
           'no-restricted-imports': ['error', {

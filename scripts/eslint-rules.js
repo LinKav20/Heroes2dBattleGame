@@ -1,3 +1,5 @@
+import { PACKAGE_FOLDERS } from './workspace.js';
+
 export const localPlugin = {
   rules: {
     comments: {
@@ -26,11 +28,11 @@ export const localPlugin = {
   },
 };
 
-const LINE_DIRECTIVE = /^\s*(eslint-disable-line|eslint-disable-next-line|@ts-(expect-error|ignore|nocheck|check))\b/;
-const BLOCK_DIRECTIVE = /^\s*(eslint|eslint-disable|eslint-enable|globals?|exported)\s/;
+const TOOL_DIRECTIVE = /^\*?\s*(eslint(-disable(-next)?(-line)?|-enable)?|@ts-(expect-error|ignore|nocheck|check))(\s|$)/;
+const OTHER_TOOL_DIRECTIVE = /^\*?\s*((v8|c8|istanbul)\s+ignore\b|@vitest-environment\s)/;
+const BLOCK_DIRECTIVE = /^\s*(globals?|exported)\s/;
 const TRIPLE_SLASH_DIRECTIVE = /^\/\s*<reference\s/;
-const COVERAGE_DIRECTIVE = /^\s*(v8|c8|istanbul)\s+ignore\b/;
-const PACKAGE_SOURCE = /(^|\/)(libs|adapters|apps|packs)\/[^/]+\/src\//;
+const PACKAGE_SOURCE = new RegExp(`(^|/)(${PACKAGE_FOLDERS.join('|')})/[^/]+/src/`);
 const TEST_SOURCE = /(\/tests\/|\.test\.ts$)/;
 const KEBAB_CASE = /^\.?[a-z0-9]+(-[a-z0-9]+)*(\.[a-z0-9]+)*$/;
 
@@ -68,10 +70,10 @@ function checkFileName(context) {
 }
 
 function isDirective(comment) {
-  if (COVERAGE_DIRECTIVE.test(comment.value)) return true;
+  if (TOOL_DIRECTIVE.test(comment.value) || OTHER_TOOL_DIRECTIVE.test(comment.value)) return true;
   if (comment.type === 'Block') return BLOCK_DIRECTIVE.test(comment.value);
 
-  return LINE_DIRECTIVE.test(comment.value) || TRIPLE_SLASH_DIRECTIVE.test(comment.value);
+  return TRIPLE_SLASH_DIRECTIVE.test(comment.value);
 }
 
 function collectPublicJsdoc(context, program) {
@@ -125,6 +127,8 @@ function documentableMembers(declaration) {
       return declaration.body?.members ?? declaration.members;
     case 'ClassDeclaration':
       return declaration.body.body.filter((member) => !isPrivateMember(member));
+    case 'VariableDeclaration':
+      return declaration.declarations.flatMap((declarator) => objectMembers(declarator.init));
     default:
       return [];
   }
@@ -141,9 +145,19 @@ function typeMembers(type) {
     case 'TSIntersectionType':
     case 'TSUnionType':
       return type.types.flatMap(typeMembers);
+    case 'TSTypeReference':
+      return (type.typeArguments?.params ?? []).flatMap(typeMembers);
+    case 'TSArrayType':
+      return typeMembers(type.elementType);
     default:
       return [];
   }
+}
+
+function objectMembers(expression) {
+  if (expression?.type !== 'ObjectExpression') return [];
+
+  return expression.properties.flatMap((property) => [property, ...objectMembers(property.value)]);
 }
 
 function isPrivateMember(member) {
