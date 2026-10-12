@@ -18,6 +18,11 @@ bundlers. On Node.js 22.12 and newer, `require()` loads it as well.
 Hexes are pointy-topped, and odd rows are shifted right by half a hex. Store and show them as
 "column, row" with `offset`, and convert them to cube coordinates for calculations.
 
+Create hexes with `offset`, `cube` or the other functions of the package: they check that every
+coordinate is a safe integer. The `Offset` and `Cube` types carry a type-only brand, so TypeScript
+rejects a plain object literal, and data read from JSON goes through `offset` or `cube` as well.
+A spread copy, `as` or `any` still bypass the brand, so do not build hexes that way.
+
 ```ts
 import {
   cubeDistance,

@@ -11,7 +11,9 @@ export interface GridSize {
 /**
  * All hexes within `radius` of the center, including the center: 3R(R + 1) + 1 hexes for radius R.
  * They are ordered by the q offset from the center, then by the r offset, both ascending.
- * A negative radius gives an empty list. Throws `RangeError` if the radius is not a safe integer.
+ * The result grows with the square of the radius, so keep the radius within what the field needs.
+ * A negative radius gives an empty list. Throws `RangeError` if the radius is not a safe integer
+ * or if a hex of the area is not a safe integer.
  */
 export function cubeRange(center: Cube, radius: number): Cube[] {
   checkRadius(radius);
@@ -36,7 +38,7 @@ export function cubeRange(center: Cube, radius: number): Cube[] {
  * The hexes exactly `radius` away from the center: 6R hexes for radius R, or the center itself for radius 0.
  * The walk starts at center + R * southWest and takes R steps in each direction of `DIRECTIONS`, in order,
  * so consecutive hexes are neighbors. A negative radius gives an empty list.
- * Throws `RangeError` if the radius is not a safe integer.
+ * Throws `RangeError` if the radius is not a safe integer or if a hex of the ring is not a safe integer.
  */
 export function cubeRing(center: Cube, radius: number): Cube[] {
   checkRadius(radius);

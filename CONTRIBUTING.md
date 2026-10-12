@@ -8,7 +8,7 @@ repository, make a change and get it merged.
 ## Before you start
 
 - Contributions are accepted only with the signed [contributor license agreement](CLA.md).
-  The CLA check asks you to sign it in your first pull request.
+  To sign it, post the comment from section 6 of the agreement in your first pull request.
 - For a large change, open an issue first, so that we can agree on the approach.
 - Report security problems privately, not in a public issue. See [SECURITY.md](SECURITY.md).
 
@@ -31,7 +31,7 @@ right.
 2. Make the change. Put tests in the `tests` folder next to the code they test.
 3. Run `pnpm check`.
 4. If the change affects a published package, run `pnpm changeset` and describe the change for
-   the changelog. Changes to tests and documentation need no changeset.
+   the changelog. Changes to tests and to the documentation in `docs/` need no changeset.
 5. Open a pull request. CI runs the same checks and also builds the packages.
 
 Code, comments and package READMEs are in English. The architecture documentation in

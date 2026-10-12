@@ -12,7 +12,8 @@ import { cubeDistance } from './vector.ts';
  * is strictly the largest, otherwise r if its error is larger than the error of s, otherwise s.
  * All arithmetic is exact: coordinates are multiplied by 1 000 000 * N and divided as integers.
  *
- * Throws `RangeError` if the distance is above 47 452, where exact arithmetic in doubles ends.
+ * Throws `RangeError` if the distance is above 47 452. The limit keeps every intermediate value below 2^53
+ * with a safety margin, so the integer arithmetic in doubles stays exact.
  */
 export function cubeLine(from: Cube, to: Cube): Cube[] {
   const steps = cubeDistance(from, to);
@@ -23,19 +24,19 @@ export function cubeLine(from: Cube, to: Cube): Cube[] {
     throw new RangeError(`Line is too long for exact integer arithmetic: the distance is ${String(steps)}.`);
   }
 
-  const dq = to.q - from.q;
-  const dr = to.r - from.r;
-  const ds = to.s - from.s;
+  const deltaQ = to.q - from.q;
+  const deltaR = to.r - from.r;
+  const deltaS = to.s - from.s;
   const denominator = steps * NUDGE_SCALE;
   const result: Cube[] = [];
 
   for (let i = 0; i <= steps; i += 1) {
-    const x = dq * i * NUDGE_SCALE + NUDGE.q * steps;
-    const y = dr * i * NUDGE_SCALE + NUDGE.r * steps;
-    const z = ds * i * NUDGE_SCALE + NUDGE.s * steps;
-    const offset = roundCubeFraction(x, y, z, denominator);
+    const x = deltaQ * i * NUDGE_SCALE + NUDGE.q * steps;
+    const y = deltaR * i * NUDGE_SCALE + NUDGE.r * steps;
+    const z = deltaS * i * NUDGE_SCALE + NUDGE.s * steps;
+    const shift = roundCubeFraction(x, y, z, denominator);
 
-    result.push(cube(from.q + offset.q, from.r + offset.r));
+    result.push(cube(from.q + shift.q, from.r + shift.r));
   }
 
   return result;

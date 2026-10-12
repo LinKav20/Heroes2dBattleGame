@@ -9,7 +9,8 @@ Matvei Dmitrievich Popov.
 
 This page explains what counts as commercial use and how to get a license. It is a
 summary, not the license itself: the binding terms are the PolyForm Noncommercial
-License 1.0.0 and, for commercial use, the signed commercial agreement.
+License 1.0.0 and, for commercial use, the signed commercial agreement. If the English and
+Russian versions of this page differ, the English version prevails.
 
 ## Free: noncommercial use
 
@@ -19,8 +20,9 @@ You do not need a commercial license if you use the packages:
 - for learning, teaching and academic research;
 - in game jams and prototypes that are not sold or monetized;
 - in noncommercial open-source projects and mods;
-- inside charitable organizations, educational institutions, public research
-  organizations and government institutions, as the PolyForm license allows.
+- inside charitable organizations, educational institutions, public research organizations,
+  public safety or health organizations, environmental protection organizations and government
+  institutions, as the PolyForm license allows.
 
 ## Paid: commercial use
 
@@ -41,7 +43,7 @@ If you are not sure whether your case is commercial, write to us before you rele
 
 - The right to use the packages in commercial products and services.
 - The right to modify the packages and distribute them inside your product, for
-  example in a bundled web app or a game build, without publishing your source code.
+  example in a bundled web app or a game build.
 - No noncommercial restrictions for the licensed product or company.
 
 The scope, term, price and any support are agreed individually. Common options are a

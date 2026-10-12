@@ -2,7 +2,8 @@ const { deterministicPackageDirs } = require('./scripts/workspace.js');
 
 const ANY_PACKAGE = '^(libs|adapters|apps|packs)/';
 const OWN_PACKAGE = '^(libs|adapters|apps|packs)/([^/]+)/';
-const DETERMINISTIC = `^(${deterministicPackageDirs().map((dir) => dir.replaceAll('.', '\\.')).join('|')})/src/`;
+const DETERMINISTIC_PACKAGES = `^(${deterministicPackageDirs().map((dir) => dir.replaceAll('.', '\\.')).join('|')})/`;
+const DETERMINISTIC = `${DETERMINISTIC_PACKAGES}src/`;
 
 module.exports = {
   forbidden: [
@@ -18,14 +19,14 @@ module.exports = {
       name: 'hex-is-standalone',
       comment: 'hex is pure geometry and depends on no other package.',
       severity: 'error',
-      from: { path: '^libs/hex/' },
+      from: { path: '^libs/hex/', pathNot: '/tests/' },
       to: { path: ANY_PACKAGE, pathNot: '^libs/hex/' },
     },
     {
       name: 'kernel-is-standalone',
       comment: 'The kernel depends on nothing, not even hex: it gets the field shape through the topology interface.',
       severity: 'error',
-      from: { path: '^libs/kernel/' },
+      from: { path: '^libs/kernel/', pathNot: '/tests/' },
       to: { path: ANY_PACKAGE, pathNot: '^libs/kernel/' },
     },
     {
@@ -34,9 +35,39 @@ module.exports = {
       severity: 'error',
       from: { path: DETERMINISTIC, pathNot: '/tests/' },
       to: {
-        dependencyTypes: ['npm', 'npm-dev', 'npm-optional', 'npm-peer', 'npm-bundled', 'npm-no-pkg', 'npm-unknown', 'core'],
+        dependencyTypes: [
+          'npm', 'npm-dev', 'npm-optional', 'npm-peer', 'npm-bundled', 'npm-no-pkg', 'npm-unknown', 'core',
+        ],
         pathNot: ANY_PACKAGE,
       },
+    },
+    {
+      name: 'deterministic-packages-use-only-deterministic-packages',
+      comment: 'Code of a deterministic package imports only packages that are deterministic too.',
+      severity: 'error',
+      from: { path: DETERMINISTIC, pathNot: '/tests/' },
+      to: { path: ANY_PACKAGE, pathNot: DETERMINISTIC_PACKAGES },
+    },
+    {
+      name: 'only-tests-use-testkit',
+      comment: 'testkit is a test helper: only tests depend on it.',
+      severity: 'error',
+      from: { path: ANY_PACKAGE, pathNot: ['/tests/', '^libs/testkit/'] },
+      to: { path: '^libs/testkit/' },
+    },
+    {
+      name: 'protocol-depends-only-on-kernel',
+      comment: 'protocol describes the types of the kernel with schemas and depends on nothing else.',
+      severity: 'error',
+      from: { path: '^libs/protocol/', pathNot: '/tests/' },
+      to: { path: ANY_PACKAGE, pathNot: ['^libs/protocol/', '^libs/kernel/'] },
+    },
+    {
+      name: 'server-has-no-user-interface',
+      comment: 'The battle server does not depend on user interface and rendering libraries.',
+      severity: 'error',
+      from: { path: '^apps/server/' },
+      to: { path: '(^|/)node_modules/(react|react-dom|pixi\\.js)/' },
     },
     {
       name: 'no-undeclared-npm-deps',
@@ -50,7 +81,7 @@ module.exports = {
       comment: 'devDependencies are not installed for consumers, so published code must not import them.',
       severity: 'error',
       from: { path: ANY_PACKAGE, pathNot: '/tests/' },
-      to: { dependencyTypes: ['npm-dev'], dependencyTypesNot: ['type-only'], pathNot: ANY_PACKAGE },
+      to: { dependencyTypes: ['npm-dev'], pathNot: ANY_PACKAGE },
     },
     {
       name: 'libs-do-not-import-adapters-apps-or-packs',
@@ -68,7 +99,7 @@ module.exports = {
       name: 'nobody-imports-apps',
       severity: 'error',
       from: { path: OWN_PACKAGE },
-      to: { path: '^apps/', pathNot: '^apps/$2/' },
+      to: { path: '^apps/', pathNot: '^$1/$2/' },
     },
     {
       name: 'only-public-entry-across-packages',

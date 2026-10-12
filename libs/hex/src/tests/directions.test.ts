@@ -12,7 +12,7 @@ import {
   oppositeDirection,
   type Direction,
 } from '../index.ts';
-import { anyCube, anyDirection, countDistinct, fieldHexes } from './arbitraries.ts';
+import { anyCube, anyDirection, countDistinct, fieldHexes } from './helpers.ts';
 
 describe('directions', () => {
   it('keeps a fixed order: east, then counterclockwise', () => {
@@ -32,7 +32,7 @@ describe('directions', () => {
 
   it('cannot be changed at runtime', () => {
     expect(Object.isFrozen(DIRECTIONS)).toBe(true);
-    expect(DIRECTIONS.every((direction) => Object.isFrozen(directionVector(direction)))).toBe(true);
+    expect(DIRECTIONS.filter((direction) => !Object.isFrozen(directionVector(direction)))).toStrictEqual([]);
   });
 
   it.each(DIRECTIONS)('the opposite of %s points the other way', (direction) => {
@@ -69,7 +69,7 @@ describe('neighbors', () => {
         const neighbors = cubeNeighbors(hex);
 
         expect(countDistinct(neighbors)).toBe(6);
-        expect(neighbors.every((neighbor) => cubeDistance(hex, neighbor) === 1)).toBe(true);
+        expect(neighbors.map((neighbor) => cubeDistance(hex, neighbor))).toStrictEqual([1, 1, 1, 1, 1, 1]);
       }),
     );
   });
@@ -93,6 +93,13 @@ describe('neighbors', () => {
         expect(directionTo(a, b) !== null).toBe(cubeDistance(a, b) === 1);
       }
     }
+  });
+
+  it('rejects a neighbor that is not a safe integer', () => {
+    const big = cube(Number.MAX_SAFE_INTEGER, -Number.MAX_SAFE_INTEGER);
+
+    expect(() => cubeNeighbor(big, 'east')).toThrow(RangeError);
+    expect(() => cubeNeighbors(big)).toThrow(RangeError);
   });
 
   it('has no direction to a far hex or to the hex itself', () => {

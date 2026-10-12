@@ -11,29 +11,37 @@ import {
   isInside,
   offset,
 } from '../index.ts';
-import { anyCube, countDistinct } from './arbitraries.ts';
+import {
+  anyCube,
+  anyPositiveRadius,
+  anyRadius,
+  countDistinct,
+  FIELD_HEIGHT,
+  FIELD_WIDTH,
+  nonAdjacentSteps,
+} from './helpers.ts';
 
 const origin = cube(0, 0);
-const radius = fc.integer({ min: 0, max: 12 });
-const positiveRadius = fc.integer({ min: 1, max: 12 });
 
 describe('range', () => {
   it('a range of radius R has 3R(R+1)+1 distinct hexes, none farther than R', () => {
     fc.assert(
-      fc.property(anyCube, radius, (center, size) => {
-        const range = cubeRange(center, size);
+      fc.property(anyCube, anyRadius, (center, radius) => {
+        const range = cubeRange(center, radius);
 
-        expect(range).toHaveLength(3 * size * (size + 1) + 1);
+        expect(range).toHaveLength(3 * radius * (radius + 1) + 1);
         expect(countDistinct(range)).toBe(range.length);
-        expect(range.every((hex) => cubeDistance(center, hex) <= size)).toBe(true);
+        expect(range.filter((hex) => cubeDistance(center, hex) > radius)).toStrictEqual([]);
       }),
     );
   });
 
   it('is the range around the origin moved to the center', () => {
     fc.assert(
-      fc.property(anyCube, radius, (center, size) => {
-        expect(cubeRange(center, size)).toStrictEqual(cubeRange(origin, size).map((hex) => cubeAdd(hex, center)));
+      fc.property(anyCube, anyRadius, (center, radius) => {
+        const moved = cubeRange(origin, radius).map((hex) => cubeAdd(hex, center));
+
+        expect(cubeRange(center, radius)).toStrictEqual(moved);
       }),
     );
   });
@@ -68,29 +76,24 @@ describe('range', () => {
 describe('ring', () => {
   it('a ring of radius R has 6R distinct hexes, all exactly R away', () => {
     fc.assert(
-      fc.property(anyCube, positiveRadius, (center, size) => {
-        const ring = cubeRing(center, size);
+      fc.property(anyCube, anyPositiveRadius, (center, radius) => {
+        const ring = cubeRing(center, radius);
 
-        expect(ring).toHaveLength(6 * size);
+        expect(ring).toHaveLength(6 * radius);
         expect(countDistinct(ring)).toBe(ring.length);
-        expect(ring.every((hex) => cubeDistance(center, hex) === size)).toBe(true);
+        expect(ring.filter((hex) => cubeDistance(center, hex) !== radius)).toStrictEqual([]);
       }),
     );
   });
 
   it('starts south-west of the center and walks between neighbors back to the start', () => {
     fc.assert(
-      fc.property(anyCube, positiveRadius, (center, size) => {
-        const ring = cubeRing(center, size);
+      fc.property(anyCube, anyPositiveRadius, (center, radius) => {
+        const ring = cubeRing(center, radius);
         const closed = [...ring, ...ring.slice(0, 1)];
 
-        expect(ring.at(0)).toStrictEqual(cubeAdd(center, cubeScale(directionVector('southWest'), size)));
-
-        expect(closed.slice(1).every((hex, index) => {
-          const previous = closed[index];
-
-          return previous !== undefined && cubeDistance(previous, hex) === 1;
-        })).toBe(true);
+        expect(ring.at(0)).toStrictEqual(cubeAdd(center, cubeScale(directionVector('southWest'), radius)));
+        expect(nonAdjacentSteps(closed)).toStrictEqual([]);
       }),
     );
   });
@@ -121,33 +124,33 @@ describe('radius', () => {
     expect(cubeRing(origin, -1)).toStrictEqual([]);
   });
 
-  it.each([0.5, Number.NaN, Infinity, -Infinity])('rejects the radius %d', (size) => {
-    expect(() => cubeRange(origin, size)).toThrow(RangeError);
-    expect(() => cubeRing(origin, size)).toThrow(RangeError);
+  it.each([0.5, Number.NaN, Infinity, -Infinity])('rejects the radius %d', (radius) => {
+    expect(() => cubeRange(origin, radius)).toThrow(RangeError);
+    expect(() => cubeRing(origin, radius)).toThrow(RangeError);
   });
 });
 
 describe('field bounds', () => {
-  const size = { width: 15, height: 11 };
+  const field = { width: FIELD_WIDTH, height: FIELD_HEIGHT };
 
   it.each([
     [0, 0],
-    [14, 0],
-    [0, 10],
-    [14, 10],
+    [FIELD_WIDTH - 1, 0],
+    [0, FIELD_HEIGHT - 1],
+    [FIELD_WIDTH - 1, FIELD_HEIGHT - 1],
     [7, 5],
   ])('hex %i,%i is inside', (col, row) => {
-    expect(isInside(offset(col, row), size)).toBe(true);
+    expect(isInside(offset(col, row), field)).toBe(true);
   });
 
   it.each([
     [-1, 0],
     [0, -1],
-    [15, 0],
-    [0, 11],
-    [15, 11],
+    [FIELD_WIDTH, 0],
+    [0, FIELD_HEIGHT],
+    [FIELD_WIDTH, FIELD_HEIGHT],
   ])('hex %i,%i is outside', (col, row) => {
-    expect(isInside(offset(col, row), size)).toBe(false);
+    expect(isInside(offset(col, row), field)).toBe(false);
   });
 
   it('nothing is inside an empty field', () => {

@@ -1,9 +1,10 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import { cube, cubeAdd, cubeDistance, cubeEquals, cubeScale, cubeSubtract } from '../index.ts';
-import { anyCube, nearbyPair } from './arbitraries.ts';
+import { cube, cubeAdd, cubeDistance, cubeEquals, cubeScale, cubeSubtract, type Cube } from '../index.ts';
+import { anyCube, nearbyPair } from './helpers.ts';
 
 const origin = cube(0, 0);
+const big = cube(Number.MAX_SAFE_INTEGER, -Number.MAX_SAFE_INTEGER);
 
 describe('vectors', () => {
   it('adding zero changes nothing', () => {
@@ -27,22 +28,23 @@ describe('vectors', () => {
     expect(cubeSubtract(cube(1, -2), cube(3, 4))).toStrictEqual(cube(-2, -6));
   });
 
-  it('scaling multiplies the distance from the origin', () => {
+  it('scaling adds the vector as many times as the factor says, with its sign', () => {
     fc.assert(
       fc.property(anyCube, fc.integer({ min: -10, max: 10 }), (hex, factor) => {
-        expect(cubeDistance(origin, cubeScale(hex, factor))).toBe(cubeDistance(origin, hex) * Math.abs(factor));
+        expect(cubeScale(hex, factor)).toStrictEqual(repeatedSum(hex, factor));
       }),
     );
   });
 
-  it.each([0.5, Number.NaN, Infinity])('rejects the scale factor %d', (factor) => {
-    expect(() => cubeScale(cube(1, 0), factor)).toThrow(RangeError);
+  const badFactors = [0.5, Number.NaN, Infinity, -Infinity, Number.MAX_SAFE_INTEGER + 1];
+
+  it.each(badFactors)('rejects the scale factor %d', (factor) => {
+    expect(() => cubeScale(origin, factor)).toThrow(RangeError);
   });
 
   it('rejects a result that is not a safe integer', () => {
-    const big = cube(Number.MAX_SAFE_INTEGER, -Number.MAX_SAFE_INTEGER);
-
     expect(() => cubeAdd(big, cube(1, 0))).toThrow(RangeError);
+    expect(() => cubeSubtract(big, cube(-1, 0))).toThrow(RangeError);
     expect(() => cubeScale(big, 2)).toThrow(RangeError);
   });
 });
@@ -75,3 +77,13 @@ describe('distance', () => {
     expect(() => cubeDistance(cube(2 ** 52, -(2 ** 52)), cube(-(2 ** 52), 2 ** 52))).toThrow(RangeError);
   });
 });
+
+function repeatedSum(hex: Cube, factor: number): Cube {
+  let sum = origin;
+
+  for (let step = 0; step < Math.abs(factor); step += 1) {
+    sum = factor > 0 ? cubeAdd(sum, hex) : cubeSubtract(sum, hex);
+  }
+
+  return sum;
+}

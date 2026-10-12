@@ -7,3 +7,14 @@ updates:
     groups:
       github-actions:
         patterns: ['*']
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      dev-dependencies:
+        dependency-type: development
+    ignore:
+      - dependency-name: typescript
+        update-types: ['version-update:semver-major', 'version-update:semver-minor']

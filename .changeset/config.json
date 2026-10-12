@@ -12,6 +12,10 @@
     "src/**",
     "!src/**/tests/**",
     "!src/**/*.test.ts",
-    "package.json"
+    "package.json",
+    "README.md",
+    "LICENSE.md",
+    "tsconfig.lib.json",
+    "tsconfig.build.json"
   ]
 }

@@ -3,35 +3,50 @@ import { describe, expect, it } from 'vitest';
 import {
   cube,
   cubeEquals,
+  cubeNeighbor,
   cubeToOffset,
   offset,
   offsetEquals,
   offsetKey,
   offsetToCube,
   parseOffsetKey,
+  type Cube,
+  type Direction,
+  type Offset,
 } from '../index.ts';
-import { anyOffset, hugeCoordinate, nearbyPair } from './arbitraries.ts';
+import { anyDirection, anyOffset, hugeCoordinate, nearbyPair } from './helpers.ts';
 
 const notSafeInteger = fc.constantFrom(0.5, -1.5, Number.NaN, Infinity, -Infinity, Number.MAX_SAFE_INTEGER + 1);
 const keyCharacters = fc.constantFrom('0', '1', '2', '7', '9', ',', '-');
 
+const EVEN_ROW_STEPS: Readonly<Record<Direction, readonly [number, number]>> = {
+  east: [1, 0],
+  northEast: [0, -1],
+  northWest: [-1, -1],
+  west: [-1, 0],
+  southWest: [-1, 1],
+  southEast: [0, 1],
+};
+
+const ODD_ROW_STEPS: Readonly<Record<Direction, readonly [number, number]>> = {
+  east: [1, 0],
+  northEast: [1, -1],
+  northWest: [0, -1],
+  west: [-1, 0],
+  southWest: [0, 1],
+  southEast: [1, 1],
+};
+
 describe('creating hexes', () => {
-  it('converted hexes have cube coordinates that sum to zero', () => {
-    fc.assert(
-      fc.property(anyOffset, (position) => {
-        const hex = offsetToCube(position);
-
-        expect(hex.q + hex.r + hex.s).toBe(0);
-      }),
-    );
-  });
-
   it('replaces negative zero with zero', () => {
     const hex = cube(-0, -0);
     const position = offset(-0, -0);
 
-    expect(Object.is(hex.q, 0) && Object.is(hex.r, 0) && Object.is(hex.s, 0)).toBe(true);
-    expect(Object.is(position.col, 0) && Object.is(position.row, 0)).toBe(true);
+    expect(hex.q).toBe(0);
+    expect(hex.r).toBe(0);
+    expect(hex.s).toBe(0);
+    expect(position.col).toBe(0);
+    expect(position.row).toBe(0);
   });
 
   it('rejects coordinates that are not safe integers', () => {
@@ -63,6 +78,17 @@ describe('converting coordinates', () => {
     fc.assert(
       fc.property(fc.tuple(hugeCoordinate, hugeCoordinate), ([q, r]) => {
         expect(offsetToCube(cubeToOffset(cube(q, r)))).toStrictEqual(cube(q, r));
+      }),
+    );
+  });
+
+  it('places neighbors as the odd-r layout does, odd rows shifted right', () => {
+    fc.assert(
+      fc.property(anyOffset, anyDirection, (position, direction) => {
+        const [colStep, rowStep] = (position.row & 1) === 0 ? EVEN_ROW_STEPS[direction] : ODD_ROW_STEPS[direction];
+        const neighbor = cubeToOffset(cubeNeighbor(offsetToCube(position), direction));
+
+        expect(neighbor).toStrictEqual(offset(position.col + colStep, position.row + rowStep));
       }),
     );
   });
@@ -116,7 +142,9 @@ describe('hex keys', () => {
       fc.property(fc.string({ unit: keyCharacters, maxLength: 8 }), (key) => {
         const parsed = parseOffsetKey(key);
 
-        expect(parsed === null || offsetKey(parsed) === key).toBe(true);
+        if (parsed !== null) {
+          expect(offsetKey(parsed)).toBe(key);
+        }
       }),
     );
   });
@@ -139,10 +167,29 @@ describe('hex keys', () => {
     '01,2',
     '1,02',
     '-0,5',
+    '5,-0',
     '+1,2',
     'a,b',
     '99999999999999999999,1',
+    '1,99999999999999999999',
   ])('rejects the key %j', (key) => {
     expect(parseOffsetKey(key)).toBeNull();
+  });
+});
+
+describe('types', () => {
+  it('accepts only hexes created by the package', () => {
+    // @ts-expect-error A plain object literal is not a Cube.
+    const literalCube: Cube = { q: 1, r: 2, s: -3 };
+    // @ts-expect-error A plain object literal is not an Offset.
+    const literalOffset: Offset = { col: 1, row: 2 };
+
+    expect(literalCube).toStrictEqual(cube(1, 2));
+    expect(literalOffset).toStrictEqual(offset(1, 2));
+  });
+
+  it('keeps the brand out of runtime values and JSON', () => {
+    expect(JSON.stringify(cube(1, 2))).toBe('{"q":1,"r":2,"s":-3}');
+    expect(JSON.stringify(offset(1, 2))).toBe('{"col":1,"row":2}');
   });
 });

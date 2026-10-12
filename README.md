@@ -6,7 +6,8 @@ An engine for turn-based tactical battles in the spirit of Heroes of Might and M
 and tabletop role-playing games. It is a set of libraries and swappable adapters
 published as separate npm packages under the `@heroes2dgame` scope.
 
-The project is in early development. No packages have been published yet.
+Heroes of Might and Magic is a trademark of its owner. This project is not affiliated with or endorsed
+by the trademark owner and does not use its assets.
 
 ## What the engine does
 
@@ -33,9 +34,8 @@ in a Web Worker and in Node.js.
 | Package | Description |
 |---|---|
 | `@heroes2dgame/hex` | Hex grid geometry: coordinates, neighbors, distances, lines and areas |
-| `@heroes2dgame/kernel` | Deterministic battle kernel: state, commands, events and extension interfaces |
 
-More libraries, adapters and content packs will be added as separate packages.
+Each library, adapter and content pack is published as a separate package.
 
 ## Repository layout
 
@@ -67,8 +67,9 @@ Other commands:
 | `pnpm verify-dist` | Checks the built packages: publint, type resolution, loading with `import` and `require` |
 | `pnpm changeset` | Records a change for the next release |
 
-Releases run in CI: after changes reach `main`, Changesets opens a pull request with the new versions,
-and merging it publishes the packages to npm.
+Releases are started manually in CI, only from the `main` branch. If `main` has changesets, the release
+opens a pull request with the new versions. Otherwise it publishes the new versions to npm, tags them
+in git and creates GitHub releases.
 
 ## Documentation
 

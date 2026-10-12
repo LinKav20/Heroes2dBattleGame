@@ -21,7 +21,8 @@ const TRANSCENDENTAL_MATH = [
   'exp', 'expm1', 'log', 'log1p', 'log2', 'log10', 'pow', 'cbrt', 'hypot',
 ];
 const LOCALE_METHODS = [
-  'toLocaleString', 'toLocaleDateString', 'toLocaleTimeString', 'toLocaleUpperCase', 'toLocaleLowerCase', 'localeCompare',
+  'toLocaleString', 'toLocaleDateString', 'toLocaleTimeString',
+  'toLocaleUpperCase', 'toLocaleLowerCase', 'localeCompare',
 ];
 
 const ORDER_SELECTORS = [
@@ -48,16 +49,55 @@ const ORDER_SELECTORS = [
   },
 ];
 
+const STYLE_SELECTORS = [
+  {
+    selector: ':matches(ForStatement, ForOfStatement, ForInStatement, WhileStatement, DoWhileStatement)'
+      + "[body.type!='BlockStatement']",
+    message: 'Loops always use braces.',
+  },
+  {
+    selector: 'TSTypeAliasDeclaration TSNullKeyword',
+    message: 'Do not put null into a type alias; add it where the type is used.',
+  },
+  {
+    selector: "ExportNamedDeclaration > VariableDeclaration[kind!='const']",
+    message: 'Exported bindings are const.',
+  },
+  {
+    selector: 'ExportNamedDeclaration[source=null][declaration=null][specifiers.length>0]',
+    message: 'Export the declaration itself, so that its JSDoc stays next to it.',
+  },
+];
+
 const DETERMINISM_SELECTORS = [
   { selector: "BinaryExpression[operator='**']", message: FLOAT },
   { selector: "AssignmentExpression[operator='**=']", message: FLOAT },
-  { selector: 'MemberExpression[object.name="Math"][computed=true]', message: 'Use dot access on Math so the bans apply.' },
+  {
+    selector: "Identifier[name='Math']:not(MemberExpression[computed=false] > Identifier.object)",
+    message: 'Use Math only as Math.name, so that the bans apply.',
+  },
+  { selector: "MemberExpression[property.name='constructor']", message: RUNTIME },
+  { selector: "MetaProperty[meta.name='import']", message: RUNTIME },
   { selector: ':function[async=true]', message: 'Deterministic code is synchronous.' },
   { selector: 'ImportExpression', message: RUNTIME },
+  {
+    selector: ':matches(VariableDeclaration, TSDeclareFunction, ClassDeclaration)[declare=true], TSModuleDeclaration',
+    message: 'Deterministic code does not declare globals.',
+  },
   {
     selector: 'ForInStatement',
     message: 'for...in visits inherited keys and puts integer-like keys first; iterate an array or a Map.',
   },
+];
+
+const NAMING = [
+  'error',
+  { selector: 'typeLike', format: ['PascalCase'] },
+  { selector: 'interface', format: ['PascalCase'], custom: { regex: '^I[A-Z]', match: false } },
+  { selector: 'enumMember', format: ['UPPER_CASE'] },
+  { selector: 'variableLike', format: ['camelCase'], leadingUnderscore: 'forbid', trailingUnderscore: 'forbid' },
+  { selector: 'variable', modifiers: ['const', 'global'], format: ['camelCase', 'UPPER_CASE'] },
+  { selector: 'function', format: ['camelCase'] },
 ];
 
 export default defineConfig(
@@ -85,6 +125,7 @@ export default defineConfig(
     plugins: { perfectionist, local: localPlugin },
     rules: {
       'local/comments': 'error',
+      'local/file-names': 'error',
       'perfectionist/sort-modules': ['error', {
         type: 'unsorted',
         groups: [
@@ -93,8 +134,9 @@ export default defineConfig(
           ['export-class', 'export-function'],
           ['class', 'function'],
         ],
+        newlinesBetweenOverloadSignatures: 'ignore',
       }],
-      'no-restricted-syntax': ['error', ...ORDER_SELECTORS],
+      'no-restricted-syntax': ['error', ...ORDER_SELECTORS, ...STYLE_SELECTORS],
       '@stylistic/padding-line-between-statements': [
         'error',
         { blankLine: 'always', prev: ['const', 'let'], next: '*' },
@@ -107,40 +149,39 @@ export default defineConfig(
       '@stylistic/no-multiple-empty-lines': ['error', { max: 1, maxBOF: 0, maxEOF: 0 }],
       '@stylistic/padded-blocks': ['error', 'never'],
       '@stylistic/quotes': ['error', 'single', { avoidEscape: true }],
+      '@stylistic/quote-props': ['error', 'as-needed'],
       '@stylistic/lines-between-class-members': ['error', 'always'],
       '@stylistic/max-len': ['error', {
         code: 120,
         ignoreUrls: true,
-        ignoreStrings: true,
-        ignoreTemplateLiterals: true,
         ignoreRegExpLiterals: true,
       }],
       'no-restricted-exports': ['error', {
         restrictDefaultExports: { direct: true, named: true, defaultFrom: true, namedFrom: true, namespaceFrom: true },
       }],
-      '@typescript-eslint/consistent-type-imports': ['error', { prefer: 'type-imports', fixStyle: 'inline-type-imports' }],
+      '@typescript-eslint/consistent-type-imports': ['error', {
+        prefer: 'type-imports',
+        fixStyle: 'inline-type-imports',
+      }],
       '@typescript-eslint/consistent-type-exports': ['error', { fixMixedExportsWithInlineTypeSpecifier: true }],
       '@typescript-eslint/no-import-type-side-effects': 'error',
       '@typescript-eslint/consistent-type-definitions': ['error', 'interface'],
       '@typescript-eslint/array-type': ['error', { default: 'array-simple' }],
       '@typescript-eslint/explicit-module-boundary-types': 'error',
-      '@typescript-eslint/consistent-type-assertions': ['error', { assertionStyle: 'as', objectLiteralTypeAssertions: 'never' }],
+      '@typescript-eslint/consistent-type-assertions': ['error', {
+        assertionStyle: 'as',
+        objectLiteralTypeAssertions: 'never',
+      }],
       '@typescript-eslint/require-array-sort-compare': 'error',
-      '@typescript-eslint/naming-convention': [
-        'error',
-        { selector: 'typeLike', format: ['PascalCase'] },
-        { selector: 'interface', format: ['PascalCase'], custom: { regex: '^I[A-Z]', match: false } },
-        { selector: 'variableLike', format: ['camelCase'], leadingUnderscore: 'forbid', trailingUnderscore: 'forbid' },
-        { selector: 'variable', modifiers: ['const', 'global'], format: ['camelCase', 'UPPER_CASE'] },
-        { selector: 'function', format: ['camelCase'] },
-      ],
-      'eqeqeq': ['error', 'always', { null: 'ignore' }],
-      'curly': ['error', 'multi-line'],
+      '@typescript-eslint/naming-convention': NAMING,
+      eqeqeq: ['error', 'always', { null: 'ignore' }],
+      curly: ['error', 'multi-line'],
       'one-var': ['error', 'never'],
       'no-var': 'error',
       'prefer-const': 'error',
-      'func-style': ['error', 'declaration', { allowArrowFunctions: true }],
-      '@typescript-eslint/switch-exhaustiveness-check': 'error',
+      'func-style': ['error', 'declaration'],
+      'default-case': 'error',
+      '@typescript-eslint/switch-exhaustiveness-check': ['error', { considerDefaultExhaustiveForUnions: true }],
     },
   },
   {
@@ -153,7 +194,10 @@ export default defineConfig(
   },
   {
     files: ['**/*.js', '**/*.cjs'],
-    rules: { '@typescript-eslint/explicit-module-boundary-types': 'off' },
+    rules: {
+      '@typescript-eslint/explicit-module-boundary-types': 'off',
+      '@typescript-eslint/naming-convention': NAMING,
+    },
   },
   {
     files: ['scripts/**/*.js'],
@@ -164,39 +208,48 @@ export default defineConfig(
     languageOptions: { sourceType: 'commonjs', globals: { module: 'writable', require: 'readonly' } },
     rules: { '@typescript-eslint/no-require-imports': 'off' },
   },
-  {
-    files: DETERMINISTIC_SOURCES,
-    ignores: ['**/tests/**'],
-    linterOptions: { noInlineConfig: true },
-    rules: {
-      'no-restricted-globals': ['error', {
-        checkGlobalObject: true,
-        globalObjects: ['globalThis', 'self', 'window', 'global'],
-        globals: [
-          ...['globalThis', 'self', 'global', 'window', 'document', 'navigator', 'process', 'Buffer', 'fetch',
-            'structuredClone', 'eval', 'Function', 'Reflect', 'Atomics', 'SharedArrayBuffer']
-            .map((name) => ({ name, message: RUNTIME })),
-          ...['Date', 'performance', 'setTimeout', 'setInterval', 'setImmediate', 'queueMicrotask']
-            .map((name) => ({ name, message: TIME })),
-          { name: 'crypto', message: RANDOM },
-          { name: 'Intl', message: LOCALE },
-          { name: 'WeakRef', message: GARBAGE_COLLECTOR },
-          { name: 'FinalizationRegistry', message: GARBAGE_COLLECTOR },
-        ],
-      }],
-      'no-restricted-properties': [
-        'error',
-        { object: 'Math', property: 'random', message: RANDOM },
-        ...TRANSCENDENTAL_MATH.map((property) => ({ object: 'Math', property, message: FLOAT })),
-        ...LOCALE_METHODS.map((property) => ({ property, message: LOCALE })),
-      ],
-      'no-restricted-syntax': ['error', ...ORDER_SELECTORS, ...DETERMINISM_SELECTORS],
-      'no-restricted-imports': ['error', {
-        paths: builtinModules.map((name) => ({ name, message: RUNTIME })),
-        patterns: [{ group: ['node:*'], message: RUNTIME }],
-      }],
-      '@typescript-eslint/require-array-sort-compare': ['error', { ignoreStringArrays: false }],
-      'no-param-reassign': ['error', { props: true }],
-    },
-  },
+  DETERMINISTIC_SOURCES.length === 0
+    ? {}
+    : {
+        files: DETERMINISTIC_SOURCES,
+        ignores: ['**/tests/**'],
+        linterOptions: { noInlineConfig: true },
+        rules: {
+          'no-restricted-globals': ['error', {
+            checkGlobalObject: true,
+            globalObjects: ['globalThis', 'self', 'window', 'global'],
+            globals: [
+              ...['globalThis', 'self', 'global', 'window', 'document', 'navigator', 'process', 'Buffer', 'fetch',
+                'structuredClone', 'eval', 'Function', 'Reflect', 'Atomics', 'SharedArrayBuffer']
+                .map((name) => ({ name, message: RUNTIME })),
+              ...['Date', 'performance', 'setTimeout', 'setInterval', 'setImmediate', 'queueMicrotask']
+                .map((name) => ({ name, message: TIME })),
+              { name: 'crypto', message: RANDOM },
+              { name: 'Intl', message: LOCALE },
+              { name: 'WeakRef', message: GARBAGE_COLLECTOR },
+              { name: 'FinalizationRegistry', message: GARBAGE_COLLECTOR },
+            ],
+          }],
+          'no-restricted-properties': [
+            'error',
+            { object: 'Math', property: 'random', message: RANDOM },
+            ...TRANSCENDENTAL_MATH.map((property) => ({ object: 'Math', property, message: FLOAT })),
+            ...LOCALE_METHODS.map((property) => ({ property, message: LOCALE })),
+          ],
+          'no-restricted-syntax': ['error', ...ORDER_SELECTORS, ...STYLE_SELECTORS, ...DETERMINISM_SELECTORS],
+          'no-restricted-imports': ['error', {
+            paths: builtinModules.map((name) => ({ name, message: RUNTIME })),
+            patterns: [{ group: ['node:*'], message: RUNTIME }],
+          }],
+          '@typescript-eslint/require-array-sort-compare': ['error', { ignoreStringArrays: false }],
+          'no-param-reassign': ['error', { props: true }],
+          '@typescript-eslint/triple-slash-reference': ['error', { lib: 'never', path: 'never', types: 'never' }],
+          '@typescript-eslint/ban-ts-comment': ['error', {
+            'ts-check': true,
+            'ts-expect-error': true,
+            'ts-ignore': true,
+            'ts-nocheck': true,
+          }],
+        },
+      },
 );

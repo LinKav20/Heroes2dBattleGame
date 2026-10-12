@@ -1,7 +1,9 @@
 # Individual Contributor License Agreement
 
-This agreement is between you and Matvei Dmitrievich Popov (the "Licensor"), the owner of the
-Heroes2dBattleGame project at https://github.com/LinKav20/Heroes2dBattleGame. It explains the
+Version 1.0, 12 October 2026.
+
+This agreement is between you and Matvei Dmitrievich Popov (the "Licensor"), the author and
+maintainer of the Heroes2dBattleGame project, hosted at https://github.com/LinKav20/Heroes2dBattleGame. It explains the
 rights you give to the Licensor when you submit a contribution. You keep the copyright in your
 contribution. The project is distributed both under the PolyForm Noncommercial License 1.0.0
 and under commercial licenses, and this agreement lets the Licensor include your contribution
@@ -28,9 +30,10 @@ including the PolyForm Noncommercial License 1.0.0 and commercial licenses.
 
 You grant the Licensor and recipients of software distributed by the Licensor a perpetual,
 worldwide, non-exclusive, free of charge, royalty-free and irrevocable patent license to make,
-have made, use, offer to sell, sell, import and otherwise transfer your Contributions. The
-license covers only the patent claims you can license that are necessarily infringed by your
-Contribution alone or by its combination with the project it was submitted to.
+have made, use, offer to sell, sell, import and otherwise transfer your Contributions and the
+software of the Licensor that includes them. The license covers only the patent claims you can
+license that are necessarily infringed by your Contribution alone or by its combination with the
+software it was submitted to.
 
 ## 4. Your promises
 
@@ -40,7 +43,8 @@ You confirm that:
   agreement and you identify any third-party part and its license in the Contribution;
 - if your employer or a client has rights to what you create, you have their permission to
   make the Contribution under this agreement, or they have waived those rights;
-- you will tell the Licensor if any of these statements stops being true.
+- you will tell the Licensor by email to mdpopov11@gmail.com if any of these statements stops
+  being true.
 
 ## 5. No other obligations
 
@@ -49,6 +53,9 @@ do not have to provide support for them. The Licensor does not have to use any C
 
 ## 6. How to sign
 
-When you open your first pull request, the CLA check on the pull request asks you to accept
-this agreement. Follow its instructions with the GitHub account you use to contribute. Your
-acceptance covers all your future Contributions to the project.
+Before your first pull request is merged, post this comment in it with the GitHub account you use
+to contribute:
+
+> I have read the Individual Contributor License Agreement, version 1.0, and I agree to it.
+
+Your acceptance covers all your future Contributions to the project.

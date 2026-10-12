@@ -11,6 +11,7 @@
   "bugs": {
     "url": "https://github.com/LinKav20/Heroes2dBattleGame/issues"
   },
+  "author": "Matvei Dmitrievich Popov <mdpopov11@gmail.com>",
   "engines": {
     "node": ">=24"
   },
@@ -27,7 +28,8 @@
     "verify-dist": "pnpm publint && pnpm attw && node scripts/check-dist.js",
     "check": "pnpm lint && pnpm typecheck && pnpm deps && pnpm packages && pnpm test",
     "changeset": "changeset",
-    "release": "pnpm build && pnpm verify-dist && changeset publish"
+    "version-packages": "changeset version && node scripts/check-peer-bumps.js",
+    "release": "pnpm build && pnpm verify-dist && node scripts/check-release.js && changeset publish"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "0.18.5",

@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { cube, cubeAdd, cubeDistance, cubeLine, type Cube } from '../index.ts';
-import { anyCube, fieldHexes, hexKey, referenceLine } from './arbitraries.ts';
+import { anyCube, farCube, fieldHexes, hexKey, nonAdjacentSteps, referenceLine } from './helpers.ts';
 
 const FIELD_LINES_SHA256 = '9388560521a9a8a38c86974e128e103a0fd6e39e304e4c19cdc6f5988f0eb959';
 const MAX_DISTANCE = 47_452;
@@ -32,9 +32,9 @@ describe('line', () => {
     );
   });
 
-  it('does not depend on where the line is', () => {
+  it('does not depend on where the line is, even far from the origin', () => {
     fc.assert(
-      fc.property(anyCube, anyCube, anyCube, (a, b, shift) => {
+      fc.property(anyCube, anyCube, farCube, (a, b, shift) => {
         const shifted = cubeLine(cubeAdd(a, shift), cubeAdd(b, shift));
 
         expect(shifted).toStrictEqual(cubeLine(a, b).map((hex) => cubeAdd(hex, shift)));
@@ -93,11 +93,11 @@ describe('line', () => {
     expect(createHash('sha256').update(lines.join('\n')).digest('hex')).toBe(FIELD_LINES_SHA256);
   });
 
-  it('works far from the origin', () => {
-    const a = cube(2_300_000_000, 0);
-    const b = cube(2_300_000_003, -1);
+  it('gives the same fixed hexes far from the origin', () => {
+    const shift = cube(2 ** 50, -(2 ** 49));
+    const line = cubeLine(cubeAdd(cube(-2, 4), shift), cubeAdd(cube(4, 1), shift));
 
-    expectValidLine(a, b, cubeLine(a, b));
+    expect(line).toStrictEqual(cubeLine(cube(-2, 4), cube(4, 1)).map((hex) => cubeAdd(hex, shift)));
   });
 
   it('accepts the longest exact line and rejects a longer one', () => {
@@ -112,10 +112,5 @@ function expectValidLine(from: Cube, to: Cube, line: Cube[]): void {
   expect(line).toHaveLength(cubeDistance(from, to) + 1);
   expect(line.at(0)).toStrictEqual(from);
   expect(line.at(-1)).toStrictEqual(to);
-
-  expect(line.slice(1).every((hex, index) => {
-    const previous = line[index];
-
-    return previous !== undefined && cubeDistance(previous, hex) === 1;
-  })).toBe(true);
+  expect(nonAdjacentSteps(line)).toStrictEqual([]);
 }

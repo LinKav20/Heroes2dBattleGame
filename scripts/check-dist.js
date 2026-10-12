@@ -17,8 +17,8 @@ for (const { dir, manifest } of workspacePackages().filter(({ folder }) => folde
     const imported = await import(pathToFileURL(file).href);
     const required = require(file);
 
-    if (Object.keys(imported).join() !== Object.keys(required).join()) {
-      failures.push(`${dir}: import and require give different exports`);
+    if (imported !== required) {
+      failures.push(`${dir}: import and require load two different module instances`);
     }
   } catch (error) {
     failures.push(`${dir}: ${error instanceof Error ? error.message : String(error)}`);

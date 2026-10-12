@@ -28,6 +28,9 @@
   },
   "files": [
     "dist",
+    "src",
+    "!src/**/tests",
+    "!src/**/*.test.ts",
     "LICENSE.md",
     "CHANGELOG.md"
   ],
