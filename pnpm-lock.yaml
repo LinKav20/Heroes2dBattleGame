@@ -181,6 +181,9 @@ importers:
       '@types/node':
         specifier: ^26.6.4
         version: 26.6.4
+      canonicalize:
+        specifier: ^5.1.0
+        version: 5.1.0
       dependency-cruiser:
         specifier: ^18.5.0
         version: 18.5.0
@@ -209,6 +212,12 @@ importers:
   libs/hex: {}
 
   libs/kernel: {}
+
+  libs/testkit:
+    devDependencies:
+      '@heroes2dgame/kernel':
+        specifier: workspace:^
+        version: link:../kernel
 
 packages:
 
@@ -676,6 +685,11 @@ packages:
 
   cacheable@2.5.0:
     resolution: {integrity: sha512-60cyAOytib/OzBw1JNSoSV/boK1AtHryDIjvVBk7XbN4ugfkM3+Sry7fEjNgPMGgOjuaZPAp8ruZ0Cxafwyq9g==}
+
+  canonicalize@5.1.0:
+    resolution: {integrity: sha512-bab9+WefZljqQ8jT0qRwVmTyzAUU63K97QIQD3agynIBrb6sa5M2eAy8Hv8K3p4V9+ONVYZKtGYl4Dg+/5Gumw==}
+    engines: {node: '>=22'}
+    hasBin: true
 
   chai@6.3.0:
     resolution: {integrity: sha512-XWAtwJ6OHO+tj0EKCs0Y2UamnyOxseZWltU4x2U2wh8g4AigdjwvtUjvLP2tqkA/avxHEtzxNaqGq/YGNwckKg==}
@@ -2004,6 +2018,8 @@ snapshots:
       hookified: 1.15.1
       keyv: 5.6.0
       qified: 0.10.1
+
+  canonicalize@5.1.0: {}
 
   chai@6.3.0: {}
 

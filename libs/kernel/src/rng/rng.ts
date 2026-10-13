@@ -1,0 +1,152 @@
+import { sha256 } from '../crypto/index.ts';
+
+/**
+ * The state of the random number generator: the seed and the number of values the generator has issued.
+ *
+ * The value with number `k` is a 32-bit unsigned integer. The generator computes SHA-256 of 40 bytes: the 32 bytes
+ * of the seed followed by the block number `floor(k / 8)` as 8 bytes, most significant first. It splits the digest
+ * into eight 4-byte words and takes word `k mod 8`, most significant byte first. Values cannot be predicted from
+ * earlier values without the seed.
+ */
+export interface RngState {
+  /** The 32 bytes of the seed as 64 lowercase hexadecimal digits. */
+  readonly seed: string;
+  /**
+   * The number of the next value, which equals the number of values issued so far, rejected ones included.
+   * It starts at 0 and never exceeds `Number.MAX_SAFE_INTEGER`.
+   */
+  readonly counter: number;
+}
+
+/**
+ * The result of drawing from the generator: a value and the new generator state, or the reason it failed.
+ */
+export type RngResult = RngFailure | RngSuccess;
+
+/**
+ * A successful draw.
+ */
+export interface RngSuccess {
+  /** Marks a successful draw. */
+  readonly ok: true;
+  /** The drawn value. */
+  readonly value: number;
+  /** The generator state after the draw. */
+  readonly rng: RngState;
+}
+
+/**
+ * A failed draw. The kernel rejects the command that needed the value, because the rules cannot go on.
+ */
+export interface RngFailure {
+  /** Marks a failed draw. */
+  readonly ok: false;
+  /**
+   * Why the draw failed: `exhausted` when the counter has reached `Number.MAX_SAFE_INTEGER`, `invalid-range` when
+   * the requested range is not allowed.
+   */
+  readonly reason: 'exhausted' | 'invalid-range';
+}
+
+/**
+ * Creates a generator with the given seed and a counter of 0.
+ *
+ * @param seed The 32 bytes of the seed as 64 lowercase hexadecimal digits.
+ * @throws {RangeError} If the seed is not 64 lowercase hexadecimal digits.
+ */
+export function createRng(seed: string): RngState {
+  checkSeed(seed);
+
+  return { counter: 0, seed };
+}
+
+/**
+ * Draws the next 32-bit unsigned value, the one with number `rng.counter`, and moves the counter by one.
+ *
+ * Fails with `exhausted` when the counter has reached `Number.MAX_SAFE_INTEGER`.
+ *
+ * @throws {RangeError} If the state is invalid: the seed is not 64 lowercase hexadecimal digits, or the counter is
+ * not a safe integer from 0 to `Number.MAX_SAFE_INTEGER`.
+ */
+export function rngNext(rng: RngState): RngResult {
+  checkSeed(rng.seed);
+  checkCounter(rng.counter);
+
+  if (rng.counter === MAX_COUNTER) return EXHAUSTED;
+
+  return { ok: true, rng: { counter: rng.counter + 1, seed: rng.seed }, value: valueAt(rng.seed, rng.counter) };
+}
+
+/**
+ * Draws a uniformly distributed integer from `min` to `max` inclusive.
+ *
+ * The bounds are safe integers, `min` is not greater than `max`, and the range holds at most 2^32 numbers;
+ * otherwise the draw fails with `invalid-range` and the counter does not move. With `n = max - min + 1` and
+ * `L = 2^32 - (2^32 mod n)`, the generator draws values until one is less than `L` and returns `min + (value mod n)`.
+ * Every drawn value moves the counter, the rejected ones too. The draw fails with `exhausted` if the counter reaches
+ * `Number.MAX_SAFE_INTEGER` first.
+ *
+ * @throws {RangeError} If the state is invalid, as in {@link rngNext}.
+ */
+export function rngRange(rng: RngState, min: number, max: number): RngResult {
+  checkSeed(rng.seed);
+  checkCounter(rng.counter);
+
+  if (!isAllowedRange(min, max)) return INVALID_RANGE;
+
+  const size = max - min + 1;
+  const limit = WORD_RANGE - (WORD_RANGE % size);
+  let draw = rngNext(rng);
+
+  while (draw.ok && draw.value >= limit) {
+    draw = rngNext(draw.rng);
+  }
+
+  if (!draw.ok) return draw;
+
+  return { ok: true, rng: draw.rng, value: min + (draw.value % size) };
+}
+
+const SEED = /^[0-9a-f]{64}$/;
+const MAX_COUNTER = Number.MAX_SAFE_INTEGER;
+const WORD_RANGE = 0x100000000;
+const VALUES_PER_BLOCK = 8;
+const WORD_BYTES = 4;
+const SEED_BYTES = 32;
+const EXHAUSTED: RngFailure = Object.freeze({ ok: false, reason: 'exhausted' });
+const INVALID_RANGE: RngFailure = Object.freeze({ ok: false, reason: 'invalid-range' });
+
+function valueAt(seed: string, counter: number): number {
+  const block = Math.floor(counter / VALUES_PER_BLOCK);
+  const message = new Uint8Array(SEED_BYTES + 8);
+  const view = new DataView(message.buffer);
+
+  message.set(seedBytes(seed));
+  view.setUint32(SEED_BYTES, Math.floor(block / WORD_RANGE));
+  view.setUint32(SEED_BYTES + WORD_BYTES, block % WORD_RANGE);
+
+  const digest = new DataView(sha256(message).buffer);
+
+  return digest.getUint32((counter % VALUES_PER_BLOCK) * WORD_BYTES);
+}
+
+function seedBytes(seed: string): Uint8Array {
+  return Uint8Array.from(
+    new Array<number>(SEED_BYTES).keys(),
+    (index) => Number.parseInt(seed.slice(index * 2, index * 2 + 2), 16),
+  );
+}
+
+function isAllowedRange(min: number, max: number): boolean {
+  return Number.isSafeInteger(min) && Number.isSafeInteger(max) && min <= max && max - min < WORD_RANGE;
+}
+
+function checkSeed(seed: string): void {
+  if (!SEED.test(seed)) throw new RangeError('The seed must be 64 lowercase hexadecimal digits.');
+}
+
+function checkCounter(counter: number): void {
+  if (!Number.isSafeInteger(counter) || counter < 0) {
+    throw new RangeError('The counter must be a safe integer from 0 to Number.MAX_SAFE_INTEGER.');
+  }
+}

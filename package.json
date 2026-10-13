@@ -37,6 +37,7 @@
     "@eslint/js": "^10.0.1",
     "@stylistic/eslint-plugin": "^5.10.0",
     "@types/node": "^26.6.4",
+    "canonicalize": "^5.1.0",
     "dependency-cruiser": "^18.5.0",
     "eslint": "^10.12.0",
     "eslint-plugin-perfectionist": "5.12.1",

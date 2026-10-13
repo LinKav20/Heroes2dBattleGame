@@ -1,0 +1,39 @@
+import type { JsonObject } from '../json/index.ts';
+import type { ChoiceValue, TargetValue } from './commands.ts';
+
+/**
+ * A part of a command that the kernel has not done yet: pay the cost, walk the path, strike, check the dead.
+ * A step holds only data, so the stack of steps is saved with the state.
+ */
+export interface Step {
+  /** The full name of the kind of step in a kernel registry. */
+  readonly type: string;
+  /** The version of the format of this kind of step; the package that declares the step migrates old versions. */
+  readonly version: number;
+  /** The parameters of the step. */
+  readonly params: JsonObject;
+  /** The values the step has received so far: rolls, chosen options and chosen targets, in the order it asked. */
+  readonly inputs?: readonly StepInput[];
+  /**
+   * The number of the event in the current batch that caused the step, if any. A step that waits for an answer to an
+   * input request is saved without it, because the answer starts a new batch.
+   */
+  readonly cause?: number;
+}
+
+/**
+ * A value a step has received: a roll, a chosen option or chosen targets.
+ */
+export type StepInput = ChoiceValue | RollInput | TargetValue;
+
+/**
+ * A roll a step has received, from the generator or from outside.
+ */
+export interface RollInput {
+  /** The kind of value. */
+  readonly kind: 'roll';
+  /** The value of every die. */
+  readonly dice: readonly number[];
+  /** The sum of the dice. */
+  readonly result: number;
+}
