@@ -1,15 +1,32 @@
 import type { RandomSource } from '../../content/index.ts';
-import { createKernel, type Kernel, type KernelExtension } from '../../kernel/index.ts';
-import type { CommandKind, EventDraft, EventKind, StepKind, StepResult } from '../../kinds/index.ts';
+import { KERNEL_EVENTS, kernelEventDraft } from '../../events/index.ts';
+import type {
+  CommandKind,
+  EventDraft,
+  ExtensionEventKind,
+  KernelExtension,
+  StepContext,
+  StepKind,
+  StepNeed,
+  StepResult,
+} from '../../extensions/index.ts';
+import type { JsonValue } from '../../json/index.ts';
+import { createKernel, type Kernel } from '../../kernel/index.ts';
 import type { BattleEvent, BattleState, Command, Unit } from '../../model/index.ts';
-import { STATE } from '../../model/tests/helpers.ts';
+import { asRecord, STATE } from '../../tests/fixtures.ts';
+
+export const DAMAGE = 'acme-duel:damage';
+
+export const LUCK = 'acme-duel:luck';
+
+export const TRAP = 'acme-duel:trap';
 
 export const DUEL_EXTENSIONS: readonly KernelExtension[] = [
   command('acme-duel:attack', ({ payload, state }) => {
     const { attacker, target } = strikeParams(payload);
 
     if (aliveUnit(state, attacker) === undefined || aliveUnit(state, target) === undefined) {
-      return { kind: 'reject', params: { reason: 'no-target' } };
+      return { kind: 'reject', params: { target }, reason: 'acme-duel:no-target' };
     }
 
     return { kind: 'steps', steps: [{ params: { attacker, target }, type: 'acme-duel:strike' }] };
@@ -18,40 +35,42 @@ export const DUEL_EXTENSIONS: readonly KernelExtension[] = [
     kind: 'steps',
     steps: listOf(payload).map((type) => ({ params: {}, type })),
   })),
-  command('acme-duel:refuse', () => ({ kind: 'reject', params: { reason: 'refused' } })),
-  step('acme-duel:strike', ({ inputs, params, state }) => {
-    const { attacker, target } = strikeParams(params);
+  command('acme-duel:request', ({ payload }) => ({
+    kind: 'steps',
+    steps: [{ params: { need: payload }, type: 'acme-duel:ask' }],
+  })),
+  command('acme-duel:refuse', () => ({ kind: 'reject', reason: 'acme-duel:refused' })),
+  command('acme-duel:mumble', () => ({ kind: 'reject', reason: 'refused' })),
+  step<{ readonly attacker: string; readonly target: string }>('acme-duel:strike', ({ inputs, params, state }) => {
     const roll = inputs[0];
-    const victim = aliveUnit(state, target);
+    const victim = aliveUnit(state, params.target);
 
     if (victim === undefined) return { events: [], kind: 'done' };
 
     if (roll?.kind !== 'roll') {
-      const side = unitOf(state, attacker).side;
+      const { side } = unitOf(state, params.attacker);
 
-      return { kind: 'need', need: { dice: 1, kind: 'roll', side, sides: 6, value: DAMAGE } };
+      return { kind: 'need', need: { count: 1, kind: 'roll', name: DAMAGE, side, sides: 6 } };
     }
 
     const wounded = wound(victim, roll.result);
+    const retaliation = { params: { attacker: params.target, target: params.attacker }, type: 'acme-duel:retaliate' };
 
     return {
-      events: [healthChanged(target, wounded)],
+      events: [healthChanged(params.target, wounded)],
       kind: 'done',
-      steps: wounded.count > 0 ? [{ params: { attacker: target, target: attacker }, type: 'acme-duel:retaliate' }] : [],
+      steps: wounded.count > 0 ? [retaliation] : [],
     };
   }),
-  step('acme-duel:retaliate', ({ params, state }) => {
-    const { target } = strikeParams(params);
-    const victim = aliveUnit(state, target);
+  step<{ readonly target: string }>('acme-duel:retaliate', ({ params, state }) => {
+    const victim = aliveUnit(state, params.target);
 
     if (victim === undefined) return { events: [], kind: 'done' };
 
-    const wounded = wound(victim, 1);
-
     return {
       events: [
-        healthChanged(target, wounded),
-        { payload: { unit: target }, type: 'acme-duel:noted', visibleTo: [] },
+        healthChanged(params.target, wound(victim, 1)),
+        { payload: { unit: params.target }, type: 'acme-duel:noted', visibleTo: [] },
       ],
       kind: 'done',
     };
@@ -60,12 +79,12 @@ export const DUEL_EXTENSIONS: readonly KernelExtension[] = [
     const choice = inputs[0];
 
     if (choice?.kind !== 'choice') {
-      return { kind: 'need', need: { kind: 'choice', options: ['left', 'right'], side: 'attacker' } };
+      const need = { kind: 'choice', name: 'acme-duel:path', options: ['left', 'right'], side: 'attacker' } as const;
+
+      return { kind: 'need', need };
     }
 
-    const payload = { value: choice.option, variable: 'path' };
-
-    return { events: [{ payload, type: 'kernel:variable-set', visibleTo: 'all' }], kind: 'done' };
+    return { events: [variableSet('path', choice.option)], kind: 'done' };
   }),
   step('acme-duel:aim', ({ inputs, state }) => {
     const aim = inputs[0];
@@ -73,15 +92,23 @@ export const DUEL_EXTENSIONS: readonly KernelExtension[] = [
     if (aim?.kind !== 'target') {
       const targets = state.units.map(({ id }) => ({ kind: 'unit', unit: id }) as const);
 
-      return { kind: 'need', need: { count: 1, kind: 'target', targets, unit: 'archers-1' } };
+      return { kind: 'need', need: { count: 1, kind: 'target', name: 'acme-duel:aim', targets, unit: 'archers-1' } };
     }
 
     const [first] = aim.targets;
     const unit = first?.kind === 'unit' ? first.unit : '';
 
-    const payload = { flags: ['acme-duel:aimed'], unit };
+    return {
+      events: [kernelEventDraft(KERNEL_EVENTS.flagsChanged, { flags: ['acme-duel:aimed'], unit }, 'all')],
+      kind: 'done',
+    };
+  }),
+  step('acme-duel:aim-anything', ({ inputs }) => {
+    if (inputs[0]?.kind === 'target') return { events: [], kind: 'done' };
 
-    return { events: [{ payload, type: 'kernel:flags-changed', visibleTo: 'all' }], kind: 'done' };
+    const targets = [{ cell: '1,1', kind: 'cell' }, { kind: 'side', side: 'defender' }] as const;
+
+    return { kind: 'need', need: { count: 2, kind: 'target', name: 'acme-duel:aim', targets } };
   }),
   step('acme-duel:pair', () => ({
     events: [],
@@ -91,13 +118,12 @@ export const DUEL_EXTENSIONS: readonly KernelExtension[] = [
       { params: { name: 'second' }, type: 'acme-duel:mark' },
     ],
   })),
-  step('acme-duel:mark', ({ params }) => {
-    const payload = { value: true, variable: typeof params.name === 'string' ? params.name : '' };
-
-    return { events: [{ payload, type: 'kernel:variable-set', visibleTo: 'all' }], kind: 'done' };
-  }),
+  step<{ readonly name: string }>('acme-duel:mark', ({ params }) => ({
+    events: [variableSet(params.name, true)],
+    kind: 'done',
+  })),
   step('acme-duel:chain', () => ({
-    events: [{ payload: { value: 1, variable: 'chain' }, type: 'kernel:variable-set', visibleTo: 'all' }],
+    events: [variableSet('chain', 1)],
     kind: 'done',
     steps: [{ params: {}, type: 'acme-duel:choose' }],
   })),
@@ -106,7 +132,7 @@ export const DUEL_EXTENSIONS: readonly KernelExtension[] = [
 
     const targets = state.units.map(({ id }) => ({ kind: 'unit', unit: id }) as const);
 
-    return { kind: 'need', need: { count: 2, kind: 'target', targets } };
+    return { kind: 'need', need: { count: 2, kind: 'target', name: 'acme-duel:aim', targets } };
   }),
   step('acme-duel:loop', () => ({ events: [], kind: 'done', steps: [{ params: {}, type: 'acme-duel:loop' }] })),
   step('acme-duel:deep', () => ({
@@ -114,49 +140,79 @@ export const DUEL_EXTENSIONS: readonly KernelExtension[] = [
     kind: 'done',
     steps: [{ params: {}, type: 'acme-duel:deep' }, { params: {}, type: 'acme-duel:deep' }],
   })),
-  step('acme-duel:fail', () => ({ kind: 'reject', params: { reason: 'failed' } })),
+  step('acme-duel:fail', () => ({ kind: 'reject', reason: 'acme-duel:failed' })),
   step('acme-duel:gamble', ({ inputs }) => (inputs.length < 2
-    ? { kind: 'need', need: { dice: 2, kind: 'roll', sides: 4, value: 'acme-duel:luck' } }
+    ? { kind: 'need', need: { count: 2, kind: 'roll', name: LUCK, sides: 4 } }
     : { events: [], kind: 'done' })),
+  step('acme-duel:trap', ({ inputs }) => (inputs.length === 0
+    ? { kind: 'need', need: { count: 1, kind: 'roll', name: TRAP, sides: 20, visibleTo: [] } }
+    : { events: [], kind: 'done' })),
+  step('acme-duel:end', () => ({
+    events: [kernelEventDraft(KERNEL_EVENTS.battleEnded, { outcome: { kind: 'draw', winners: [] } }, 'all')],
+    kind: 'done',
+    steps: [{ params: {}, type: 'acme-duel:choose' }],
+  })),
+  step<{ readonly need: StepNeed }>('acme-duel:ask', ({ inputs, params }) => (inputs.length === 0
+    ? { kind: 'need', need: params.need }
+    : { events: [], kind: 'done' })),
+  step('acme-duel:cheat', ({ state }) => ({
+    events: [
+      kernelEventDraft(KERNEL_EVENTS.inputRequested, {
+        request: { id: state.nextRequestId, kind: 'choice', name: 'acme-duel:path', options: ['left'] },
+      }, 'all'),
+    ],
+    kind: 'done',
+  })),
+  step('acme-duel:grumble', () => ({ kind: 'reject', reason: 'kernel:failed' })),
+  step('acme-duel:ghost', () => ({
+    events: [{ payload: {}, type: 'acme-duel:unknown', visibleTo: 'all' }],
+    kind: 'done',
+  })),
+  step('acme-duel:summon', () => ({ events: [], kind: 'done', steps: [{ params: {}, type: 'acme-duel:unknown' }] })),
   {
     apply: (state, payload) => ({
       ...state,
-      extensions: { ...state.extensions, 'acme-duel:log': [...logOf(state), unitOfPayload(payload)] },
+      extensions: { ...state.extensions, 'acme-duel:log': [...logOf(state), String(asRecord(payload).unit)] },
     }),
     kind: 'event',
     migrations: [],
     name: 'acme-duel:noted',
     schema: { type: 'object' },
     version: 1,
-  } satisfies EventKind,
+  } satisfies ExtensionEventKind,
 ];
-
-export const DAMAGE = 'acme-duel:damage';
 
 export const KERNEL: Kernel = createKernel({ extensions: DUEL_EXTENSIONS });
 
 export function duelState(source: RandomSource): BattleState {
   const { inputRequest: open, ...rest } = STATE;
+  const randomSources = { [DAMAGE]: source, [LUCK]: source, [TRAP]: source };
 
   return {
     ...rest,
-    nextId: open === undefined ? rest.nextId : Math.max(rest.nextId, open.id + 1),
+    nextRequestId: open === undefined ? rest.nextRequestId : open.id + 1,
     rng: { counter: 0, seed: '5'.repeat(64) },
-    ruleset: { ...STATE.ruleset, randomSources: { [DAMAGE]: source, 'acme-duel:luck': source } },
+    ruleset: { ...STATE.ruleset, randomSources },
     steps: [],
   };
 }
 
 export function strike(attacker: string, target: string): Command {
-  return { kind: 'game', name: 'acme-duel:attack', payload: { attacker, target }, type: 'extension' };
+  return { kind: 'game', name: 'acme-duel:attack', payload: { attacker, target }, side: 'attacker', type: 'extension' };
 }
 
 export function sequence(...steps: readonly string[]): Command {
   return { kind: 'game', name: 'acme-duel:sequence', payload: steps, type: 'extension' };
 }
 
+export function ask(need: object): Command {
+  const payload: unknown = need;
+
+  return { kind: 'game', name: 'acme-duel:request', payload: payload as JsonValue, type: 'extension' };
+}
+
 export function applyAll(kernel: Kernel, state: BattleState, events: readonly BattleEvent[]): BattleState {
-  return events.reduce((current, event) => kernel.apply(current, event), state);
+  return events.reduce((current, event) => kernel.applyEvent(current, event), state);
 }
 
 export function unitOf(state: BattleState, id: string): Unit {
@@ -171,12 +227,15 @@ function command(name: string, plan: CommandKind['plan']): CommandKind {
   return { kind: 'command', name, plan, schema: { type: 'object' } };
 }
 
-function step(name: string, run: (context: Parameters<StepKind['run']>[0]) => StepResult): StepKind {
+function step<Params extends object = object>(
+  name: string,
+  run: (context: StepContext<Params>) => StepResult,
+): StepKind<Params> {
   return { kind: 'step', migrations: [], name, run, version: 1 };
 }
 
 function strikeParams(value: unknown): { readonly attacker: string; readonly target: string } {
-  const record = typeof value === 'object' && value !== null ? (value as Readonly<Record<string, unknown>>) : {};
+  const record = asRecord(value);
 
   return { attacker: String(record.attacker), target: String(record.target) };
 }
@@ -186,9 +245,11 @@ function listOf(value: unknown): string[] {
 }
 
 function healthChanged(unit: string, wounded: { readonly count: number; readonly health: number }): EventDraft {
-  const payload = { count: wounded.count, health: wounded.health, unit };
+  return kernelEventDraft(KERNEL_EVENTS.healthChanged, { count: wounded.count, health: wounded.health, unit }, 'all');
+}
 
-  return { payload, type: 'kernel:health-changed', visibleTo: 'all' };
+function variableSet(variable: string, value: boolean | number | string): EventDraft {
+  return kernelEventDraft(KERNEL_EVENTS.variableSet, { value, variable }, 'all');
 }
 
 function aliveUnit(state: BattleState, id: string): Unit | undefined {
@@ -209,8 +270,4 @@ function logOf(state: BattleState): string[] {
   const log = state.extensions['acme-duel:log'];
 
   return Array.isArray(log) ? log.map(String) : [];
-}
-
-function unitOfPayload(payload: unknown): string {
-  return typeof payload === 'object' && payload !== null && 'unit' in payload ? String(payload.unit) : '';
 }

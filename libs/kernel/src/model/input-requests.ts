@@ -1,4 +1,4 @@
-import type { CellId, ContentName, SideId, UnitId } from '../ids/index.ts';
+import type { CellId, ContentName, SideId, UnitId, VisibleTo } from '../ids/index.ts';
 
 /**
  * A mark in the battle state that the kernel needs data from outside: a dice roll, a choice of an option or a choice of
@@ -15,11 +15,13 @@ export interface RollRequest {
   /** The identifier of the request; an answer names it. */
   readonly id: number;
   /** The full name of the random value the roll is for, for example `core:attack-roll`. */
-  readonly value: ContentName;
+  readonly name: ContentName;
   /** How many dice to roll. */
-  readonly dice: number;
+  readonly count: number;
   /** How many sides every die has. */
   readonly sides: number;
+  /** Which sides see the result of the roll; all sides if not given. */
+  readonly visibleTo?: VisibleTo;
   /** The side the request belongs to and the only side that sees it; without a side every side sees the request. */
   readonly side?: SideId;
   /** The unit the request belongs to, if any. */
@@ -34,7 +36,9 @@ export interface ChoiceRequest {
   readonly kind: 'choice';
   /** The identifier of the request; an answer names it. */
   readonly id: number;
-  /** The options to choose from. */
+  /** The full name of the choice, for example `core:morale-reroll`; the user interface shows its text by it. */
+  readonly name: ContentName;
+  /** The options to choose from, all different. */
   readonly options: readonly string[];
   /** The side the request belongs to and the only side that sees it; without a side every side sees the request. */
   readonly side?: SideId;
@@ -50,9 +54,11 @@ export interface TargetRequest {
   readonly kind: 'target';
   /** The identifier of the request; an answer names it. */
   readonly id: number;
-  /** The targets to choose from. */
+  /** The full name of the choice, for example `core:spell-target`; the user interface shows its text by it. */
+  readonly name: ContentName;
+  /** The targets to choose from, all different. */
   readonly targets: readonly Target[];
-  /** How many targets to choose. */
+  /** How many different targets to choose. */
   readonly count: number;
   /** The side the request belongs to and the only side that sees it; without a side every side sees the request. */
   readonly side?: SideId;

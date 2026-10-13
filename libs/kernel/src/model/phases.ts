@@ -3,7 +3,12 @@ import type { SideId, UnitId } from '../ids/index.ts';
 /**
  * Where a battle is by the rules: deployment, the start of a round, whose turn it is, or the end of the battle.
  */
-export type BattlePhase = DeploymentPhase | EndedPhase | RoundStartPhase | TurnPhase;
+export type BattlePhase = ActivePhase | EndedPhase;
+
+/**
+ * A phase of a battle that goes on: deployment, the start of a round or a turn.
+ */
+export type ActivePhase = DeploymentPhase | RoundStartPhase | TurnPhase;
 
 /**
  * Sides deploy their units before the first round.

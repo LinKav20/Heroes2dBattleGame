@@ -23,11 +23,25 @@ export const SCHEMES: RegistryKeys<Channel> = {
 };
 
 export class FirstCopy implements Extension {
-  constructor(readonly name: string, readonly shortName: string) {}
+  readonly name: string;
+
+  readonly shortName: string;
+
+  constructor(name: string, shortName: string) {
+    this.name = name;
+    this.shortName = shortName;
+  }
 }
 
 export class SecondCopy implements Extension {
-  constructor(readonly name: string, readonly shortName: string) {}
+  readonly name: string;
+
+  readonly shortName: string;
+
+  constructor(name: string, shortName: string) {
+    this.name = name;
+    this.shortName = shortName;
+  }
 }
 
 export function asExtension(value: unknown): Extension {

@@ -8,7 +8,10 @@ import type { ChoiceValue, TargetValue } from './commands.ts';
 export interface Step {
   /** The full name of the kind of step in a kernel registry. */
   readonly type: string;
-  /** The version of the format of this kind of step; the package that declares the step migrates old versions. */
+  /**
+   * The version of the format of this kind of step. The package that declares the step migrates old versions, and
+   * the versions of all kinds of steps are part of the version of the state format.
+   */
   readonly version: number;
   /** The parameters of the step. */
   readonly params: JsonObject;

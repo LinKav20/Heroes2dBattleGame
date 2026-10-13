@@ -1,5 +1,5 @@
-import { createHash } from 'node:crypto';
 import fc from 'fast-check';
+import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { sha256 } from '../index.ts';
 

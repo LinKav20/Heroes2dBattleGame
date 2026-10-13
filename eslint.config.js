@@ -1,8 +1,8 @@
-import { builtinModules } from 'node:module';
 import js from '@eslint/js';
 import stylistic from '@stylistic/eslint-plugin';
-import { defineConfig } from 'eslint/config';
 import perfectionist from 'eslint-plugin-perfectionist';
+import { defineConfig } from 'eslint/config';
+import { builtinModules } from 'node:module';
 import tseslint from 'typescript-eslint';
 import { localPlugin } from './scripts/eslint-rules.js';
 import { deterministicPackageDirs } from './scripts/workspace.js';
@@ -129,6 +129,11 @@ export default defineConfig(
     rules: {
       'local/comments': 'error',
       'local/file-names': 'error',
+      'perfectionist/sort-imports': ['error', {
+        type: 'alphabetical',
+        groups: [['builtin', 'external'], 'internal', ['parent', 'sibling', 'index'], 'unknown'],
+        newlinesBetween: 0,
+      }],
       'perfectionist/sort-modules': ['error', {
         type: 'unsorted',
         groups: [

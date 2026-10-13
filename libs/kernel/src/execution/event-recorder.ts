@@ -1,6 +1,7 @@
-import { applyEvent, type KernelEventPayloads, type KernelEventType } from '../events/index.ts';
+import { applyEventOfKind, kernelEventDraft, RUNNER_EVENTS, type KernelEventPayloads, type KernelEventType }
+  from '../events/index.ts';
+import type { EventDraft, EventKind } from '../extensions/index.ts';
 import type { VisibleTo } from '../ids/index.ts';
-import type { EventDraft, EventKind } from '../kinds/index.ts';
 import type { BattleEvent, BattleState } from '../model/index.ts';
 import type { Registry } from '../names/index.ts';
 
@@ -9,11 +10,14 @@ import type { Registry } from '../names/index.ts';
  * kind, and applies every event to the state at once, so the next step sees it.
  */
 export class EventRecorder {
+  private readonly kinds: Registry<EventKind>;
+
   private current: BattleState;
 
   private readonly recorded: BattleEvent[] = [];
 
-  constructor(private readonly kinds: Registry<EventKind>, state: BattleState) {
+  constructor(kinds: Registry<EventKind>, state: BattleState) {
+    this.kinds = kinds;
     this.current = state;
   }
 
@@ -27,13 +31,13 @@ export class EventRecorder {
     return this.recorded;
   }
 
-  /** The number the next event gets. */
-  get nextId(): number {
+  /** The number the next event of the batch gets. */
+  get nextEventId(): number {
     return this.recorded.length;
   }
 
   /**
-   * Records an event of the kernel.
+   * Records an event the kernel gives itself while it runs the command.
    */
   kernel<Type extends KernelEventType>(
     type: Type,
@@ -41,15 +45,26 @@ export class EventRecorder {
     visibleTo: VisibleTo,
     cause?: number,
   ): void {
-    this.record({ payload, type, visibleTo }, cause);
+    this.add(kernelEventDraft(type, payload, visibleTo), cause);
   }
 
   /**
    * Records an event a step gave.
    *
-   * @throws {TypeError} If the kernel has no kind of this event.
+   * @throws {TypeError} If the kernel has no kind of this event, or only the kernel itself gives such events.
    */
-  record(draft: EventDraft, cause?: number): void {
+  fromStep(step: string, draft: EventDraft, cause?: number): void {
+    if (RUNNER_EVENTS.some((type) => type === draft.type)) {
+      throw new TypeError(
+        `The step ${JSON.stringify(step)} gives ${JSON.stringify(draft.type)}, but only the kernel gives this event `
+        + 'while it runs a command.',
+      );
+    }
+
+    this.add(draft, cause);
+  }
+
+  private add(draft: EventDraft, cause: number | undefined): void {
     const kind = this.kinds.get(draft.type);
 
     if (kind === undefined) throw new TypeError(`The kernel has no kind of event ${JSON.stringify(draft.type)}.`);
@@ -63,7 +78,7 @@ export class EventRecorder {
       ...(cause === undefined ? {} : { cause }),
     };
 
-    this.current = applyEvent(this.kinds, this.current, event);
+    this.current = applyEventOfKind(kind, this.current, event);
     this.recorded.push(event);
   }
 }

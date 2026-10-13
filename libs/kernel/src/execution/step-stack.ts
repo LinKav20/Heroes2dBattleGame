@@ -1,20 +1,21 @@
-import type { StepDraft, StepKind } from '../kinds/index.ts';
+import type { StepDraft, StepKind } from '../extensions/index.ts';
+import type { JsonObject } from '../json/index.ts';
 import type { Step, StepInput } from '../model/index.ts';
 import type { Registry } from '../names/index.ts';
+import { withoutKey } from '../shared/index.ts';
+import { MAX_STACK_DEPTH } from './limits.ts';
 
 /**
- * The stack of steps of a command; the last step runs next.
+ * The stack of steps of a command, at most {@link MAX_STACK_DEPTH} deep; the last step runs next.
  */
 export class StepStack {
+  private readonly kinds: Registry<StepKind>;
+
   private readonly steps: Step[];
 
-  constructor(private readonly kinds: Registry<StepKind>, saved: readonly Step[]) {
+  constructor(kinds: Registry<StepKind>, saved: readonly Step[]) {
+    this.kinds = kinds;
     this.steps = [...saved];
-  }
-
-  /** How many steps wait on the stack. */
-  get depth(): number {
-    return this.steps.length;
   }
 
   /**
@@ -32,12 +33,19 @@ export class StepStack {
   }
 
   /**
-   * Puts new steps on top so that they run in the order of the list, each with the given cause.
+   * Puts new steps on top so that they run in the order of the list, each with the given cause. Puts nothing and
+   * returns `false` if the stack would grow deeper than {@link MAX_STACK_DEPTH}.
    *
    * @throws {TypeError} If the kernel has no kind of one of the steps.
    */
-  pushDrafts(drafts: readonly StepDraft[], cause: number | undefined): void {
-    this.steps.push(...drafts.map((draft) => this.stepOf(draft, cause)).toReversed());
+  pushDrafts(drafts: readonly StepDraft[], cause: number | undefined): boolean {
+    if (this.steps.length + drafts.length > MAX_STACK_DEPTH) return false;
+
+    for (const draft of drafts.toReversed()) {
+      this.steps.push(this.stepOf(draft, cause));
+    }
+
+    return true;
   }
 
   /**
@@ -58,7 +66,7 @@ export class StepStack {
    * new batch.
    */
   saved(): readonly Step[] {
-    return this.steps.map(withoutCause);
+    return this.steps.map((step) => withoutKey(step, 'cause'));
   }
 
   private stepOf(draft: StepDraft, cause: number | undefined): Step {
@@ -66,7 +74,7 @@ export class StepStack {
 
     if (kind === undefined) throw new TypeError(`The kernel has no kind of step ${JSON.stringify(draft.type)}.`);
 
-    const step: Step = { params: draft.params, type: draft.type, version: kind.version };
+    const step: Step = { params: draft.params as JsonObject, type: draft.type, version: kind.version };
 
     return cause === undefined ? step : { ...step, cause };
   }
@@ -77,10 +85,4 @@ export class StepStack {
  */
 export function withInput(step: Step, input: StepInput): Step {
   return { ...step, inputs: [...(step.inputs ?? []), input] };
-}
-
-function withoutCause(step: Step): Step {
-  const { cause: dropped, ...rest } = step;
-
-  return dropped === undefined ? step : rest;
 }

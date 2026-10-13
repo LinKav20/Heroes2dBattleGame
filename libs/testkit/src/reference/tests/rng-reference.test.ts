@@ -2,6 +2,8 @@ import { rngNext, rngRange, type RngResult } from '@heroes2dgame/kernel';
 import { describe, expect, it } from 'vitest';
 import { RNG_REFERENCE } from '../index.ts';
 
+const WORD_RANGE = 0x1_0000_0000;
+
 describe('RNG_REFERENCE', () => {
   it.each(RNG_REFERENCE)('matches the kernel values for the seed $seed', ({ seed, values }) => {
     const actual = values.map(({ counter }) => ({ counter, value: valueOf(rngNext({ counter, seed })) }));
@@ -32,17 +34,20 @@ describe('RNG_REFERENCE', () => {
   });
 
   it('includes draws that skip rejected values, one of them equal to the bound', () => {
-    const ranges = RNG_REFERENCE.flatMap(({ ranges: draws }) => draws);
-    const skipping = ranges.filter(({ counter, nextCounter }) => nextCounter > counter + 1);
-    const atBound = ranges.filter(({ max, min }) => min === 0 && max >= 2 ** 31 && max < 2 ** 32 - 1);
+    const rejected = RNG_REFERENCE.flatMap(({ ranges, seed }) => ranges.flatMap(({ counter, max, min, nextCounter }) =>
+      Array.from({ length: nextCounter - counter - 1 }, (unused, index) =>
+        valueOf(rngNext({ counter: counter + index, seed })) - bound(min, max))));
 
-    expect(skipping.length).toBeGreaterThan(0);
-    expect(atBound.length).toBeGreaterThan(0);
+    expect(rejected.length).toBeGreaterThan(0);
+    expect(rejected.every((overBound) => overBound >= 0)).toBe(true);
+    expect(rejected).toContain(0);
   });
 
   it('includes running out of values in the middle of rejections', () => {
-    const midway = RNG_REFERENCE.flatMap(({ failures }) => failures)
-      .filter(({ counter, reason }) => reason === 'exhausted' && counter === Number.MAX_SAFE_INTEGER - 1);
+    const midway = RNG_REFERENCE.flatMap(({ failures, seed }) => failures
+      .filter(({ counter, reason }) => reason === 'exhausted' && counter === Number.MAX_SAFE_INTEGER - 1)
+      .filter(({ max, min }) => min !== undefined && max !== undefined
+        && valueOf(rngNext({ counter: Number.MAX_SAFE_INTEGER - 1, seed })) >= bound(min, max)));
 
     expect(midway.length).toBeGreaterThan(0);
   });
@@ -52,6 +57,12 @@ function valueOf(result: RngResult): number {
   if (!result.ok) throw new Error(`The draw failed: ${result.reason}`);
 
   return result.value;
+}
+
+function bound(min: number, max: number): number {
+  const size = max - min + 1;
+
+  return WORD_RANGE - (WORD_RANGE % size);
 }
 
 function counterOf(result: RngResult): number {

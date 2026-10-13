@@ -1,6 +1,6 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import { createRng, rngNext, rngRange, type RngResult, type RngState } from '../index.ts';
+import { createRng, rngNext, rngRange, rngRangeSeries, type RngResult, type RngState } from '../index.ts';
 import { anyRange, anyRng, anySeed, referenceRange, referenceValue, ZERO_SEED } from './helpers.ts';
 
 describe('createRng', () => {
@@ -161,6 +161,48 @@ describe('rngRange', () => {
     const exhausted = { counter: Number.MAX_SAFE_INTEGER, seed: ZERO_SEED };
 
     expect(rngRange(exhausted, 1, 6)).toStrictEqual({ ok: false, reason: 'exhausted' });
+  });
+});
+
+describe('rngRangeSeries', () => {
+  it('draws the same values as one call of rngRange after another', () => {
+    fc.assert(
+      fc.property(anyRng, anyRange, fc.integer({ max: 20, min: 0 }), (rng, [min, max], count) => {
+        let current: RngResult = { ok: true, rng, value: 0 };
+        const values: number[] = [];
+
+        for (let index = 0; index < count && current.ok; index += 1) {
+          current = rngRange(current.rng, min, max);
+
+          if (current.ok) values.push(current.value);
+        }
+
+        const series = rngRangeSeries(rng, min, max, count);
+
+        expect(series).toStrictEqual(current.ok ? { ok: true, rng: current.rng, values } : current);
+      }),
+    );
+  });
+
+  it('crosses blocks of eight values', () => {
+    const series = rngRangeSeries({ counter: 6, seed: ZERO_SEED }, 0, 2 ** 32 - 1, 4);
+    const one = [6, 7, 8, 9].map((counter) => valueOf(rngNext({ counter, seed: ZERO_SEED })));
+
+    expect(series).toStrictEqual({ ok: true, rng: { counter: 10, seed: ZERO_SEED }, values: one });
+  });
+
+  it('checks the state and the range before it draws', () => {
+    expect(() => rngRangeSeries({ counter: -1, seed: ZERO_SEED }, 1, 6, 1)).toThrow(RangeError);
+    expect(() => rngRangeSeries({ counter: 0, seed: ZERO_SEED }, 1, 6, 1.5)).toThrow(RangeError);
+
+    expect(rngRangeSeries({ counter: 0, seed: ZERO_SEED }, 6, 1, 1))
+      .toStrictEqual({ ok: false, reason: 'invalid-range' });
+
+    expect(rngRangeSeries({ counter: 0, seed: ZERO_SEED }, 1, 6, 0)).toStrictEqual({
+      ok: true,
+      rng: { counter: 0, seed: ZERO_SEED },
+      values: [],
+    });
   });
 });
 

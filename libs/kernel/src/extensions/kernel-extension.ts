@@ -1,0 +1,45 @@
+import type { CommandKind } from './command-kind.ts';
+import type { EventKind, ExtensionEventKind } from './event-kind.ts';
+import type {
+  ConditionExtension,
+  MechanicExtension,
+  OperationExtension,
+  TopologyExtension,
+} from './other-extensions.ts';
+import type { StepKind } from './step-kind.ts';
+
+/**
+ * An extension of the kernel. A package with extensions exports a list of them, and the point of assembly passes the
+ * lists of all its packages to `createKernel`.
+ */
+export type KernelExtension
+  = | CommandKind
+    | ConditionExtension
+    | ExtensionEventKind
+    | MechanicExtension
+    | OperationExtension
+    | StepKind
+    | TopologyExtension;
+
+/**
+ * An extension that the kernel keeps in a registry: an extension of a package or a kind of event of the kernel.
+ */
+export type RegisteredExtension = EventKind | KernelExtension;
+
+/**
+ * The kinds of extensions that the kernel keeps in its registries.
+ */
+export type KernelExtensionKind = KernelExtension['kind'];
+
+/**
+ * Every kind of extension the kernel keeps, in alphabetical order.
+ */
+export const KERNEL_EXTENSION_KINDS = Object.freeze([
+  'command',
+  'condition',
+  'event',
+  'mechanic',
+  'operation',
+  'step',
+  'topology',
+] as const satisfies readonly KernelExtensionKind[]);

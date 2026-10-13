@@ -2,6 +2,7 @@ import { describe, expect, expectTypeOf, it } from 'vitest';
 import type { ContentRegistry } from '../../content/index.ts';
 import type { KernelEvent } from '../../events/index.ts';
 import { canonicalJson, hashJson, type JsonValue } from '../../json/index.ts';
+import { CONTENT, STATE } from '../../tests/fixtures.ts';
 import type {
   BattleEvent,
   BattleState,
@@ -10,7 +11,7 @@ import type {
   Rejection,
   Step,
 } from '../index.ts';
-import { COMMAND_KINDS, commandKind, COMMANDS, CONTENT, type IsJson, STATE } from './helpers.ts';
+import { COMMAND_SHAPES, commandShape, COMMANDS, type IsJson } from './helpers.ts';
 
 describe('the model types', () => {
   it('are plain JSON without functions, undefined values or class instances', () => {
@@ -49,7 +50,7 @@ describe('the model types', () => {
   });
 
   it('accept every kind of command', () => {
-    expect(new Set(COMMANDS.map(commandKind))).toStrictEqual(new Set(Object.keys(COMMAND_KINDS)));
+    expect(new Set(COMMANDS.map(commandShape))).toStrictEqual(new Set(Object.keys(COMMAND_SHAPES)));
     expect(COMMANDS.map((command): unknown => JSON.parse(canonicalJson(command)))).toStrictEqual(COMMANDS);
   });
 });

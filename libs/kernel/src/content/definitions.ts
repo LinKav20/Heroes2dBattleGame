@@ -1,6 +1,6 @@
 import type { ContentName, Tag } from '../ids/index.ts';
-import type { Op, Predicate } from './expressions.ts';
 import type { AreaRule } from './effects.ts';
+import type { Op, Predicate } from './expressions.ts';
 
 /**
  * A definition of a creature. A unit on the field refers to it and stores only what changes during the battle.

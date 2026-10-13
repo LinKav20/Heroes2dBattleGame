@@ -1,5 +1,5 @@
-import { createHash } from 'node:crypto';
 import fc from 'fast-check';
+import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { cube, cubeAdd, cubeDistance, cubeLine, type Cube } from '../index.ts';
 import { anyCube, farCube, fieldHexes, hexKey, nonAdjacentSteps, referenceLine } from './helpers.ts';

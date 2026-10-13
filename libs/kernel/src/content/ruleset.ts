@@ -12,7 +12,10 @@ export interface Ruleset {
   readonly turnOwner: 'side' | 'unit';
   /** The variant of every mechanic, by the full name of the mechanic, for example `kernel:turn-order`. */
   readonly mechanics: Readonly<Record<string, MechanicChoice>>;
-  /** Where every random value comes from, by the full name of the value, for example `core:attack-roll`. */
+  /**
+   * Where every random value comes from, by the full name of the value, for example `core:attack-roll`. The generator
+   * rolls a value the ruleset does not name.
+   */
   readonly randomSources: Readonly<Record<ContentName, RandomSource>>;
   /** How a step that produces a fraction rounds it. */
   readonly rounding: Rounding;
@@ -34,10 +37,18 @@ export interface MechanicChoice {
  * Where a random value comes from: the generator in the battle state, or an input request answered from outside, for
  * example with real dice.
  */
-export type RandomSource = 'external' | 'generator';
+export type RandomSource = (typeof RANDOM_SOURCES)[keyof typeof RANDOM_SOURCES];
 
 /**
  * How a fraction is rounded to an integer: `down` to the smaller integer, negative numbers included, `up` to the
  * larger integer, `nearest` to the nearest integer with a half rounded up.
  */
 export type Rounding = 'down' | 'nearest' | 'up';
+
+/**
+ * The sources of random values.
+ */
+export const RANDOM_SOURCES = Object.freeze({
+  external: 'external',
+  generator: 'generator',
+} as const);

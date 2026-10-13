@@ -1,6 +1,6 @@
 import type { CellId, ContentName, UnitId } from '../ids/index.ts';
 import type { JsonObject } from '../json/index.ts';
-import type { SideTarget, UnitTarget } from './input-requests.ts';
+import type { SideHolder, UnitHolder } from './holders.ts';
 
 /**
  * A command that changes the state directly, bypassing the rules of the game. The kernel checks only that the state
@@ -53,7 +53,7 @@ export interface ApplyEffectEdit {
   /** The kind of edit. */
   readonly type: 'apply-effect';
   /** The unit or the side. */
-  readonly target: SideTarget | UnitTarget;
+  readonly target: SideHolder | UnitHolder;
   /** The effect. */
   readonly effect: ContentName;
   /** The values to apply the effect with, such as its strength. */
@@ -67,7 +67,7 @@ export interface RemoveEffectEdit {
   /** The kind of edit. */
   readonly type: 'remove-effect';
   /** The unit or the side. */
-  readonly target: SideTarget | UnitTarget;
+  readonly target: SideHolder | UnitHolder;
   /** The identifier of the applied effect. */
   readonly effect: number;
 }

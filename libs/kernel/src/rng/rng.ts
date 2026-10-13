@@ -24,6 +24,16 @@ export interface RngState {
 export type RngResult = RngFailure | RngSuccess;
 
 /**
+ * The result of drawing several values in a row: the values and the new generator state, or the reason it failed.
+ */
+export type RngSeriesResult = RngFailure | RngSeries;
+
+/**
+ * Why a draw failed: the counter has reached `Number.MAX_SAFE_INTEGER`, or the requested range is not allowed.
+ */
+export type RngFailureReason = (typeof RNG_FAILURES)[keyof typeof RNG_FAILURES];
+
+/**
  * A successful draw.
  */
 export interface RngSuccess {
@@ -36,17 +46,34 @@ export interface RngSuccess {
 }
 
 /**
+ * Several values drawn in a row.
+ */
+export interface RngSeries {
+  /** Marks a successful draw. */
+  readonly ok: true;
+  /** The drawn values in order. */
+  readonly values: readonly number[];
+  /** The generator state after the last value. */
+  readonly rng: RngState;
+}
+
+/**
  * A failed draw. The kernel rejects the command that needed the value, because the rules cannot go on.
  */
 export interface RngFailure {
   /** Marks a failed draw. */
   readonly ok: false;
-  /**
-   * Why the draw failed: `exhausted` when the counter has reached `Number.MAX_SAFE_INTEGER`, `invalid-range` when
-   * the requested range is not allowed.
-   */
-  readonly reason: 'exhausted' | 'invalid-range';
+  /** Why the draw failed. */
+  readonly reason: RngFailureReason;
 }
+
+/**
+ * The reasons why a draw fails.
+ */
+export const RNG_FAILURES = Object.freeze({
+  exhausted: 'exhausted',
+  invalidRange: 'invalid-range',
+} as const);
 
 /**
  * Creates a generator with the given seed and a counter of 0.
@@ -69,12 +96,10 @@ export function createRng(seed: string): RngState {
  * not a safe integer from 0 to `Number.MAX_SAFE_INTEGER`.
  */
 export function rngNext(rng: RngState): RngResult {
-  checkSeed(rng.seed);
-  checkCounter(rng.counter);
+  const words = new WordStream(rng);
+  const value = words.next();
 
-  if (rng.counter === MAX_COUNTER) return EXHAUSTED;
-
-  return { ok: true, rng: { counter: rng.counter + 1, seed: rng.seed }, value: valueAt(rng.seed, rng.counter) };
+  return value === undefined ? EXHAUSTED : { ok: true, rng: words.state(), value };
 }
 
 /**
@@ -89,22 +114,41 @@ export function rngNext(rng: RngState): RngResult {
  * @throws {RangeError} If the state is invalid, as in {@link rngNext}.
  */
 export function rngRange(rng: RngState, min: number, max: number): RngResult {
-  checkSeed(rng.seed);
-  checkCounter(rng.counter);
+  const series = rngRangeSeries(rng, min, max, 1);
+
+  if (!series.ok) return series;
+
+  const [value = min] = series.values;
+
+  return { ok: true, rng: series.rng, value };
+}
+
+/**
+ * Draws `count` integers from `min` to `max` inclusive one after another, as `count` calls of {@link rngRange} would,
+ * but reads the seed once and computes each block of eight values once.
+ *
+ * @throws {RangeError} If the state is invalid, as in {@link rngNext}, or `count` is not a safe integer from 0.
+ */
+export function rngRangeSeries(rng: RngState, min: number, max: number, count: number): RngSeriesResult {
+  if (!Number.isSafeInteger(count) || count < 0) throw new RangeError('The number of values must be a whole number.');
+
+  const words = new WordStream(rng);
 
   if (!isAllowedRange(min, max)) return INVALID_RANGE;
 
   const size = max - min + 1;
   const limit = WORD_RANGE - (WORD_RANGE % size);
-  let draw = rngNext(rng);
+  const values: number[] = [];
 
-  while (draw.ok && draw.value >= limit) {
-    draw = rngNext(draw.rng);
+  while (values.length < count) {
+    const word = words.next();
+
+    if (word === undefined) return EXHAUSTED;
+
+    if (word < limit) values.push(min + (word % size));
   }
 
-  if (!draw.ok) return draw;
-
-  return { ok: true, rng: draw.rng, value: min + (draw.value % size) };
+  return { ok: true, rng: words.state(), values };
 }
 
 const SEED = /^[0-9a-f]{64}$/;
@@ -113,21 +157,53 @@ const WORD_RANGE = 0x100000000;
 const VALUES_PER_BLOCK = 8;
 const WORD_BYTES = 4;
 const SEED_BYTES = 32;
-const EXHAUSTED: RngFailure = Object.freeze({ ok: false, reason: 'exhausted' });
-const INVALID_RANGE: RngFailure = Object.freeze({ ok: false, reason: 'invalid-range' });
+const EXHAUSTED: RngFailure = Object.freeze({ ok: false, reason: RNG_FAILURES.exhausted });
+const INVALID_RANGE: RngFailure = Object.freeze({ ok: false, reason: RNG_FAILURES.invalidRange });
 
-function valueAt(seed: string, counter: number): number {
-  const block = Math.floor(counter / VALUES_PER_BLOCK);
-  const message = new Uint8Array(SEED_BYTES + 8);
-  const view = new DataView(message.buffer);
+class WordStream {
+  private readonly seed: string;
 
-  message.set(seedBytes(seed));
-  view.setUint32(SEED_BYTES, Math.floor(block / WORD_RANGE));
-  view.setUint32(SEED_BYTES + WORD_BYTES, block % WORD_RANGE);
+  private readonly message: Uint8Array;
 
-  const digest = new DataView(sha256(message).buffer);
+  private counter: number;
 
-  return digest.getUint32((counter % VALUES_PER_BLOCK) * WORD_BYTES);
+  private block = -1;
+
+  private digest: DataView = new DataView(new ArrayBuffer(0));
+
+  constructor(rng: RngState) {
+    checkSeed(rng.seed);
+    checkCounter(rng.counter);
+    this.seed = rng.seed;
+    this.counter = rng.counter;
+    this.message = new Uint8Array(SEED_BYTES + 8);
+    this.message.set(seedBytes(rng.seed));
+  }
+
+  next(): number | undefined {
+    if (this.counter === MAX_COUNTER) return undefined;
+
+    const block = Math.floor(this.counter / VALUES_PER_BLOCK);
+
+    if (block !== this.block) {
+      const view = new DataView(this.message.buffer);
+
+      view.setUint32(SEED_BYTES, Math.floor(block / WORD_RANGE));
+      view.setUint32(SEED_BYTES + WORD_BYTES, block % WORD_RANGE);
+      this.digest = new DataView(sha256(this.message).buffer);
+      this.block = block;
+    }
+
+    const value = this.digest.getUint32((this.counter % VALUES_PER_BLOCK) * WORD_BYTES);
+
+    this.counter += 1;
+
+    return value;
+  }
+
+  state(): RngState {
+    return { counter: this.counter, seed: this.seed };
+  }
 }
 
 function seedBytes(seed: string): Uint8Array {

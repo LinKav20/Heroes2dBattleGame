@@ -1,8 +1,8 @@
 import type { ContentRegistry } from '../content/index.ts';
 import { applyEvent, migrateEvent, type MigrationResult } from '../events/index.ts';
 import { execute, type ExecuteResult } from '../execution/index.ts';
+import type { KernelExtension } from '../extensions/index.ts';
 import type { BattleEvent, BattleState, Command } from '../model/index.ts';
-import type { KernelExtension } from './extensions.ts';
 import { createKernelRegistries, type KernelRegistries } from './registries.ts';
 
 /**
@@ -27,7 +27,7 @@ export interface Kernel {
    * changes something other than the data of its package.
    * @throws {RangeError} If the event does not fit the state.
    */
-  readonly apply: (state: BattleState, event: BattleEvent) => BattleState;
+  readonly applyEvent: (state: BattleState, event: BattleEvent) => BattleState;
   /**
    * Moves an event from a journal to the current version of its format, saved steps included, or tells why the
    * kernel cannot read it.
@@ -36,9 +36,12 @@ export interface Kernel {
   /**
    * Checks a command and runs it step by step, or rejects it by the rules. The function has no side effects. A step
    * that needs a value from outside makes the kernel open an input request and stop; the answer goes on from there.
+   * If the rules forbid the rest of the command after an answer, the kernel accepts the answer and aborts the command
+   * with `kernel:command-aborted`.
    *
-   * @throws {TypeError} If an extension of the point of assembly is broken, for example a step refers to an unknown
-   * kind of event.
+   * @throws {TypeError} If the content is not the content of the battle, or an extension of the point of assembly
+   * breaks the contract of the kernel, for example a step refers to an unknown kind of event or needs a roll without
+   * dice. A rejection with the code `rule-violation` means only that the rules forbid the command.
    */
   readonly execute: (state: BattleState, command: Command, content: ContentRegistry) => ExecuteResult;
 }
@@ -57,7 +60,7 @@ export function createKernel(options: KernelOptions): Kernel {
   const registries = createKernelRegistries(options.extensions);
 
   return Object.freeze({
-    apply: (state: BattleState, event: BattleEvent) => applyEvent(registries.events, state, event),
+    applyEvent: (state: BattleState, event: BattleEvent) => applyEvent(registries.events, state, event),
     execute: (state: BattleState, command: Command, content: ContentRegistry) =>
       execute(registries, state, command, content),
     migrateEvent: (event: BattleEvent) => migrateEvent(registries.events, registries.steps, event),

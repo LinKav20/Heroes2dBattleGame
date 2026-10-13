@@ -6,8 +6,11 @@ import { runSteps } from './step-runner.ts';
 import { StepStack } from './step-stack.ts';
 
 /**
- * Starts a game command or a state edit: checks that nothing waits for an answer, turns the command into steps and
- * runs them.
+ * Starts a game command or a state edit: checks that the battle goes on and nothing waits for an answer, turns the
+ * command into steps and runs them.
+ *
+ * @throws {TypeError} If the state has saved steps without an open input request, or the kind of command returns an
+ * unknown plan.
  */
 export function startCommand(
   context: ExecutionContext,
@@ -18,6 +21,10 @@ export function startCommand(
 
   if (state.inputRequest !== undefined) return ruleViolation(REJECTION_REASONS.inputPending);
 
+  if (state.steps.length > 0) throw new TypeError('The battle has saved steps, but no input request is open.');
+
+  if (state.phase.kind === 'ended') return ruleViolation(REJECTION_REASONS.battleOver);
+
   if (command.type !== 'extension') return ruleViolation(REJECTION_REASONS.notAvailable);
 
   const kind = context.registries.commands.get(command.name);
@@ -26,11 +33,21 @@ export function startCommand(
 
   const plan = kind.plan({ content: context.content, payload: command.payload, state });
 
-  if (plan.kind === 'reject') return extensionViolation(plan.params);
+  switch (plan.kind) {
+    case 'reject': {
+      return extensionViolation(command.name, plan);
+    }
 
-  const stack = new StepStack(context.registries.steps, state.steps);
+    case 'steps': {
+      const stack = new StepStack(context.registries.steps, []);
 
-  stack.pushDrafts(plan.steps, undefined);
+      if (!stack.pushDrafts(plan.steps, undefined)) return ruleViolation(REJECTION_REASONS.stepLimit);
 
-  return runSteps(context, new EventRecorder(context.registries.events, state), stack, state.steps.length > 0);
+      return runSteps(context, new EventRecorder(context.registries.events, state), stack);
+    }
+
+    default: {
+      throw new TypeError(`The command ${JSON.stringify(command.name)} returned an unknown plan.`);
+    }
+  }
 }

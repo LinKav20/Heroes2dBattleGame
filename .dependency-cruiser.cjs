@@ -5,10 +5,21 @@ const ANY_PACKAGE = `^${FOLDERS}/`;
 const OWN_PACKAGE = `^${FOLDERS}/([^/]+)/`;
 const DETERMINISTIC_PACKAGES = `^(${deterministicPackageDirs().map((dir) => dir.replaceAll('.', '\\.')).join('|')})/`;
 const DETERMINISTIC = `${DETERMINISTIC_PACKAGES}src/`;
+const KERNEL_LAYERS = [
+  'shared', 'crypto', 'json', 'rng', 'names', 'ids', 'content', 'model', 'extensions', 'events', 'execution', 'kernel',
+];
+const KERNEL_LAYER_RULES = KERNEL_LAYERS.slice(0, -1).map((layer, index) => ({
+  name: `kernel-${layer}-imports-only-lower-layers`,
+  comment: 'Folders of the kernel form layers: a folder imports only the folders listed before it.',
+  severity: 'error',
+  from: { path: `^libs/kernel/src/${layer}/`, pathNot: '/tests/' },
+  to: { path: `^libs/kernel/src/(${KERNEL_LAYERS.slice(index + 1).join('|')})/` },
+}));
 
 module.exports = {
   forbidden: [
     { name: 'no-circular', severity: 'error', from: {}, to: { circular: true } },
+    ...KERNEL_LAYER_RULES,
     {
       name: 'no-unresolvable',
       comment: 'Every import must resolve: the package is declared as a dependency and the path exists.',

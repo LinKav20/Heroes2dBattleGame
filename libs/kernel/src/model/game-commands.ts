@@ -207,4 +207,8 @@ export interface ExtensionCommand {
   readonly name: string;
   /** The payload of the command. */
   readonly payload: JsonValue;
+  /** The side that acts, if the command is made for a side; the access policy checks it. */
+  readonly side?: SideId;
+  /** The unit that acts, if the command is made for a unit; the access policy checks it. */
+  readonly unit?: UnitId;
 }

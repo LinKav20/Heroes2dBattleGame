@@ -1,7 +1,7 @@
+import type { EventKind } from '../extensions/index.ts';
 import type { BattleEvent, BattleState } from '../model/index.ts';
 import { isKernelName, prefixOf, type Registry } from '../names/index.ts';
-import { compareCodeUnits } from '../shared/index.ts';
-import type { EventKind } from '../kinds/index.ts';
+import { compareCodeUnits, isRecord } from '../shared/index.ts';
 
 /**
  * Applies an event in the current version of its format and returns the new state; the input does not change.
@@ -18,6 +18,13 @@ export function applyEvent(events: Registry<EventKind>, state: BattleState, even
 
   if (kind === undefined) throw new TypeError(`The kernel has no kind of event ${JSON.stringify(event.type)}.`);
 
+  return applyEventOfKind(kind, state, event);
+}
+
+/**
+ * Applies an event of a known kind, as {@link applyEvent} does after it finds the kind.
+ */
+export function applyEventOfKind(kind: EventKind, state: BattleState, event: BattleEvent): BattleState {
   if (event.version !== kind.version) {
     throw new TypeError(
       `The event ${JSON.stringify(event.type)} has version ${String(event.version)}, but the code reads version `
@@ -36,16 +43,41 @@ const EXTENSION_DATA = 'extensions';
 
 function checkOwnData(name: string, before: BattleState, after: BattleState): void {
   const prefix = `${prefixOf(name)}:`;
-  const outside = changedKeys(before, after).filter((key) => key !== EXTENSION_DATA);
-  const foreign = changedKeys(before.extensions, after.extensions).filter((key) => !key.startsWith(prefix));
-  const changed = [...outside, ...foreign.map((key) => `${EXTENSION_DATA}[${JSON.stringify(key)}]`)];
 
-  if (changed.length > 0) {
-    throw new TypeError(
-      `The event ${JSON.stringify(name)} changed ${changed.join(', ')}, but an event of an extension may change only `
-      + 'the data of its package.',
-    );
+  function own(key: string): boolean {
+    return key.startsWith(prefix);
   }
+
+  if (changesOnly(before, after, isExtensionData) && changesOnly(before.extensions, after.extensions, own)) return;
+
+  const changed = [
+    ...changedKeys(before, after).filter((key) => !isExtensionData(key)),
+    ...changedKeys(before.extensions, after.extensions)
+      .filter((key) => !own(key))
+      .map((key) => `${EXTENSION_DATA}[${JSON.stringify(key)}]`),
+  ];
+
+  throw new TypeError(
+    `The event ${JSON.stringify(name)} changed ${changed.join(', ')}, but an event of an extension may change only `
+    + 'the data of its package.',
+  );
+}
+
+function isExtensionData(key: string): boolean {
+  return key === EXTENSION_DATA;
+}
+
+function changesOnly(before: object, after: object, allowed: (key: string) => boolean): boolean {
+  return sameOutside(before, after, allowed) && sameOutside(after, before, allowed);
+}
+
+function sameOutside(from: object, to: object, allowed: (key: string) => boolean): boolean {
+  const left: unknown = from;
+  const right: unknown = to;
+
+  if (!isRecord(left) || !isRecord(right)) return false;
+
+  return Object.keys(left).every((key) => allowed(key) || (Object.hasOwn(right, key) && left[key] === right[key]));
 }
 
 function changedKeys(before: object, after: object): string[] {

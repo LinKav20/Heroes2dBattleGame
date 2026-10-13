@@ -1,5 +1,5 @@
 import type { ContentRegistry } from '../content/index.ts';
-import type { CommandKind, EventKind, StepKind } from '../kinds/index.ts';
+import type { CommandKind, EventKind, StepKind } from '../extensions/index.ts';
 import type { Registry } from '../names/index.ts';
 
 /**

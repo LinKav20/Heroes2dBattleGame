@@ -37,11 +37,12 @@ export type {
   Predicate,
   ValueExpr,
 } from './expressions.ts';
-export type {
-  MechanicChoice,
-  RandomSource,
-  Rounding,
-  Ruleset,
+export {
+  RANDOM_SOURCES,
+  type MechanicChoice,
+  type RandomSource,
+  type Rounding,
+  type Ruleset,
 } from './ruleset.ts';
 export type {
   OutcomeCondition,

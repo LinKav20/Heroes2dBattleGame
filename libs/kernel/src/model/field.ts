@@ -1,6 +1,6 @@
 import type { CellId, ContentName, VisibleTo } from '../ids/index.ts';
 import type { JsonObject } from '../json/index.ts';
-import type { AppliedEffect } from './units.ts';
+import type { AppliedEffect } from './applied-effects.ts';
 
 /**
  * The field of the battle.

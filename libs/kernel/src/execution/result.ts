@@ -1,11 +1,14 @@
+import type { CommandRejected, StepRejects } from '../extensions/index.ts';
 import type { JsonObject } from '../json/index.ts';
 import {
   REJECTION_CODES,
+  REJECTION_REASONS,
   type BattleState,
   type EventBatch,
   type Rejection,
   type RejectionReason,
 } from '../model/index.ts';
+import { isExtensionName, isKernelName } from '../names/index.ts';
 
 /**
  * The result of a command: its events and the state after them, or the reason the kernel rejected it.
@@ -42,24 +45,38 @@ export function accepted(events: EventBatch, state: BattleState): ExecuteAccepte
 }
 
 /**
- * Returns the rejection of a command that the rules do not allow, with a reason of the kernel and its details.
+ * Returns the rejection of a command that the rules do not allow, with a reason of the kernel and its parameters.
  */
-export function ruleViolation(reason: RejectionReason, details: JsonObject = {}): ExecuteRejected {
-  return rejected({ code: REJECTION_CODES.ruleViolation, params: { ...details, reason } });
+export function ruleViolation(reason: RejectionReason, params: JsonObject = {}): ExecuteRejected {
+  return rejected({ code: REJECTION_CODES.ruleViolation, params, reason });
 }
 
 /**
- * Returns the rejection of a command that the rules do not allow, with the parameters an extension gave.
+ * Returns the rejection of a command that the rules do not allow, with the reason a step or a command of an
+ * extension gave.
+ *
+ * @throws {TypeError} If the reason has no full name with the prefix of a package with extensions.
  */
-export function extensionViolation(params: JsonObject): ExecuteRejected {
-  return rejected({ code: REJECTION_CODES.ruleViolation, params });
+export function extensionViolation(source: string, rejection: CommandRejected | StepRejects): ExecuteRejected {
+  const { params = {}, reason } = rejection;
+
+  if (typeof reason !== 'string' || !isExtensionName(reason) || isKernelName(reason)) {
+    throw new TypeError(
+      `${JSON.stringify(source)} rejects the command with the reason ${JSON.stringify(reason)}, but a reason needs `
+      + 'a full name with the prefix of a package with extensions.',
+    );
+  }
+
+  return rejected({ code: REJECTION_CODES.ruleViolation, params, reason });
 }
 
 /**
  * Returns the rejection of an answer to an input request that is not open.
  */
 export function nothingToAnswer(request: number): ExecuteRejected {
-  return rejected({ code: REJECTION_CODES.nothingToAnswer, params: { request } });
+  const reason = REJECTION_REASONS.noOpenRequest;
+
+  return rejected({ code: REJECTION_CODES.nothingToAnswer, params: { request }, reason });
 }
 
 function rejected(rejection: Rejection): ExecuteRejected {

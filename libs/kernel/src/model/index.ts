@@ -1,3 +1,5 @@
+export type { AbilityUse } from './ability-uses.ts';
+export type { AppliedEffect } from './applied-effects.ts';
 export type {
   ChoiceValue,
   Command,
@@ -35,6 +37,8 @@ export type {
   EffectHolder,
   FieldHolder,
   HazardHolder,
+  SideHolder,
+  UnitHolder,
 } from './holders.ts';
 export type {
   CellTarget,
@@ -46,7 +50,9 @@ export type {
   TargetRequest,
   UnitTarget,
 } from './input-requests.ts';
+export type { InventoryItem } from './inventory.ts';
 export type {
+  ActivePhase,
   BattlePhase,
   DeploymentPhase,
   EndedPhase,
@@ -61,6 +67,7 @@ export {
   type RejectionCode,
   type RejectionReason,
 } from './rejection.ts';
+export type { Side } from './sides.ts';
 export type {
   ApplyEffectEdit,
   MoveUnitEdit,
@@ -80,10 +87,4 @@ export type {
   Step,
   StepInput,
 } from './steps.ts';
-export type {
-  AbilityUse,
-  AppliedEffect,
-  InventoryItem,
-  Side,
-  Unit,
-} from './units.ts';
+export type { Unit } from './units.ts';

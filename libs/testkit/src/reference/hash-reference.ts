@@ -101,10 +101,16 @@ export const HASH_REFERENCE: readonly HashReference[] = [
       + '"tags":{"Debuff.Poison":2}}]}',
     hash: 'db10c9c96331980abd84a100809ebfb2bb475e9a73e24f3cfa6cb540d131c12c',
   },
+  {
+    json: `${'['.repeat(256)}${']'.repeat(256)}`,
+    canonical: `${'['.repeat(256)}${']'.repeat(256)}`,
+    hash: 'cf23efc1fe17f7bb3ff36c42c657aa30f490f7a545e05839ceabed7b2b72a598',
+  },
 ];
 
 /**
- * JSON inputs that canonical JSON rejects: fractions, unsafe integers, an infinite number and lone surrogates.
+ * JSON inputs that canonical JSON rejects: fractions, unsafe integers, an infinite number, lone surrogates and
+ * nesting deeper than 256 levels.
  */
 export const HASH_REJECTED: readonly string[] = [
   '1.5',
@@ -114,4 +120,5 @@ export const HASH_REJECTED: readonly string[] = [
   '"\\ud800"',
   '{"\\udc00":1}',
   '[1,[2.5]]',
+  `${'['.repeat(257)}${']'.repeat(257)}`,
 ];

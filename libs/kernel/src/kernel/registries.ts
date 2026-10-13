@@ -1,15 +1,18 @@
 import { KERNEL_EVENT_KINDS } from '../events/index.ts';
-import type { CommandKind, EventKind, StepKind } from '../kinds/index.ts';
-import { createRegistry, type Registry } from '../names/index.ts';
+import {
+  KERNEL_EXTENSION_KINDS,
+  type CommandKind,
+  type ConditionExtension,
+  type EventKind,
+  type KernelExtensionKind,
+  type MechanicExtension,
+  type OperationExtension,
+  type RegisteredExtension,
+  type StepKind,
+  type TopologyExtension,
+} from '../extensions/index.ts';
+import { createRegistry, indexRegistry, type Registry } from '../names/index.ts';
 import { extensionProblems } from './extension-checks.ts';
-import type {
-  ConditionExtension,
-  KernelExtension,
-  KernelExtensionKind,
-  MechanicExtension,
-  OperationExtension,
-  TopologyExtension,
-} from './extensions.ts';
 
 /**
  * The kernel registries, one per kind of extension.
@@ -33,16 +36,16 @@ export interface KernelRegistries {
 
 /**
  * Checks the extensions of the point of assembly, adds the extensions of the kernel and builds one registry per kind.
+ * The full name and the short name of an extension are unique across all registries.
  *
  * @throws {TypeError} If any extension is invalid or clashes with another one. The message lists every problem found.
  */
-export function createKernelRegistries(extensions: readonly KernelExtension[]): KernelRegistries {
-  const builtIn = new Set<KernelExtension>(KERNEL_EVENT_KINDS);
-  const all = createRegistry<KernelExtension>('kernel', [...extensions, ...KERNEL_EVENT_KINDS], {
+export function createKernelRegistries(extensions: readonly RegisteredExtension[]): KernelRegistries {
+  const builtIn = new Set<RegisteredExtension>(KERNEL_EVENT_KINDS);
+  const all = createRegistry<RegisteredExtension>('kernel', [...extensions, ...KERNEL_EVENT_KINDS], {
     check: (extension) => (builtIn.has(extension) ? [] : extensionProblems(extension)),
   });
-
-  return Object.freeze({
+  const registries: KernelRegistries = {
     commands: registryOf(all, 'command'),
     conditions: registryOf(all, 'condition'),
     events: registryOf(all, 'event'),
@@ -50,16 +53,34 @@ export function createKernelRegistries(extensions: readonly KernelExtension[]): 
     operations: registryOf(all, 'operation'),
     steps: registryOf(all, 'step'),
     topologies: registryOf(all, 'topology'),
-  });
-}
-
-function registryOf<Kind extends KernelExtensionKind>(
-  all: Registry<KernelExtension>,
-  kind: Kind,
-): Registry<Extract<KernelExtension, { readonly kind: Kind }>> {
-  const extensions = all.extensions.filter(
-    (extension): extension is Extract<KernelExtension, { readonly kind: Kind }> => extension.kind === kind,
+  };
+  const registered = KERNEL_EXTENSION_KINDS.reduce(
+    (sum, kind) => sum + registries[REGISTRY_NAMES[kind]].extensions.length,
+    0,
   );
 
-  return createRegistry(kind, extensions);
+  if (registered !== all.extensions.length) throw new TypeError('A kind of extension has no registry.');
+
+  return Object.freeze(registries);
+}
+
+const REGISTRY_NAMES: Readonly<Record<KernelExtensionKind, keyof KernelRegistries>> = {
+  command: 'commands',
+  condition: 'conditions',
+  event: 'events',
+  mechanic: 'mechanics',
+  operation: 'operations',
+  step: 'steps',
+  topology: 'topologies',
+};
+
+function registryOf<Kind extends KernelExtensionKind>(
+  all: Registry<RegisteredExtension>,
+  kind: Kind,
+): Registry<Extract<RegisteredExtension, { readonly kind: Kind }>> {
+  const extensions = all.extensions.filter(
+    (extension): extension is Extract<RegisteredExtension, { readonly kind: Kind }> => extension.kind === kind,
+  );
+
+  return indexRegistry(kind, extensions);
 }

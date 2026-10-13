@@ -5,8 +5,9 @@ import type { RngState } from '../rng/index.ts';
 import type { Field } from './field.ts';
 import type { InputRequest } from './input-requests.ts';
 import type { BattlePhase } from './phases.ts';
+import type { Side } from './sides.ts';
 import type { Step } from './steps.ts';
-import type { Side, Unit } from './units.ts';
+import type { Unit } from './units.ts';
 
 /**
  * Everything known about a battle now, as plain JSON. Numbers are safe integers. The state refers to definitions of
@@ -37,7 +38,10 @@ export interface BattleState {
   readonly variables: Readonly<Record<string, ScenarioValue>>;
   /** The state of the scenario triggers, by local name. */
   readonly triggers: Readonly<Record<string, TriggerState>>;
-  /** The steps of the current command that are not done yet; the last one runs next. */
+  /**
+   * The steps of the current command that are not done yet, while an input request is open; the last one runs next.
+   * Without an open request the list is empty.
+   */
   readonly steps: readonly Step[];
   /** The open input request, if the kernel waits for data from outside. */
   readonly inputRequest?: InputRequest;
@@ -46,21 +50,28 @@ export interface BattleState {
   /** The random number generator, if the ruleset has random values. */
   readonly rng?: RngState;
   /**
-   * The next number the kernel gives to a new applied effect, item, input request or summoned unit. One counter
-   * serves the whole battle.
+   * The number the kernel gives to the next applied effect, item or summoned unit. One counter serves all of them, so
+   * a step that gives several such events numbers them in order from this value.
    */
   readonly nextId: number;
+  /**
+   * The number the kernel gives to the next input request. Requests have their own counter, so the numbers of
+   * effects, items and units do not depend on whether a value came from the generator or from outside.
+   */
+  readonly nextRequestId: number;
 }
 
 /**
- * The version of the state format: the version of the kernel part and the version of the data of every extension
- * that keeps data in the state.
+ * The version of the state format: the version of the kernel part, the version of the data of every extension that
+ * keeps data in the state, and the version of every kind of step, because the state keeps the saved steps.
  */
 export interface StateFormatVersion {
   /** The version of the state format of the kernel. */
   readonly kernel: number;
   /** The version of the data of every extension, by the full name of the extension. */
   readonly extensions: Readonly<Record<string, number>>;
+  /** The version of every kind of step, by the full name of the kind. */
+  readonly steps: Readonly<Record<string, number>>;
 }
 
 /**

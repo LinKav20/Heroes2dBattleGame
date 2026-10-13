@@ -1,7 +1,12 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import { FROST_EVENT, STRIKE_STEP } from '../../events/tests/helpers.ts';
-import type { CommandKind } from '../../kinds/index.ts';
-import { createKernel, type KERNEL_EXTENSION_KINDS, type KernelExtension, type KernelExtensionKind } from '../index.ts';
+import type {
+  CommandKind,
+  KERNEL_EXTENSION_KINDS,
+  KernelExtension,
+  KernelExtensionKind,
+} from '../../extensions/index.ts';
+import { FROST_EVENT, STRIKE_STEP } from '../../tests/fixtures.ts';
+import { createKernel } from '../index.ts';
 
 describe('createKernel', () => {
   it('lists exactly the kinds of the union of extensions', () => {
@@ -52,7 +57,10 @@ describe('createKernel', () => {
       { ...FROST_EVENT, name: 'rules-stdlib:damage' },
     ];
 
-    expect(() => createKernel({ extensions: clash })).toThrow('the name "rules-stdlib:damage"');
+    expect(() => createKernel({ extensions: clash })).toThrow(
+      'the name "rules-stdlib:damage" of the event "rules-stdlib:damage" is taken by the operation '
+      + '"rules-stdlib:damage"',
+    );
   });
 
   it('rejects one short name in two registries', () => {
@@ -95,8 +103,14 @@ describe('createKernel', () => {
     { kind: { ...STRIKE_STEP, run: undefined }, problem: 'needs a function run' },
     { kind: { ...ORDER, plan: undefined }, problem: 'needs a function plan' },
     { kind: { ...ORDER, schema: undefined }, problem: 'needs a JSON Schema of its payload as an object' },
+    {
+      kind: { ...STRIKE_STEP, version: Number.MAX_SAFE_INTEGER },
+      problem: `needs exactly one migration from every version below ${String(Number.MAX_SAFE_INTEGER)}`,
+    },
   ])('rejects a kind of event or step that $problem', ({ kind, problem }) => {
-    expect(() => createKernel({ extensions: [kind as KernelExtension] })).toThrow(problem);
+    const extensions: unknown = [kind];
+
+    expect(() => createKernel({ extensions: extensions as KernelExtension[] })).toThrow(problem);
   });
 
   it('accepts a valid kind of command', () => {

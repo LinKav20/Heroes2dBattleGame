@@ -1,6 +1,6 @@
 import type { ContentName, Tag } from '../ids/index.ts';
-import type { Ability, Battlefield, Creature, Item, Obstacle } from './definitions.ts';
 import type { Attribute } from './attributes.ts';
+import type { Ability, Battlefield, Creature, Item, Obstacle } from './definitions.ts';
 import type { Effect } from './effects.ts';
 import type { Ruleset } from './ruleset.ts';
 import type { Scenario } from './scenario.ts';
