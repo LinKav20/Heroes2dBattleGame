@@ -25,7 +25,11 @@ export interface Unit {
   readonly resources: Readonly<Record<ContentName, number>>;
   /** The effects on the unit in the order they were applied. */
   readonly effects: readonly AppliedEffect[];
-  /** How many sources give the unit each tag. */
+  /**
+   * The tags that operations gave the unit through `kernel:tags-changed`, with how many sources gave each. The full
+   * tags of the unit also include the tags of its creature and of the effects acting on it; the kernel calculates
+   * them.
+   */
   readonly tags: Readonly<Record<Tag, number>>;
   /**
    * The flags of the unit by full name, sorted, for example `rules-stdlib:waited`. Unlike tags, flags have no

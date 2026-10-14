@@ -3,25 +3,16 @@ import type { VisibleTo } from '../../ids/index.ts';
 import type { BattleEvent } from '../../model/index.ts';
 import { compareCodeUnits } from '../../shared/index.ts';
 import type { KernelEventAppliers } from './appliers.ts';
-import { BATTLE_EVENTS, type BattleEventPayloads } from './battle.ts';
-import { EFFECT_EVENTS, type EffectEventPayloads } from './effects.ts';
-import { EXECUTION_EVENTS, type ExecutionEventPayloads } from './execution.ts';
-import { FIELD_EVENTS, type FieldEventPayloads } from './field.ts';
-import { INVENTORY_EVENTS, type InventoryEventPayloads } from './inventory.ts';
+import { BATTLE_EVENTS } from './battle.ts';
+import { EFFECT_EVENTS } from './effects.ts';
+import { EXECUTION_EVENTS } from './execution.ts';
+import { FIELD_EVENTS } from './field.ts';
+import { INVENTORY_EVENTS } from './inventory.ts';
 import { KERNEL_EVENTS, type KernelEventType } from './names.ts';
-import { SCENARIO_EVENTS, type ScenarioEventPayloads } from './scenario.ts';
-import { UNIT_EVENTS, type UnitEventPayloads } from './units.ts';
-
-/**
- * The payload of every kind of event of the kernel, by the full name of the kind.
- */
-export type KernelEventPayloads = BattleEventPayloads
-  & EffectEventPayloads
-  & ExecutionEventPayloads
-  & FieldEventPayloads
-  & InventoryEventPayloads
-  & ScenarioEventPayloads
-  & UnitEventPayloads;
+import type { KernelEventPayloads } from './payloads.ts';
+import { SCENARIO_EVENTS } from './scenario.ts';
+import { KERNEL_EVENT_TARGETS, type KernelEventTargets } from './targets.ts';
+import { UNIT_EVENTS } from './units.ts';
 
 /**
  * An event of the kernel of the given kind, or of any kind of the kernel.
@@ -29,11 +20,6 @@ export type KernelEventPayloads = BattleEventPayloads
 export type KernelEvent<Type extends KernelEventType = KernelEventType> = {
   readonly [Kind in Type]: BattleEvent<KernelEventPayloads[Kind]> & { readonly type: Kind };
 }[Type];
-
-/**
- * The current version of the format of every kind of event of the kernel.
- */
-export const KERNEL_EVENT_VERSION = 1;
 
 /**
  * All kinds of events of the kernel, sorted by name. The kernel registers them itself under the prefix `kernel`; they
@@ -47,7 +33,7 @@ export const KERNEL_EVENT_KINDS: readonly EventKind[] = kernelEventKinds({
   ...INVENTORY_EVENTS,
   ...SCENARIO_EVENTS,
   ...UNIT_EVENTS,
-});
+}, KERNEL_EVENT_TARGETS);
 
 /**
  * Tells whether an event is an event of the kernel in the current version of its format, of the given kind if one is
@@ -73,13 +59,18 @@ export function kernelEventDraft<Type extends KernelEventType>(
 
 const VERSIONS = new Map(KERNEL_EVENT_KINDS.map(({ name, version }) => [name, version]));
 
-function kernelEventKinds(appliers: KernelEventAppliers<KernelEventPayloads>): readonly EventKind[] {
+function kernelEventKinds(
+  appliers: KernelEventAppliers<KernelEventPayloads>,
+  targets: KernelEventTargets,
+): readonly EventKind[] {
   const kinds = Object.values(KERNEL_EVENTS)
     .toSorted(compareCodeUnits)
     .map((type): EventKind => {
       const apply: EventKind['apply'] = appliers[type];
+      const target: EventKind['target'] = targets[type];
+      const kind: EventKind = { apply, kind: 'event', migrations: [], name: type, version: 1 };
 
-      return Object.freeze({ apply, kind: 'event', migrations: [], name: type, version: KERNEL_EVENT_VERSION });
+      return Object.freeze(target === undefined ? kind : { ...kind, target });
     });
 
   return Object.freeze(kinds);

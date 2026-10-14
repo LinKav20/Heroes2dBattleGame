@@ -4,6 +4,7 @@ import type { RollNeed, StepNeed } from '../extensions/index.ts';
 import { VISIBLE_TO_ALL, VISIBLE_TO_NONE } from '../ids/index.ts';
 import { REJECTION_REASONS, type Step } from '../model/index.ts';
 import { RNG_FAILURES, rngRangeSeries } from '../rng/index.ts';
+import type { ExecutionContext } from './context.ts';
 import type { EventRecorder } from './event-recorder.ts';
 import { ruleViolation, type ExecuteRejected } from './result.ts';
 import { withInput, type StepStack } from './step-stack.ts';
@@ -18,16 +19,28 @@ export type NeedOutcome = 'continue' | 'paused' | ExecuteRejected;
 
 /**
  * Gets the value a step needs. A roll from the generator comes at once; any other value makes the kernel open an input
- * request and save the remaining steps.
+ * request and save the remaining steps. A roll from the generator changes only its counter, so the values of
+ * attributes and tags calculated before the roll stay valid.
  *
  * @throws {TypeError} If the need cannot be met, or the ruleset rolls the value with the generator, but the battle
  * has none.
  */
-export function resolveNeed(recorder: EventRecorder, stack: StepStack, step: Step, need: StepNeed): NeedOutcome {
+export function resolveNeed(
+  context: ExecutionContext,
+  recorder: EventRecorder,
+  stack: StepStack,
+  step: Step,
+  need: StepNeed,
+): NeedOutcome {
   checkNeed(step.type, need);
 
   if (need.kind === 'roll' && recorder.state.ruleset.randomSources[need.name] !== RANDOM_SOURCES.external) {
-    return rollWithGenerator(recorder, stack, step, need);
+    const before = recorder.state;
+    const outcome = rollWithGenerator(recorder, stack, step, need);
+
+    context.attributes.carry(context.content, before, recorder.state);
+
+    return outcome;
   }
 
   const request = requestFor(need, recorder.state.nextRequestId);
@@ -59,7 +72,7 @@ function rollWithGenerator(recorder: EventRecorder, stack: StepStack, step: Step
   const payload = { counter: roll.rng.counter, dice, name: need.name, result, source: RANDOM_SOURCES.generator };
 
   recorder.kernel(KERNEL_EVENTS.rollMade, payload, need.visibleTo ?? VISIBLE_TO_ALL, step.cause);
-  stack.push(withInput(step, { dice, kind: 'roll', result }));
+  stack.push(withInput(step, { dice, kind: 'roll', name: need.name, result }));
 
   return 'continue';
 }

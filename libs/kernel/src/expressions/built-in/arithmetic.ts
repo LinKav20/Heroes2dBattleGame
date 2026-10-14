@@ -1,8 +1,8 @@
-import type { ExpressionNode } from '../../content/index.ts';
+import { contentError, type ExpressionNode } from '../../content/index.ts';
 import type { ExpressionContext, FormulaExtension } from '../../extensions/index.ts';
 import { difference, percentOf, product, quotient, sum } from '../arithmetic.ts';
-import { contentError, formulaParam, isFormula, listParam } from '../params.ts';
-import { checked, defineFormula, valuesOf } from './define.ts';
+import { formulaParam, isFormula, listParam } from '../params.ts';
+import { defineFormula, inSafeRange, valuesOf } from './define.ts';
 import { KERNEL_FORMULAS } from './names.ts';
 import { FORMULA_SCHEMA, listSchema } from './schema.ts';
 
@@ -27,10 +27,10 @@ export const ARITHMETIC_KINDS: readonly FormulaExtension[] = [
 ];
 
 function ofList(name: string, combine: (values: readonly number[]) => number | undefined): FormulaExtension {
-  return defineFormula(name, { values: listSchema(FORMULA_SCHEMA) }, (node, context) => {
+  return defineFormula({ name, params: { values: listSchema(FORMULA_SCHEMA) } }, (node, context) => {
     const values = valuesOf(listParam(node, 'values', isFormula), context);
 
-    return values.kind === 'value' ? checked(node, combine(values.value)) : values;
+    return values.kind === 'value' ? inSafeRange(node, combine(values.value)) : values;
   });
 }
 
@@ -39,13 +39,15 @@ function ofPair(
   [first, second]: readonly [string, string],
   combine: (left: number, right: number, node: ExpressionNode, context: ExpressionContext) => number | undefined,
 ): FormulaExtension {
-  return defineFormula(name, { [first]: FORMULA_SCHEMA, [second]: FORMULA_SCHEMA }, (node, context) => {
+  const params = { [first]: FORMULA_SCHEMA, [second]: FORMULA_SCHEMA };
+
+  return defineFormula({ name, params }, (node, context) => {
     const values = valuesOf([formulaParam(node, first), formulaParam(node, second)], context);
 
     if (values.kind !== 'value') return values;
 
     const [left = 0, right = 0] = values.value;
 
-    return checked(node, combine(left, right, node, context));
+    return inSafeRange(node, combine(left, right, node, context));
   });
 }

@@ -1,12 +1,13 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
+import { ContentError } from '../../content/index.ts';
 import { RUNNER_EVENTS } from '../../events/index.ts';
 import { MAX_DICE_PER_ROLL, MAX_DIE_SIDES } from '../../expressions/index.ts';
-import type { StepKind } from '../../extensions/index.ts';
+import type { FormulaExtension, StepKind } from '../../extensions/index.ts';
 import { canonicalJson } from '../../json/index.ts';
 import { createKernel } from '../../kernel/index.ts';
-import type { BattleState, Command, InputValue, Rejection } from '../../model/index.ts';
-import { CONTENT, deepFreeze } from '../../tests/fixtures.ts';
+import type { AppliedEffect, BattleState, Command, InputValue, Rejection, Unit } from '../../model/index.ts';
+import { accepted, CONTENT, deepFreeze, effect, unitOf } from '../../tests/fixtures.ts';
 import {
   MAX_STACK_DEPTH,
   MAX_STEPS_PER_COMMAND,
@@ -21,10 +22,10 @@ import {
   DUEL_EXTENSIONS,
   duelState,
   KERNEL,
+  LUCK,
   sequence,
   strike,
   TRAP,
-  unitOf,
 } from './helpers.ts';
 
 describe('execute', () => {
@@ -225,7 +226,7 @@ describe('execute', () => {
     const value: unknown = { dice: [1, 2], kind: 'roll', note: 'extra' };
     const again = accepted(KERNEL.execute(paused, answer(8, value as InputValue), CONTENT));
 
-    expect(again.state.steps[0]?.inputs).toStrictEqual([{ dice: [1, 2], kind: 'roll', result: 3 }]);
+    expect(again.state.steps[0]?.inputs).toStrictEqual([{ dice: [1, 2], kind: 'roll', name: LUCK, result: 3 }]);
   });
 
   it.each([
@@ -437,6 +438,37 @@ describe('formulas in steps', () => {
     expect(() => KERNEL.execute(duelState('generator'), compute({ left: 1, right: 0, type: 'kernel:divide' }), CONTENT))
       .toThrow('divides by 0');
   });
+
+  it('keep the values of attributes across rolls of the generator, which change only its counter', () => {
+    const counter = { evaluations: 0 };
+    const counting: FormulaExtension = {
+      evaluate: () => {
+        counter.evaluations += 1;
+
+        return { kind: 'value', value: 1 };
+      },
+      kind: 'formula',
+      name: 'acme-duel:count',
+      schema: { type: 'object' },
+    };
+    const kernel = createKernel({ extensions: [...DUEL_EXTENSIONS, counting] });
+    const counted = effect('acme-duel:counted', {
+      duration: { kind: 'battle' },
+      modifiers: [{ attribute: 'core:speed', operation: 'add', value: { type: 'acme-duel:count' } }],
+    });
+    const content = { ...CONTENT, effects: { ...CONTENT.effects, 'acme-duel:counted': counted } };
+    const base = duelState('generator');
+    const state = {
+      ...base,
+      units: base.units.map((unit) => ({ ...unit, effects: [countedOf(unit)] })),
+    };
+    const speed = { attribute: 'core:speed', of: 'self', type: 'kernel:attribute' };
+    const formula = { type: 'kernel:add', values: [speed, twoDice, twoDice, twoDice, speed] };
+    const { events } = accepted(kernel.execute(state, compute(formula), content));
+
+    expect(events.filter(({ type }) => type === 'kernel:roll-made')).toHaveLength(3);
+    expect(counter.evaluations).toBe(1);
+  });
 });
 
 describe('the end of the battle', () => {
@@ -531,8 +563,24 @@ describe('errors of extensions', () => {
       command: { kind: 'game', name: 'acme-duel:mumble', payload: {}, type: 'extension' } as const,
       error: '"acme-duel:mumble" rejects the command with the reason "refused"',
     },
+    { command: sequence('acme-duel:pretend'), error: 'with the reason "kernel:battle-over"' },
+    { command: sequence('acme-duel:silent'), error: 'with the reason 7' },
+    {
+      command: { kind: 'game', name: 'acme-duel:overflow', payload: {}, type: 'extension' } as const,
+      error: '"acme-duel:overflow" rejects the command with the reason "kernel:out-of-range"',
+    },
+    { command: sequence('acme-duel:haunt'), error: 'which does not fit the state: There is no unit "ghosts-1".' },
   ])('throw when a step or a plan breaks the contract: $error', ({ command, error }) => {
     expect(() => KERNEL.execute(duelState('generator'), command, CONTENT)).toThrow(error);
+    expect(thrown(() => KERNEL.execute(duelState('generator'), command, CONTENT))).toMatchObject({ name: 'TypeError' });
+  });
+
+  it('tell an error of content by its name and the place it names', () => {
+    const error = new ContentError('The node is wrong.', { definition: 'core:poison', node: 'kernel:dice' });
+
+    expect(error).toBeInstanceOf(TypeError);
+    expect(error).toMatchObject({ definition: 'core:poison', message: 'The node is wrong.', name: 'ContentError' });
+    expect(new ContentError('Plain.')).not.toHaveProperty('node');
   });
 
   it('throw when the ruleset rolls with a generator that the battle does not have', () => {
@@ -589,12 +637,6 @@ describe('errors of extensions', () => {
 
 const INVALID_ANSWER: ExecuteResult = { ok: false, rejection: rule('kernel:invalid-answer', { request: 8 }) };
 
-function accepted(result: ExecuteResult): ExecuteAccepted {
-  if (!result.ok) throw new Error(`Rejected: ${JSON.stringify(result.rejection)}`);
-
-  return result;
-}
-
 function answerRoll(request: number, dice: readonly number[]): Command {
   return { kind: 'answer', request, value: { dice, kind: 'roll' } };
 }
@@ -629,4 +671,20 @@ function withStep(replacement: StepKind): ReturnType<typeof createKernel> {
   return createKernel({
     extensions: [...DUEL_EXTENSIONS.filter(({ name }) => name !== replacement.name), replacement],
   });
+}
+
+function countedOf(unit: Unit): AppliedEffect {
+  const id = unit.id === 'archers-1' ? 50 : 51;
+
+  return { active: true, effect: 'acme-duel:counted', id, params: {}, stacks: 1, visibleTo: 'all' };
+}
+
+function thrown(run: () => unknown): unknown {
+  try {
+    run();
+  } catch (error) {
+    return error;
+  }
+
+  return undefined;
 }

@@ -121,6 +121,45 @@ describe('migrateEvent', () => {
     expect(KERNEL.migrateEvent(saved)).toStrictEqual({ name: type, ok: false, reason, version });
   });
 
+  it('migrates the events that saved reactions and operations hold', () => {
+    const old = { ...event('acme-frost:targeted', { unit: 'archers-1' }), id: 3 };
+    const reaction = { applied: 4, effect: 'acme:watch', holder: { kind: 'field' }, index: 0, kind: 'trigger' };
+    const saved = event(KERNEL_EVENTS.stepsSaved, {
+      steps: [
+        {
+          params: { batches: [{ event: old, reactions: [reaction] }], next: [0, 0] },
+          type: 'kernel:reaction',
+          version: 1,
+        },
+        { params: { event: old, op: { type: 'acme:op' }, subjects: {} }, type: 'kernel:operation', version: 1 },
+        { params: { op: { type: 'acme:op' }, subjects: {} }, type: 'kernel:operation', version: 1 },
+      ],
+    });
+    const result = KERNEL.migrateEvent(saved);
+    const current = { ...old, payload: { target: 'archers-1' }, version: 3 };
+
+    expect(result).toMatchObject({
+      event: {
+        payload: {
+          steps: [
+            { params: { batches: [{ event: current }] } },
+            { params: { event: current } },
+            { params: { op: { type: 'acme:op' } } },
+          ],
+        },
+      },
+      ok: true,
+    });
+
+    expect(KERNEL.migrateEvent(event(KERNEL_EVENTS.stepsSaved, {
+      steps: [{
+        params: { event: { ...old, type: 'acme:lost' }, op: {}, subjects: {} },
+        type: 'kernel:operation',
+        version: 1,
+      }],
+    }))).toStrictEqual({ name: 'acme:lost', ok: false, reason: MIGRATION_FAILURES.unknownEvent, version: 1 });
+  });
+
   it('rejects a step migration that returns no object', () => {
     const broken = createKernel({
       extensions: [{ ...STRIKE_STEP, migrations: [{ from: 1, migrate: () => [] }], name: 'acme-frost:broken' }],

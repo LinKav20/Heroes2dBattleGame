@@ -11,8 +11,11 @@ export type {
   EvaluatedValue,
   Evaluation,
   ExpressionContext,
+  ExpressionReader,
   Expressions,
+  ExpressionScope,
   FormulaExtension,
+  NeedsRoll,
   SubjectRole,
   Subjects,
 } from './expressions.ts';

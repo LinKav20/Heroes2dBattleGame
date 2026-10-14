@@ -1,3 +1,4 @@
+import type { ContentName } from '../ids/index.ts';
 import type { JsonObject } from '../json/index.ts';
 import type { ChoiceValue, TargetValue } from './commands.ts';
 
@@ -35,6 +36,8 @@ export type StepInput = ChoiceValue | RollInput | TargetValue;
 export interface RollInput {
   /** The kind of value. */
   readonly kind: 'roll';
+  /** The full name of the random value the roll is for. */
+  readonly name: ContentName;
   /** The value of every die. */
   readonly dice: readonly number[];
   /** The sum of the dice. */

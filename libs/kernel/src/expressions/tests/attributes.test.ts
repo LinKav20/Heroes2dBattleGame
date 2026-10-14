@@ -1,11 +1,18 @@
+import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import type { ContentRegistry, Effect, ExpressionNode, Modifier, ValueExpr } from '../../content/index.ts';
+import { ContentError, type ContentRegistry, type Effect, type Modifier, type ValueExpr } from '../../content/index.ts';
 import type { FormulaExtension } from '../../extensions/index.ts';
 import { createKernel, type Kernel } from '../../kernel/index.ts';
 import type { AppliedEffect, BattleState } from '../../model/index.ts';
-import { CONTENT, FROZEN_STATE } from '../../tests/fixtures.ts';
-import { applyModifiers, type ModifierValue } from '../attributes/calculation.ts';
-import { AttributeCache, createExpressions, KERNEL_CONDITIONS, KERNEL_FORMULAS } from '../index.ts';
+import { applied, CONTENT, effect, FROZEN_STATE, node } from '../../tests/fixtures.ts';
+import {
+  applyModifiers,
+  AttributeCache,
+  createExpressions,
+  KERNEL_CONDITIONS,
+  KERNEL_FORMULAS,
+  type ModifierValue,
+} from '../index.ts';
 
 describe('applyModifiers', () => {
   it('applies the modifiers in the order of the rules and rounds every percent and multiplier', () => {
@@ -79,10 +86,72 @@ describe('applyModifiers', () => {
     expect(applyModifiers(-5, [], { min: 0 }, 'down')).toBe(0);
   });
 
+  it('brings the value to 0, not below, when percents add up to less than -100', () => {
+    const weak = [modifier('percent', -60), modifier('percent', -60), modifier('final-add', 5)];
+
+    expect(applyModifiers(10, weak, {}, 'down')).toBe(5);
+
+    expect(applyModifiers(10, [modifier('base-percent', -150)], {}, 'down')).toBe(0);
+  });
+
+  it('adds bonuses in any order to the same sum, and a neutral percent changes nothing', () => {
+    const integer = fc.integer({ max: 1_000_000, min: -1_000_000 });
+
+    fc.assert(fc.property(integer, fc.array(integer, { maxLength: 8 }), (base, amounts) => {
+      const adds = amounts.map((amount, order) => modifier('add', amount, { order }));
+      const total = amounts.reduce((sumOfAmounts, amount) => sumOfAmounts + amount, base);
+
+      expect(applyModifiers(base, adds, {}, 'down')).toBe(total);
+      expect(applyModifiers(base, adds.toReversed(), {}, 'down')).toBe(total);
+      expect(applyModifiers(base, [...adds, modifier('percent', 0), modifier('multiply', 100)], {}, 'up')).toBe(total);
+    }));
+  });
+
+  it('never goes beyond the bounds of the attribute', () => {
+    const integer = fc.integer({ max: 10_000, min: -10_000 });
+
+    fc.assert(fc.property(integer, integer, integer, integer, (base, amount, low, span) => {
+      const bounds = { max: low + Math.abs(span), min: low };
+      const result = applyModifiers(base, [modifier('add', amount), modifier('percent', amount)], bounds, 'nearest');
+
+      expect(result).toBeGreaterThanOrEqual(bounds.min);
+      expect(result).toBeLessThanOrEqual(bounds.max);
+    }));
+  });
+
   it('gives nothing when a value leaves the safe integers', () => {
     expect(applyModifiers(Number.MAX_SAFE_INTEGER, [modifier('add', 1)], {}, 'down')).toBeUndefined();
     expect(applyModifiers(2 ** 52, [modifier('multiply', 300)], {}, 'down')).toBeUndefined();
     expect(applyModifiers(1, [modifier('add', Number.MAX_SAFE_INTEGER, { stacks: 2 })], {}, 'down')).toBeUndefined();
+  });
+});
+
+describe('tags of units', () => {
+  it('come from the state, the creature and the effects acting on the unit while they are active', () => {
+    const state = {
+      ...withEffects({
+        battlefield: 'demo:meadow',
+        pikemen: [applied(10, 'acme:brave'), applied(11, 'acme:sleepy')],
+        sides: { defender: [applied(20, 'acme:banner')] },
+      }),
+      units: FROZEN_STATE.units.map((unit) => (unit.id === 'pikemen-1'
+        ? { ...unit, effects: [applied(10, 'acme:brave'), applied(11, 'acme:sleepy')], tags: { 'Mark.Chosen': 1 } }
+        : unit)),
+    };
+
+    expect(tags(state, 'pikemen-1')).toStrictEqual({
+      'Creature.Human': 1,
+      'Immunity.Mind': 2,
+      'Mark.Chosen': 1,
+      'Terrain.Meadow': 1,
+    });
+
+    expect(tags(state, 'archers-1')).toStrictEqual({ 'Creature.Human': 1, 'Debuff.Poison': 1, 'Terrain.Meadow': 1 });
+  });
+
+  it('treat tags that depend on themselves as an error of the content', () => {
+    expect(() => tags(withEffects({ pikemen: [applied(10, 'acme:proud')] }), 'pikemen-1'))
+      .toThrow('The tags of the unit "pikemen-1" depend on themselves.');
   });
 });
 
@@ -138,6 +207,30 @@ describe('attributes of units', () => {
     });
   });
 
+  it('evaluate the condition of activity only of the effects that change the attribute', () => {
+    const state = withEffects({ pikemen: [applied(10, 'acme:desperate')] });
+
+    expect(speed(state, 'pikemen-1')).toBe(6);
+    expect(value(state, node(KERNEL_FORMULAS.attribute, { attribute: 'core:health', of: 'self' }))).toBe(10);
+    expect(speed({ ...state, round: 9 }, 'pikemen-1')).toBe(6 + 5);
+  });
+
+  it('treat wrong numbers of an attribute as errors of the content', () => {
+    function withSpeed(attribute: ContentRegistry['attributes'][string], base = 4): ContentRegistry {
+      const pikeman = { ...pikemanOf(TEST_CONTENT), attributes: { 'core:speed': base } };
+
+      return {
+        ...TEST_CONTENT,
+        attributes: { ...TEST_CONTENT.attributes, 'core:speed': attribute },
+        creatures: { ...TEST_CONTENT.creatures, 'demo:pikeman': pikeman },
+      };
+    }
+
+    expect(() => speedWith(withSpeed({ name: 'core:speed' }, 1.5))).toThrow(ContentError);
+    expect(() => speedWith(withSpeed({ max: 2.5, name: 'core:speed' }))).toThrow('not a safe integer');
+    expect(() => speedWith(withSpeed({ max: 1, min: 3, name: 'core:speed' }))).toThrow('lowest bound above');
+  });
+
   it('treat an attribute that depends on itself and a roll in a modifier as errors of the content', () => {
     expect(() => speed(withEffects({ pikemen: [applied(10, 'acme:loop')] }), 'pikemen-1'))
       .toThrow('The attribute "core:speed" of the unit "pikemen-1" depends on itself.');
@@ -183,9 +276,11 @@ const PIKEMEN = { self: { kind: 'unit', unit: 'pikemen-1' } } as const;
 
 const SPEED = node(KERNEL_FORMULAS.attribute, { attribute: 'core:speed', of: 'self' });
 
+const ROUND = node(KERNEL_FORMULAS.round);
+
 const TEST_CONTENT: ContentRegistry = {
   ...CONTENT,
-  battlefields: { 'demo:meadow': { effects: ['acme:plus-20000'], name: 'demo:meadow' } },
+  battlefields: { 'demo:meadow': { effects: ['acme:plus-20000', 'acme:meadow'], name: 'demo:meadow' } },
   creatures: {
     ...CONTENT.creatures,
     'demo:pikeman': { ...pikemanOf(CONTENT), effects: ['acme:plus-2'] },
@@ -207,6 +302,29 @@ const TEST_CONTENT: ContentRegistry = {
       'acme:plus-300': [speedModifier('add', 300)],
       'acme:plus-50': [speedModifier('add', 50)],
       'acme:plus-7': [speedModifier('add', 7)],
+    }),
+    'acme:banner': effect('acme:banner', { duration: { kind: 'battle' }, grantsTags: ['Immunity.Mind'] }),
+    'acme:brave': effect('acme:brave', { duration: { kind: 'battle' }, grantsTags: ['Immunity.Mind'] }),
+    'acme:desperate': {
+      ...effectOf('acme:desperate', [speedModifier('add', 5)]),
+      activeWhile: node(KERNEL_CONDITIONS.compare, {
+        left: node(KERNEL_FORMULAS.add, {
+          values: [node(KERNEL_FORMULAS.attribute, { attribute: 'core:health', of: 'self' }), ROUND],
+        }),
+        operator: '>',
+        right: 15,
+      }),
+    },
+    'acme:meadow': effect('acme:meadow', { duration: { kind: 'battle' }, grantsTags: ['Terrain.Meadow'] }),
+    'acme:proud': effect('acme:proud', {
+      activeWhile: node(KERNEL_CONDITIONS.hasTag, { of: 'self', tag: 'Creature' }),
+      duration: { kind: 'battle' },
+      grantsTags: ['Mark.Proud'],
+    }),
+    'acme:sleepy': effect('acme:sleepy', {
+      activeWhile: false,
+      duration: { kind: 'battle' },
+      grantsTags: ['Debuff.Sleep'],
     }),
     'acme:waiting': {
       ...effectOf('acme:waiting', [speedModifier('add', 50)]),
@@ -233,30 +351,8 @@ function speedModifier(operation: Modifier['operation'], value: ValueExpr): Modi
   return { attribute: 'core:speed', operation, value };
 }
 
-function node(type: string, params: Readonly<Record<string, unknown>> = {}): ExpressionNode {
-  const value: unknown = { ...params, type };
-
-  return value as ExpressionNode;
-}
-
 function effectOf(name: string, modifiers: readonly Modifier[]): Effect {
-  return {
-    blockedBy: [],
-    duration: { kind: 'battle' },
-    endsOn: [],
-    forbids: [],
-    grantsTags: [],
-    modifiers,
-    name,
-    onApply: [],
-    onRemove: [],
-    onTurn: [],
-    removes: [],
-    stacking: 'stack',
-    tags: [],
-    triggers: [],
-    visibility: 'all',
-  };
+  return effect(name, { duration: { kind: 'battle' }, modifiers });
 }
 
 function effects(table: Readonly<Record<string, readonly Modifier[]>>): Readonly<Record<string, Effect>> {
@@ -273,10 +369,6 @@ function pikemanOf(content: ContentRegistry): ContentRegistry['creatures'][strin
   if (pikeman === undefined) throw new Error('No pikeman');
 
   return pikeman;
-}
-
-function applied(id: number, effect: string, extra: Partial<AppliedEffect> = {}): AppliedEffect {
-  return { active: true, effect, id, params: {}, stacks: 1, visibleTo: 'all', ...extra };
 }
 
 function withEffects(change: {
@@ -305,9 +397,25 @@ function expressions(state: BattleState): ReturnType<typeof createExpressions> {
 }
 
 function speed(state: BattleState, unit: string): number {
-  const result = expressions(state).value(SPEED, { self: { kind: 'unit', unit } });
+  return value(state, SPEED, unit);
+}
+
+function speedWith(content: ContentRegistry): unknown {
+  const { registries } = KERNEL;
+
+  return createExpressions({ content, inputs: [], registries, state: FROZEN_STATE }).value(SPEED, PIKEMEN);
+}
+
+function value(state: BattleState, formula: ValueExpr, unit = 'pikemen-1'): number {
+  const result = expressions(state).value(formula, { self: { kind: 'unit', unit } });
 
   if (result.kind !== 'value') throw new Error(`No value: ${JSON.stringify(result)}`);
 
   return result.value;
+}
+
+function tags(state: BattleState, unit: string): unknown {
+  const result = expressions(state).tags(unit);
+
+  return result.kind === 'value' ? result.value : result;
 }

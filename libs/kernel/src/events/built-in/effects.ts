@@ -1,3 +1,4 @@
+import type { ContentName } from '../../ids/index.ts';
 import type { AppliedEffect, EffectHolder } from '../../model/index.ts';
 import type { KernelEventAppliers } from './appliers.ts';
 import { KERNEL_EVENTS } from './names.ts';
@@ -34,6 +35,23 @@ export interface EffectRemovedPayload {
 }
 
 /**
+ * Why an effect was not applied.
+ */
+export type EffectNotAppliedReason = (typeof EFFECT_NOT_APPLIED_REASONS)[keyof typeof EFFECT_NOT_APPLIED_REASONS];
+
+/**
+ * The payload of `kernel:effect-not-applied`.
+ */
+export interface EffectNotAppliedPayload {
+  /** What the effect was to be applied to. */
+  readonly holder: EffectHolder;
+  /** The full name of the effect. */
+  readonly effect: ContentName;
+  /** Why the effect was not applied. */
+  readonly reason: EffectNotAppliedReason;
+}
+
+/**
  * The payloads of the events of the kernel about applied effects.
  */
 export interface EffectEventPayloads {
@@ -43,7 +61,19 @@ export interface EffectEventPayloads {
   readonly [KERNEL_EVENTS.effectChanged]: EffectChangedPayload;
   /** An applied effect was removed. */
   readonly [KERNEL_EVENTS.effectRemoved]: EffectRemovedPayload;
+  /** An effect was not applied; the state does not change. */
+  readonly [KERNEL_EVENTS.effectNotApplied]: EffectNotAppliedPayload;
 }
+
+/**
+ * Why an effect was not applied: `immune` — the holder is immune to it; `condition` — its condition of application does
+ * not hold; `stacking` — the holder already has the effect, and applying it again changes nothing.
+ */
+export const EFFECT_NOT_APPLIED_REASONS = Object.freeze({
+  condition: 'condition',
+  immune: 'immune',
+  stacking: 'stacking',
+} as const);
 
 /**
  * How the events of the kernel about applied effects change the state.
@@ -58,4 +88,5 @@ export const EFFECT_EVENTS: KernelEventAppliers<EffectEventPayloads> = {
     changeEffects(state, holder, (effects) => replaceById(effects, effect, 'applied effect')),
   [KERNEL_EVENTS.effectRemoved]: (state, { effect, holder }) =>
     changeEffects(state, holder, (effects) => removeById(effects, effect, 'applied effect')),
+  [KERNEL_EVENTS.effectNotApplied]: (state) => state,
 };

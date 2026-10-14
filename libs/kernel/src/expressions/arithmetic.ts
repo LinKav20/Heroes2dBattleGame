@@ -1,7 +1,9 @@
-import type { Rounding } from '../content/index.ts';
+import { ContentError, type Rounding } from '../content/index.ts';
 
 /**
  * Returns the sum of safe integers, or nothing if it is not a safe integer.
+ *
+ * @throws {RangeError} If a value is not an integer.
  */
 export function sum(values: readonly number[]): number | undefined {
   return exact(values.reduce((total, value) => total + BigInt(value), 0n));
@@ -9,6 +11,8 @@ export function sum(values: readonly number[]): number | undefined {
 
 /**
  * Returns the difference of two safe integers, or nothing if it is not a safe integer.
+ *
+ * @throws {RangeError} If a value is not an integer.
  */
 export function difference(left: number, right: number): number | undefined {
   return exact(BigInt(left) - BigInt(right));
@@ -16,6 +20,8 @@ export function difference(left: number, right: number): number | undefined {
 
 /**
  * Returns the product of safe integers, or nothing if it is not a safe integer.
+ *
+ * @throws {RangeError} If a value is not an integer.
  */
 export function product(values: readonly number[]): number | undefined {
   return exact(values.reduce((total, value) => total * BigInt(value), 1n));
@@ -25,6 +31,9 @@ export function product(values: readonly number[]): number | undefined {
  * Divides one safe integer by another, which is not 0, and rounds the quotient: `down` to the smaller integer, `up` to
  * the larger one, `nearest` to the nearest one with a half rounded up. Returns nothing if the result is not a safe
  * integer.
+ *
+ * @throws {RangeError} If a value is not an integer or the divisor is 0.
+ * @throws {ContentError} If the rounding is unknown.
  */
 export function quotient(dividend: number, divisor: number, rounding: Rounding): number | undefined {
   return exact(rounded(BigInt(dividend), BigInt(divisor), rounding));
@@ -32,6 +41,9 @@ export function quotient(dividend: number, divisor: number, rounding: Rounding):
 
 /**
  * Returns a percent of a safe integer, rounded as {@link quotient} rounds: 150 percent of 7 rounded down is 10.
+ *
+ * @throws {RangeError} If a value is not an integer.
+ * @throws {ContentError} If the rounding is unknown.
  */
 export function percentOf(value: number, percent: number, rounding: Rounding): number | undefined {
   return exact(rounded(BigInt(value) * BigInt(percent), PERCENT, rounding));
@@ -58,7 +70,7 @@ function rounded(dividend: bigint, divisor: bigint, rounding: Rounding): bigint 
     }
 
     default: {
-      throw new TypeError(`Unknown rounding ${JSON.stringify(rounding)}.`);
+      throw new ContentError(`The ruleset has an unknown rounding ${JSON.stringify(rounding)}.`);
     }
   }
 }

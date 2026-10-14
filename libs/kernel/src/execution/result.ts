@@ -53,16 +53,24 @@ export function ruleViolation(reason: RejectionReason, params: JsonObject = {}):
 
 /**
  * Returns the rejection of a command that the rules do not allow, with the reason a step or a command of an
- * extension gave: a reason of a package with extensions or a reason of the kernel that an evaluation gave.
+ * extension gave: a reason of a package with extensions, or `kernel:out-of-range`, which only a step may give when an
+ * evaluation gives it.
  *
  * @throws {TypeError} If the reason is neither.
  */
-export function extensionViolation(source: string, rejection: CommandRejected | StepRejects): ExecuteRejected {
+export function extensionViolation(
+  source: string,
+  rejection: CommandRejected | StepRejects,
+  fromStep = true,
+): ExecuteRejected {
   const { params = {}, reason } = rejection;
+  const value: unknown = reason;
+  const allowed = typeof value === 'string'
+    && (isOwnReason(value) || (fromStep && value === REJECTION_REASONS.outOfRange));
 
-  if (!isOwnReason(reason) && !KERNEL_REASONS.has(reason)) {
+  if (!allowed) {
     throw new TypeError(
-      `${JSON.stringify(source)} rejects the command with the reason ${JSON.stringify(reason)}, but a reason needs `
+      `${JSON.stringify(source)} rejects the command with the reason ${JSON.stringify(value)}, but a reason needs `
       + 'a full name with the prefix of a package with extensions.',
     );
   }
@@ -78,8 +86,6 @@ export function nothingToAnswer(request: number): ExecuteRejected {
 
   return rejected({ code: REJECTION_CODES.nothingToAnswer, params: { request }, reason });
 }
-
-const KERNEL_REASONS: ReadonlySet<string> = new Set(Object.values(REJECTION_REASONS));
 
 function isOwnReason(reason: string): boolean {
   return isExtensionName(reason) && !isKernelName(reason);

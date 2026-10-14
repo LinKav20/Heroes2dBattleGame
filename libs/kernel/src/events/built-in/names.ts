@@ -14,6 +14,7 @@ export const KERNEL_EVENTS = Object.freeze({
   commandAborted: kernelName('command-aborted'),
   effectApplied: kernelName('effect-applied'),
   effectChanged: kernelName('effect-changed'),
+  effectNotApplied: kernelName('effect-not-applied'),
   effectRemoved: kernelName('effect-removed'),
   flagsChanged: kernelName('flags-changed'),
   hazardAdded: kernelName('hazard-added'),

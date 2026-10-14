@@ -1,5 +1,5 @@
 import type { ContentRegistry } from '../content/index.ts';
-import type { BattleState, StepInput } from '../model/index.ts';
+import type { BattleEvent, BattleState, StepInput } from '../model/index.ts';
 import type { Extension } from '../names/index.ts';
 import type { Expressions } from './expressions.ts';
 import type { Migration } from './migration.ts';
@@ -27,6 +27,12 @@ export interface StepKind<Params extends object = object> extends Extension {
    * forbid the command.
    */
   run(context: StepContext<Params>): StepResult;
+  /**
+   * Returns the parameters with every event of the battle they hold moved to the current version of its format, for a
+   * step that keeps events in its parameters, such as a reaction to an event. The kernel calls it when it migrates
+   * saved steps, after the migrations of the step; `migrate` moves one event.
+   */
+  migrateEvents?(params: Params, migrate: (event: BattleEvent) => BattleEvent): Params;
 }
 
 /**
@@ -46,7 +52,7 @@ export interface StepContext<Params extends object = object> {
   readonly inputs: readonly StepInput[];
   /**
    * Evaluates formulas and conditions of content. A dice roll in a formula takes the next roll from `inputs`, or makes
-   * the evaluation ask for one, so a step that evaluates formulas gets its rolls only through them.
+   * the evaluation ask for one, so a step that evaluates formulas takes its own rolls through `expressions.roll` too.
    */
   readonly expressions: Expressions;
 }

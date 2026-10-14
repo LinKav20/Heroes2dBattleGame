@@ -51,7 +51,8 @@ export class EventRecorder {
   /**
    * Records an event a step gave.
    *
-   * @throws {TypeError} If the kernel has no kind of this event, or only the kernel itself gives such events.
+   * @throws {TypeError} If the kernel has no kind of this event, only the kernel itself gives such events, or the event
+   * does not fit the state, for example refers to a unit that is not in the battle.
    */
   fromStep(step: string, draft: EventDraft, cause?: number): void {
     if (RUNNER_EVENTS.some((type) => type === draft.type)) {
@@ -61,7 +62,17 @@ export class EventRecorder {
       );
     }
 
-    this.add(draft, cause);
+    try {
+      this.add(draft, cause);
+    } catch (error) {
+      if (!(error instanceof RangeError)) throw error;
+
+      throw new TypeError(
+        `The step ${JSON.stringify(step)} gives ${JSON.stringify(draft.type)}, which does not fit the state: `
+        + error.message,
+        { cause: error },
+      );
+    }
   }
 
   private add(draft: EventDraft, cause: number | undefined): void {

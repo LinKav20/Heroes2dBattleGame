@@ -17,9 +17,15 @@ export interface AppliedEffect {
   readonly remaining?: number;
   /** How many times the effect is stacked. */
   readonly stacks: number;
-  /** Whether the effect acts now; an effect is switched off while its condition does not hold. */
+  /**
+   * The mark of activity: whether the condition of activity held when the kernel last checked it. Only an effect of a
+   * unit has the mark; an effect of a side, the field or a hazard zone is always marked active, because its condition
+   * is checked for every unit separately.
+   */
   readonly active: boolean;
-  /** The values the effect was applied with, such as its strength. */
+  /** The strength the effect was applied with, if its definition has a formula of strength. */
+  readonly strength?: number;
+  /** The values the effect was applied with. */
   readonly params: JsonObject;
   /** Which sides see the effect. */
   readonly visibleTo: VisibleTo;

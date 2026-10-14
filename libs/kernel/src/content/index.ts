@@ -3,6 +3,7 @@ export type {
   Modifier,
   ModifierOperation,
 } from './attributes.ts';
+export { contentError, ContentError, definitionOf, type ContentErrorPlace } from './content-error.ts';
 export type {
   ContentRegistry,
   PackVersion,

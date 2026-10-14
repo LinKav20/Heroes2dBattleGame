@@ -15,7 +15,9 @@ export function readAnswer(request: InputRequest, value: InputValue): StepInput 
       && value.dice.every((die) => Number.isSafeInteger(die) && die >= 1 && die <= request.sides);
     const dice = [...value.dice];
 
-    return fits ? { dice, kind: 'roll', result: dice.reduce((sum, die) => sum + die, 0) } : undefined;
+    return fits
+      ? { dice, kind: 'roll', name: request.name, result: dice.reduce((sum, die) => sum + die, 0) }
+      : undefined;
   }
 
   if (request.kind === 'choice' && value.kind === 'choice') {

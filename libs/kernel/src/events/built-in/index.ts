@@ -3,11 +3,14 @@ export type {
   BattleEventPayloads,
   PhaseChangedPayload,
 } from './battle.ts';
-export type {
-  EffectAppliedPayload,
-  EffectChangedPayload,
-  EffectEventPayloads,
-  EffectRemovedPayload,
+export {
+  EFFECT_NOT_APPLIED_REASONS,
+  type EffectAppliedPayload,
+  type EffectChangedPayload,
+  type EffectEventPayloads,
+  type EffectNotAppliedPayload,
+  type EffectNotAppliedReason,
+  type EffectRemovedPayload,
 } from './effects.ts';
 export type {
   CommandAbortedPayload,
@@ -33,9 +36,9 @@ export {
   KERNEL_EVENT_KINDS,
   kernelEventDraft,
   type KernelEvent,
-  type KernelEventPayloads,
 } from './kernel-events.ts';
 export { KERNEL_EVENTS, RUNNER_EVENTS, type KernelEventType } from './names.ts';
+export type { KernelEventPayloads } from './payloads.ts';
 export type {
   ScenarioEventPayloads,
   TriggerFiredPayload,

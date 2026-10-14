@@ -1,6 +1,7 @@
-import type { ContentRegistry, Ruleset } from '../content/index.ts';
+import type { ContentRegistry, Effect, ExpressionNode, Ruleset } from '../content/index.ts';
+import type { ExecuteAccepted, ExecuteResult } from '../execution/index.ts';
 import type { ExtensionEventKind, StepKind } from '../extensions/index.ts';
-import type { BattleEvent, BattleState } from '../model/index.ts';
+import type { AppliedEffect, BattleEvent, BattleState, Unit } from '../model/index.ts';
 
 export const RULESET: Ruleset = {
   healthAttribute: 'core:health',
@@ -31,7 +32,10 @@ export const CONTENT: ContentRegistry = {
       forbiddenBy: ['Debuff.Silence'],
       limits: { perBattle: 2 },
       name: 'demo:fire-arrow',
-      ops: [{ amount: { count: 2, sides: 6, type: 'kernel:dice' }, type: 'rules-stdlib:damage' }],
+      ops: [{
+        amount: { count: 2, name: 'core:damage-roll', sides: 6, type: 'kernel:dice' },
+        type: 'rules-stdlib:damage',
+      }],
       tags: ['Spell.Fire'],
       target: { kind: 'unit', range: 6 },
     },
@@ -69,7 +73,7 @@ export const CONTENT: ContentRegistry = {
     'core:poison': {
       blockedBy: ['Immunity.Poison'],
       duration: { count: 3, kind: 'turns', tick: 'holder-turn-start' },
-      endsOn: [{ condition: { left: 'self', right: 'target', type: 'kernel:same' }, on: 'kernel:unit-healed' }],
+      endsOn: [{ condition: { left: 'self', right: 'target', type: 'kernel:same' }, on: 'rules-stdlib:unit-healed' }],
       forbids: [],
       grantsTags: ['Debuff.Poison'],
       modifiers: [{ attribute: 'core:speed', operation: 'percent', value: -25 }],
@@ -113,7 +117,7 @@ export const CONTENT: ContentRegistry = {
       name: 'demo:bridge',
       outcomes: [
         {
-          condition: { side: 'defender', type: 'kernel:side-destroyed' },
+          condition: { side: 'defender', type: 'rules-stdlib:side-destroyed' },
           id: 'rout',
           outcome: 'victory',
           side: 'attacker',
@@ -157,10 +161,10 @@ export const CONTENT: ContentRegistry = {
       ],
       triggers: [
         {
-          condition: { round: 3, type: 'kernel:round-is' },
+          condition: { left: { type: 'kernel:round' }, operator: '=', right: 3, type: 'kernel:compare' },
           id: 'reinforcements',
           limit: 1,
-          on: 'kernel:round-started',
+          on: 'kernel:phase-changed',
           ops: [{ type: 'kernel:set-variable', value: true, variable: 'reinforcements-arrived' }],
           priority: 0,
         },
@@ -237,7 +241,7 @@ export const STATE: BattleState = {
       resources: { 'demo:mana': 3 },
       side: 'attacker',
       summoned: false,
-      tags: { 'Creature.Human': 1, 'Debuff.Poison': 1 },
+      tags: {},
       visibleTo: 'all',
     },
     {
@@ -253,7 +257,7 @@ export const STATE: BattleState = {
       resources: {},
       side: 'defender',
       summoned: false,
-      tags: { 'Creature.Human': 1 },
+      tags: {},
       visibleTo: ['defender'],
     },
   ],
@@ -303,8 +307,53 @@ export function deepFreeze<Value>(value: Value): Value {
   return value;
 }
 
+export function node(type: string, params: Readonly<Record<string, unknown>> = {}): ExpressionNode {
+  const value: unknown = { ...params, type };
+
+  return value as ExpressionNode;
+}
+
+export function effect(name: string, extra: Partial<Effect> = {}): Effect {
+  return {
+    blockedBy: [],
+    duration: { count: 2, kind: 'turns', tick: 'holder-turn-start' },
+    endsOn: [],
+    forbids: [],
+    grantsTags: [],
+    modifiers: [],
+    name,
+    onApply: [],
+    onRemove: [],
+    onTurn: [],
+    removes: [],
+    stacking: 'stack',
+    tags: [],
+    triggers: [],
+    visibility: 'all',
+    ...extra,
+  };
+}
+
+export function applied(id: number, name: string, extra: Partial<AppliedEffect> = {}): AppliedEffect {
+  return { active: true, effect: name, id, params: {}, stacks: 1, visibleTo: 'all', ...extra };
+}
+
 export function event(type: string, payload: unknown, version = 1): BattleEvent {
   return { id: 0, payload, type, version, visibleTo: 'all' };
+}
+
+export function accepted(result: ExecuteResult): ExecuteAccepted {
+  if (!result.ok) throw new Error(`Rejected: ${JSON.stringify(result.rejection)}`);
+
+  return result;
+}
+
+export function unitOf(state: BattleState, id: string): Unit {
+  const unit = state.units.find((current) => current.id === id);
+
+  if (unit === undefined) throw new Error(`No unit ${id}`);
+
+  return unit;
 }
 
 export function asRecord(value: unknown): Readonly<Record<string, unknown>> {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hasTag, isBlocked, matchesAny, tagMatches, withTagSources } from '../index.ts';
+import { hasTag, isBlocked, matchesAny, tagMatches } from '../index.ts';
 
 describe('tags', () => {
   it('match a tag and the tags nested in it, not tags that only start alike', () => {
@@ -15,18 +15,17 @@ describe('tags', () => {
     expect(hasTag({ 'Debuff.Poison': 0 }, 'Debuff')).toBe(false);
   });
 
-  it('match lists of tags and tell immunity', () => {
+  it('match lists of tags', () => {
     expect(matchesAny(['Spell.Fire'], ['Debuff', 'Spell'])).toBe(true);
     expect(matchesAny(['Spell.Fire'], ['Debuff'])).toBe(false);
-    expect(isBlocked({ 'Immunity.Poison': 2 }, ['Immunity.Poison'])).toBe(true);
-    expect(isBlocked({ 'Immunity.Mind': 1 }, ['Immunity.Poison'])).toBe(false);
   });
 
-  it('count the sources of every tag and drop a tag without sources', () => {
-    const once = withTagSources({ 'Creature.Human': 1 }, ['Debuff.Poison', 'Creature.Human'], 'add');
-
-    expect(once).toStrictEqual({ 'Creature.Human': 2, 'Debuff.Poison': 1 });
-    expect(withTagSources(once, ['Debuff.Poison'], 'remove')).toStrictEqual({ 'Creature.Human': 2 });
-    expect(() => withTagSources(once, ['Buff'], 'remove')).toThrow('The tag "Buff" has no source to take back.');
+  it('tell immunity along the hierarchy in both directions, counting only tags with sources', () => {
+    expect(isBlocked({ 'Immunity.Poison': 2 }, ['Immunity.Poison'])).toBe(true);
+    expect(isBlocked({ 'Immunity.Mind': 1 }, ['Immunity.Poison'])).toBe(false);
+    expect(isBlocked({ 'Immunity.Mind': 1 }, ['Immunity.Mind.Fear'])).toBe(true);
+    expect(isBlocked({ 'Immunity.Mind.Fear': 1 }, ['Immunity.Mind'])).toBe(true);
+    expect(isBlocked({ 'Immunity.Mind': 0 }, ['Immunity.Mind.Fear'])).toBe(false);
+    expect(isBlocked({ Immunity: 1 }, ['Immunities'])).toBe(false);
   });
 });

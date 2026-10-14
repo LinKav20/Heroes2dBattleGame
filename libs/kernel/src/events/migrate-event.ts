@@ -52,7 +52,7 @@ export const MIGRATION_FAILURES = Object.freeze({
 
 /**
  * Moves an event to the current version of its format, one version at a time, together with the steps saved in
- * `kernel:steps-saved`. The input does not change.
+ * `kernel:steps-saved` and the events those steps hold. The input does not change.
  *
  * Returns why the event cannot be read if the point of assembly has no code for its kind or for a saved step, or if a
  * version is newer than the code or is not a whole number from 1.
@@ -76,10 +76,13 @@ export function migrateEvent(
     ? event
     : { ...event, payload: migrateValue(kind, event.version, event.payload), version: kind.version };
 
-  return isKernelEvent(migrated, KERNEL_EVENTS.stepsSaved) ? migrateSavedSteps(steps, migrated) : success(migrated);
+  return isKernelEvent(migrated, KERNEL_EVENTS.stepsSaved)
+    ? migrateSavedSteps(events, steps, migrated)
+    : success(migrated);
 }
 
 function migrateSavedSteps(
+  events: Registry<EventKind>,
   steps: Registry<StepKind>,
   event: KernelEvent<typeof KERNEL_EVENTS.stepsSaved>,
 ): MigrationResult {
@@ -87,7 +90,7 @@ function migrateSavedSteps(
   const saved: Step[] = [];
 
   for (const step of payload.steps) {
-    const result = migrateStep(steps, step);
+    const result = migrateStep(events, steps, step);
 
     if ('reason' in result) return result;
 
@@ -99,7 +102,7 @@ function migrateSavedSteps(
   return success(unchanged ? event : { ...event, payload: { ...payload, steps: saved } });
 }
 
-function migrateStep(steps: Registry<StepKind>, step: Step): MigrationFailure | Step {
+function migrateStep(events: Registry<EventKind>, steps: Registry<StepKind>, step: Step): MigrationFailure | Step {
   const kind = steps.get(step.type);
 
   if (kind === undefined) return failure(MIGRATION_FAILURES.unknownStep, step.type, step.version);
@@ -108,15 +111,49 @@ function migrateStep(steps: Registry<StepKind>, step: Step): MigrationFailure | 
 
   if (versionProblem !== undefined) return versionProblem;
 
-  if (step.version === kind.version) return step;
-
-  const params = migrateValue(kind, step.version, step.params);
+  const params = step.version === kind.version ? step.params : migrateValue(kind, step.version, step.params);
 
   if (!isRecord(params)) {
     throw new TypeError(`A migration of the step ${JSON.stringify(step.type)} returned no object of parameters.`);
   }
 
-  return { ...step, params: params as JsonObject, version: kind.version };
+  const held = migrateHeldEvents(events, steps, kind, params as JsonObject);
+
+  if ('reason' in held) return held;
+
+  return held.params === step.params ? step : { ...step, params: held.params, version: kind.version };
+}
+
+function migrateHeldEvents(
+  events: Registry<EventKind>,
+  steps: Registry<StepKind>,
+  kind: StepKind,
+  params: JsonObject,
+): MigrationFailure | { readonly params: JsonObject } {
+  if (kind.migrateEvents === undefined) return { params };
+
+  const problem: { failure?: MigrationFailure } = {};
+  const migrated = kind.migrateEvents(params, (event) => {
+    const result = problem.failure === undefined ? migrateEvent(events, steps, event) : undefined;
+
+    if (result === undefined) return event;
+
+    if (!result.ok) {
+      problem.failure = result;
+
+      return event;
+    }
+
+    return result.event;
+  });
+
+  if (problem.failure !== undefined) return problem.failure;
+
+  if (!isRecord(migrated)) {
+    throw new TypeError(`The step ${JSON.stringify(kind.name)} returned no object of parameters for its events.`);
+  }
+
+  return { params: migrated as JsonObject };
 }
 
 function checkVersion(kind: { readonly version: number }, name: string, version: number): MigrationFailure | undefined {

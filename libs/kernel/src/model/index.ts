@@ -33,12 +33,14 @@ export type {
   UseItemCommand,
   WaitCommand,
 } from './game-commands.ts';
-export type {
-  EffectHolder,
-  FieldHolder,
-  HazardHolder,
-  SideHolder,
-  UnitHolder,
+export {
+  holderTarget,
+  targetHolder,
+  type EffectHolder,
+  type FieldHolder,
+  type HazardHolder,
+  type SideHolder,
+  type UnitHolder,
 } from './holders.ts';
 export type {
   CellTarget,

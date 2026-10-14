@@ -1,14 +1,33 @@
 import type { Op } from '../content/index.ts';
-import type { StepDraft, Subjects } from '../extensions/index.ts';
-import type { EffectHolder } from '../model/index.ts';
+import type { StepDone, StepDraft } from '../extensions/index.ts';
 import { KERNEL_STEPS } from './names.ts';
-import type { ApplicationParams, OperationParams, RemovalParams, TickParams } from './params.ts';
+import type {
+  ApplicationParams,
+  OperationParams,
+  OperationScope,
+  RemovalParams,
+  TickParams,
+  TurnParams,
+} from './params.ts';
 
 /**
- * Returns the steps that run operations of content one after another with the given participants.
+ * The result of a step that does nothing.
  */
-export function operationDrafts(ops: readonly Op[], subjects: Subjects): ReadonlyArray<StepDraft<OperationParams>> {
-  return ops.map((op) => ({ params: { op, subjects }, type: KERNEL_STEPS.operation }));
+export const DONE: StepDone = Object.freeze({ events: [], kind: 'done' });
+
+/**
+ * Returns the result of a step that adds steps and gives no events.
+ */
+export function stepsDone(steps: readonly StepDraft[]): StepDone {
+  return steps.length === 0 ? DONE : { events: [], kind: 'done', steps };
+}
+
+/**
+ * Returns the steps that run operations of content one after another with the given participants, applied effect and
+ * event.
+ */
+export function operationDrafts(ops: readonly Op[], scope: OperationScope): ReadonlyArray<StepDraft<OperationParams>> {
+  return ops.map((op) => ({ params: { ...scope, op }, type: KERNEL_STEPS.operation }));
 }
 
 /**
@@ -21,8 +40,8 @@ export function applicationDraft(params: ApplicationParams): StepDraft<Applicati
 /**
  * Returns the step that removes an applied effect.
  */
-export function removalDraft(holder: EffectHolder, effect: number): StepDraft<RemovalParams> {
-  return { params: { effect, holder }, type: KERNEL_STEPS.effectRemoval };
+export function removalDraft(params: RemovalParams): StepDraft<RemovalParams> {
+  return { params, type: KERNEL_STEPS.effectRemoval };
 }
 
 /**
@@ -30,4 +49,18 @@ export function removalDraft(holder: EffectHolder, effect: number): StepDraft<Re
  */
 export function tickDraft(params: TickParams): StepDraft<TickParams> {
   return { params, type: KERNEL_STEPS.effectTick };
+}
+
+/**
+ * Returns the step in which an effect runs its operations of every turn.
+ */
+export function turnDraft(params: TurnParams): StepDraft<TurnParams> {
+  return { params, type: KERNEL_STEPS.effectTurn };
+}
+
+/**
+ * Returns the step that brings the marks of activity of effects up to date.
+ */
+export function refreshDraft(): StepDraft {
+  return { params: {}, type: KERNEL_STEPS.effectRefresh };
 }

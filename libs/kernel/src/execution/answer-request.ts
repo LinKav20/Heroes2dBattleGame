@@ -1,12 +1,18 @@
 import { RANDOM_SOURCES } from '../content/index.ts';
 import { KERNEL_EVENTS } from '../events/index.ts';
 import { VISIBLE_TO_ALL } from '../ids/index.ts';
-import { REJECTION_REASONS, type BattleState, type InputAnswer, type InputRequest, type StepInput }
-  from '../model/index.ts';
+import {
+  REJECTION_REASONS,
+  type BattleState,
+  type InputAnswer,
+  type InputRequest,
+  type Rejection,
+  type StepInput,
+} from '../model/index.ts';
 import type { ExecutionContext } from './context.ts';
 import { EventRecorder } from './event-recorder.ts';
 import { accepted, nothingToAnswer, ruleViolation, type ExecuteResult } from './result.ts';
-import { runSteps } from './step-runner.ts';
+import { runSteps, settle } from './step-runner.ts';
 import { StepStack } from './step-stack.ts';
 import { readAnswer } from './values/answers.ts';
 import { requestAudience } from './values/requests.ts';
@@ -16,7 +22,8 @@ import { requestAudience } from './values/requests.ts';
  * from it.
  *
  * If the rules forbid the rest of the command, the kernel still accepts the answer: it closes the request and aborts
- * the command with `kernel:command-aborted`, and the events of the rest of the command are dropped.
+ * the command with `kernel:command-aborted`, and the events of the rest of the command are dropped. Then it brings the
+ * marks of activity of effects up to date once, without reactions to that, unless the rules forbid that as well.
  *
  * @throws {TypeError} If an input request is open, but the state has no step that waits for it.
  */
@@ -37,11 +44,27 @@ export function answerRequest(context: ExecutionContext, state: BattleState, com
 
   if (result.ok) return result;
 
-  const aborted = closeRequest(context, state, request, input);
+  const settled = settle(context, abort(context, state, request, input, result.rejection));
 
-  aborted.kernel(KERNEL_EVENTS.commandAborted, { rejection: result.rejection }, requestAudience(request));
+  if (settled.ok) return settled;
+
+  const aborted = abort(context, state, request, input, result.rejection);
 
   return accepted(aborted.events, aborted.state);
+}
+
+function abort(
+  context: ExecutionContext,
+  state: BattleState,
+  request: InputRequest,
+  input: StepInput,
+  rejection: Rejection,
+): EventRecorder {
+  const recorder = closeRequest(context, state, request, input);
+
+  recorder.kernel(KERNEL_EVENTS.commandAborted, { rejection }, requestAudience(request));
+
+  return recorder;
 }
 
 function closeRequest(

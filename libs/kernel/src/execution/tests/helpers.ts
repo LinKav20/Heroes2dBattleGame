@@ -13,7 +13,7 @@ import type {
 import type { JsonValue } from '../../json/index.ts';
 import { createKernel, type Kernel } from '../../kernel/index.ts';
 import type { BattleEvent, BattleState, Command, Unit } from '../../model/index.ts';
-import { asRecord, STATE } from '../../tests/fixtures.ts';
+import { asRecord, STATE, unitOf } from '../../tests/fixtures.ts';
 
 export const DAMAGE = 'acme-duel:damage';
 
@@ -45,6 +45,7 @@ export const DUEL_EXTENSIONS: readonly KernelExtension[] = [
   })),
   command('acme-duel:refuse', () => ({ kind: 'reject', reason: 'acme-duel:refused' })),
   command('acme-duel:mumble', () => ({ kind: 'reject', reason: 'refused' })),
+  command('acme-duel:overflow', () => ({ kind: 'reject', reason: 'kernel:out-of-range' })),
   step<{ readonly attacker: string; readonly target: string }>('acme-duel:strike', ({ inputs, params, state }) => {
     const roll = inputs[0];
     const victim = aliveUnit(state, params.target);
@@ -173,6 +174,9 @@ export const DUEL_EXTENSIONS: readonly KernelExtension[] = [
     kind: 'done',
   })),
   step('acme-duel:grumble', () => ({ kind: 'reject', reason: 'kernel:failed' })),
+  step('acme-duel:pretend', () => ({ kind: 'reject', reason: 'kernel:battle-over' })),
+  step('acme-duel:haunt', () => ({ events: [healthChanged('ghosts-1', { count: 1, health: 1 })], kind: 'done' })),
+  step('acme-duel:silent', () => ({ kind: 'reject', reason: 7 as unknown as string })),
   step('acme-duel:ghost', () => ({
     events: [{ payload: {}, type: 'acme-duel:unknown', visibleTo: 'all' }],
     kind: 'done',
@@ -228,14 +232,6 @@ export function compute(formula: unknown): Command {
 
 export function applyAll(kernel: Kernel, state: BattleState, events: readonly BattleEvent[]): BattleState {
   return events.reduce((current, event) => kernel.applyEvent(current, event), state);
-}
-
-export function unitOf(state: BattleState, id: string): Unit {
-  const unit = state.units.find((current) => current.id === id);
-
-  if (unit === undefined) throw new Error(`No unit ${id}`);
-
-  return unit;
 }
 
 function command(name: string, plan: CommandKind['plan']): CommandKind {

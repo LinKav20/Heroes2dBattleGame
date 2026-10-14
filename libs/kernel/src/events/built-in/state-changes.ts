@@ -1,4 +1,4 @@
-import type { SideId, UnitId } from '../../ids/index.ts';
+import type { SideId, Tag, UnitId } from '../../ids/index.ts';
 import type { AppliedEffect, BattleState, EffectHolder, Hazard, Side, Unit } from '../../model/index.ts';
 
 /**
@@ -109,6 +109,34 @@ export function takeId(state: BattleState, id: number): number {
  */
 export function takeRequestId(state: BattleState, id: number): number {
   return nextAfter(state.nextRequestId, id, 'identifier of an input request');
+}
+
+/**
+ * Returns the tags of a unit after one source gives some tags and takes others back: the count of sources of every tag
+ * goes up or down by one, and a tag without sources disappears.
+ *
+ * @throws {RangeError} If a source takes back a tag that has no sources.
+ */
+export function withTagSources(
+  tags: Readonly<Record<Tag, number>>,
+  added: readonly Tag[],
+  removed: readonly Tag[],
+): Readonly<Record<Tag, number>> {
+  const next = new Map(Object.entries(tags));
+
+  for (const tag of added) {
+    next.set(tag, (next.get(tag) ?? 0) + 1);
+  }
+
+  for (const tag of removed) {
+    const sources = (next.get(tag) ?? 0) - 1;
+
+    if (sources < 0) throw new RangeError(`The tag ${JSON.stringify(tag)} has no source to take back.`);
+
+    next.set(tag, sources);
+  }
+
+  return Object.fromEntries([...next].filter(([, sources]) => sources > 0));
 }
 
 function changeById<Item extends { readonly id: unknown }>(

@@ -24,34 +24,13 @@ export function matchesAny(tags: readonly Tag[], patterns: readonly Tag[]): bool
 }
 
 /**
- * Tells whether a unit with these tags is immune to an effect that is blocked by the given tags.
+ * Tells whether a unit with these tags is immune to an effect that is blocked by the given tags: the unit has a
+ * blocking tag, a tag nested in it, or a broader tag that it is nested in. So `Immunity.Mind` blocks an effect blocked
+ * by `Immunity.Mind.Fear`, and `Immunity.Mind.Fear` blocks an effect blocked by `Immunity.Mind`.
  */
 export function isBlocked(tags: Readonly<Record<Tag, number>>, blockedBy: readonly Tag[]): boolean {
-  return blockedBy.some((pattern) => hasTag(tags, pattern));
-}
-
-/**
- * Returns the tags of a unit after a source gives the tags or takes them back: the count of sources of every tag goes
- * up or down by one, and a tag without sources disappears.
- *
- * @throws {RangeError} If a source takes back a tag that has no sources.
- */
-export function withTagSources(
-  tags: Readonly<Record<Tag, number>>,
-  changed: readonly Tag[],
-  change: 'add' | 'remove',
-): Readonly<Record<Tag, number>> {
-  const next = new Map(Object.entries(tags));
-
-  for (const tag of changed) {
-    const sources = (next.get(tag) ?? 0) + (change === 'add' ? 1 : -1);
-
-    if (sources < 0) throw new RangeError(`The tag ${JSON.stringify(tag)} has no source to take back.`);
-
-    next.set(tag, sources);
-  }
-
-  return Object.fromEntries([...next].filter(([, sources]) => sources > 0));
+  return Object.entries(tags).some(([tag, sources]) => sources > 0
+    && blockedBy.some((pattern) => tagMatches(tag, pattern) || tagMatches(pattern, tag)));
 }
 
 const TAG_SEPARATOR = '.';

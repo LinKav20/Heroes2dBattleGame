@@ -1,5 +1,6 @@
 export {
   extensionPrefix,
+  FULL_NAME_PATTERN,
   isExtensionName,
   isKernelName,
   KERNEL_PREFIX,

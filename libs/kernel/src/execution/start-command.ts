@@ -35,7 +35,7 @@ export function startCommand(
 
   switch (plan.kind) {
     case 'reject': {
-      return extensionViolation(command.name, plan);
+      return extensionViolation(command.name, plan, false);
     }
 
     case 'steps': {

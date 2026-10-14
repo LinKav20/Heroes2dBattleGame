@@ -1,5 +1,5 @@
 import type { JsonObject } from '../json/index.ts';
-import type { BattleState } from '../model/index.ts';
+import type { BattleState, SideTarget, UnitTarget } from '../model/index.ts';
 import type { Extension } from '../names/index.ts';
 import type { Migration } from './migration.ts';
 
@@ -31,6 +31,12 @@ export interface EventKind<Payload = unknown> extends Extension {
    * in the records of the state is not part of the state, so the function must not depend on it.
    */
   apply(state: BattleState, payload: Payload): BattleState;
+  /**
+   * Returns the unit or the side the event is about, if any. Reactions of effects to the event get it as the
+   * participant `target`; without the function, or if it returns nothing, they have no `target`. The kernel calls it
+   * only when some effect reacts to the event. The payload has the current version.
+   */
+  target?(payload: Payload): SideTarget | UnitTarget | undefined;
 }
 
 /**

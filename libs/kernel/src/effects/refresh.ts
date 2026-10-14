@@ -1,13 +1,16 @@
 import { KERNEL_EVENTS, kernelEventDraft } from '../events/index.ts';
 import type { EventDraft, StepContext, StepKind, StepResult } from '../extensions/index.ts';
-import { allHolders, appliedSubjects, effectDefinition } from './holders.ts';
+import type { EffectHolder } from '../model/index.ts';
+import { activity } from './activity.ts';
+import { effectDefinition } from './holders.ts';
 import { KERNEL_STEPS } from './names.ts';
 
 /**
- * Brings the marks of activity of applied effects up to date at the end of a command: an effect is active while its
- * condition of activity holds, or always if it has none.
+ * Brings the marks of activity of the effects of units up to date: an effect is marked active while its condition of
+ * activity holds, or always if it has none. The effects of sides, the field and hazard zones keep their marks, because
+ * their conditions are checked for every unit separately.
  *
- * @throws {TypeError} If a condition of activity needs a value, such as a dice roll.
+ * @throws {ContentError} If a condition of activity rolls dice or is described wrongly.
  */
 export const REFRESH_STEP: StepKind = Object.freeze({
   kind: 'step',
@@ -20,18 +23,13 @@ export const REFRESH_STEP: StepKind = Object.freeze({
 function refresh({ content, expressions, state }: StepContext): StepResult {
   const events: EventDraft[] = [];
 
-  for (const { effects, holder } of allHolders(state)) {
-    for (const applied of effects) {
-      const { activeWhile, name } = effectDefinition(content, applied.effect);
-      const active = activeWhile === undefined
-        ? { kind: 'value', value: true } as const
-        : expressions.test(activeWhile, appliedSubjects(holder, applied));
+  for (const unit of state.units) {
+    const holder: EffectHolder = { kind: 'unit', unit: unit.id };
 
-      if (active.kind === 'need') {
-        throw new TypeError(`The condition of activity of ${JSON.stringify(name)} needs a value.`);
-      }
+    for (const applied of unit.effects) {
+      const active = activity(expressions, effectDefinition(content, applied.effect), holder, applied);
 
-      if (active.kind === 'reject') return active;
+      if (active.kind !== 'value') return active;
 
       if (active.value !== applied.active) {
         const effect = { ...applied, active: active.value };

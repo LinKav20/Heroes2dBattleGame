@@ -119,6 +119,8 @@ describe('createKernel', () => {
     { kind: { ...ADJACENT, schema: undefined }, problem: 'needs a JSON Schema as an object' },
     { kind: { ...DOUBLE, evaluate: undefined }, problem: 'needs a function evaluate' },
     { kind: { ...DOUBLE, schema: undefined }, problem: 'needs a JSON Schema as an object' },
+    { kind: { ...FROST_EVENT, target: 1 }, problem: 'needs a function target or none' },
+    { kind: { ...STRIKE_STEP, migrateEvents: 'yes' }, problem: 'needs a function migrateEvents or none' },
     {
       kind: { ...STRIKE_STEP, version: Number.MAX_SAFE_INTEGER },
       problem: `needs exactly one migration from every version below ${String(Number.MAX_SAFE_INTEGER)}`,

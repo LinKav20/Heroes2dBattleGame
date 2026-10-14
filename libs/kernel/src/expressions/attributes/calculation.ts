@@ -43,7 +43,8 @@ export interface AttributeBounds {
  *
  * Of modifiers with one stacking key, and then of modifiers with one type of bonus, only the largest bonus and the
  * strongest penalty of every operation act, once each. A percent or a multiplier is rounded as the ruleset says right
- * after it is applied. Returns nothing if a value leaves the safe integers.
+ * after it is applied; percents below -100 in sum bring the value to 0, not below. Returns nothing if a value leaves
+ * the safe integers.
  */
 export function applyModifiers(
   base: number,
@@ -107,7 +108,7 @@ function keepStrongest(
     }
 
     const bonus = modifier.value > neutral;
-    const slot = JSON.stringify([modifier.operation, group, bonus]);
+    const slot = `${modifier.operation} ${bonus ? 'bonus' : 'penalty'} ${group}`;
     const current = strongest.get(slot);
 
     if (current === undefined || (bonus ? modifier.value >= current.value : modifier.value <= current.value)) {
@@ -136,7 +137,7 @@ function plus(value: number | undefined, amount: number | undefined): number | u
 function scale(value: number | undefined, percent: number | undefined, rounding: Rounding): number | undefined {
   const factor = plus(PERCENT, percent);
 
-  return value === undefined || factor === undefined ? undefined : percentOf(value, factor, rounding);
+  return value === undefined || factor === undefined ? undefined : percentOf(value, Math.max(factor, 0), rounding);
 }
 
 function bound(value: number, lowest: number, highest: number): number {

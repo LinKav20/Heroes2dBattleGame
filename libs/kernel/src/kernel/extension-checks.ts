@@ -26,16 +26,22 @@ export function extensionProblems(extension: RegisteredExtension): string[] {
 const KIND_CHECKS: Readonly<Record<KernelExtensionKind, readonly Check[]>> = {
   command: [needsFunction('plan'), needsSchema],
   condition: [needsFunction('test'), needsSchema],
-  event: [needsVersion, needsFunction('apply'), needsSchema],
+  event: [needsVersion, needsFunction('apply'), needsSchema, mayHaveFunction('target')],
   formula: [needsFunction('evaluate'), needsSchema],
   mechanic: [],
   operation: [needsFunction('run'), needsSchema],
-  step: [needsVersion, needsFunction('run')],
+  step: [needsVersion, needsFunction('run'), mayHaveFunction('migrateEvents')],
   topology: [],
 };
 
 function needsFunction(name: string): Check {
   return (label, extension) => (typeof extension[name] === 'function' ? [] : [`${label} needs a function ${name}`]);
+}
+
+function mayHaveFunction(name: string): Check {
+  return (label, extension) => (extension[name] === undefined || typeof extension[name] === 'function'
+    ? []
+    : [`${label} needs a function ${name} or none`]);
 }
 
 function needsSchema(label: string, extension: Readonly<Record<string, unknown>>): string[] {

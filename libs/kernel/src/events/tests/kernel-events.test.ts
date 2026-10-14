@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { summonedUnitId } from '../../ids/index.ts';
 import { createKernel } from '../../kernel/index.ts';
 import type { AppliedEffect, BattleState, InventoryItem, RollRequest, Unit } from '../../model/index.ts';
-import { deepFreeze, event, FROZEN_STATE } from '../../tests/fixtures.ts';
+import { deepFreeze, event, FROZEN_STATE, unitOf } from '../../tests/fixtures.ts';
 import {
   isKernelEvent,
   KERNEL_EVENT_KINDS,
@@ -98,6 +98,38 @@ describe('events of the kernel', () => {
     expect(() => KERNEL.applyEvent(withoutRng, made)).toThrow('The battle has no random number generator.');
   });
 
+  it('kernel:effect-not-applied changes nothing', () => {
+    const holder = { kind: 'unit', unit: 'pikemen-1' } as const;
+    const payload = { effect: 'core:poison', holder, reason: 'condition' } as const;
+
+    expect(apply(KERNEL_EVENTS.effectNotApplied, payload)).toBe(FROZEN_STATE);
+  });
+
+  it('name the unit or the side they are about for reactions of effects', () => {
+    const archers = { kind: 'unit', unit: 'archers-1' };
+
+    function target(type: KernelEventType): unknown {
+      const payload: unknown = Object.entries(PAYLOADS).find(([name]) => name === type)?.[1];
+
+      return KERNEL.registries.events.get(type)?.target?.(payload);
+    }
+
+    expect(target(KERNEL_EVENTS.healthChanged)).toStrictEqual(archers);
+    expect(target(KERNEL_EVENTS.itemRemoved)).toStrictEqual(archers);
+    expect(target(KERNEL_EVENTS.effectChanged)).toStrictEqual(archers);
+    expect(target(KERNEL_EVENTS.unitSummoned)).toStrictEqual({ kind: 'unit', unit: '#8' });
+    expect(target(KERNEL_EVENTS.effectApplied)).toBeUndefined();
+    expect(target(KERNEL_EVENTS.variableSet)).toBeUndefined();
+    expect(target(KERNEL_EVENTS.phaseChanged)).toBeUndefined();
+
+    expect(KERNEL.registries.events.get(KERNEL_EVENTS.phaseChanged)?.target?.({
+      phase: { kind: 'turn', side: 'attacker' },
+      round: 1,
+    })).toStrictEqual({ kind: 'side', side: 'attacker' });
+
+    expect(KERNEL.registries.events.get(KERNEL_EVENTS.battleEnded)).not.toHaveProperty('target');
+  });
+
   it('kernel:command-aborted changes nothing', () => {
     const rejection = { code: 'rule-violation', params: {}, reason: 'acme-duel:failed' } as const;
 
@@ -118,12 +150,21 @@ describe('events of the kernel', () => {
     const health = apply(KERNEL_EVENTS.healthChanged, { count: 4, health: 2, unit: 'pikemen-1' });
     const mana = apply(KERNEL_EVENTS.resourceChanged, { resource: 'demo:mana', unit: 'archers-1', value: 0 });
     const flags = apply(KERNEL_EVENTS.flagsChanged, { flags: [], unit: 'archers-1' });
-    const tags = apply(KERNEL_EVENTS.tagsChanged, { tags: { 'Creature.Human': 1 }, unit: 'archers-1' });
+    const tags = apply(KERNEL_EVENTS.tagsChanged, { added: ['Buff.Haste', 'Buff'], removed: [], unit: 'archers-1' });
+    const taken = KERNEL.applyEvent(tags, kernelEvent(KERNEL_EVENTS.tagsChanged, {
+      added: ['Buff'],
+      removed: ['Buff.Haste', 'Buff'],
+      unit: 'archers-1',
+    }));
 
     expect(unitOf(health, 'pikemen-1')).toMatchObject({ count: 4, health: 2 });
     expect(unitOf(mana, 'archers-1').resources).toStrictEqual({ 'demo:mana': 0 });
     expect(unitOf(flags, 'archers-1').flags).toStrictEqual([]);
-    expect(unitOf(tags, 'archers-1').tags).toStrictEqual({ 'Creature.Human': 1 });
+    expect(unitOf(tags, 'archers-1').tags).toStrictEqual({ Buff: 1, 'Buff.Haste': 1 });
+    expect(unitOf(taken, 'archers-1').tags).toStrictEqual({ Buff: 1 });
+
+    expect(() => apply(KERNEL_EVENTS.tagsChanged, { added: [], removed: ['Buff'], unit: 'archers-1' }))
+      .toThrow('The tag "Buff" has no source to take back.');
 
     expect(() => apply(KERNEL_EVENTS.healthChanged, { count: 1, health: 1, unit: 'ghosts-1' }))
       .toThrow('There is no unit "ghosts-1".');
@@ -290,6 +331,7 @@ const PAYLOADS: { readonly [Type in KernelEventType]: KernelEventPayloads[Type] 
   'kernel:command-aborted': { rejection: { code: 'rule-violation', params: {}, reason: 'acme-duel:failed' } },
   'kernel:effect-applied': { effect: POISON, holder: { kind: 'field' } },
   'kernel:effect-changed': { effect: { ...POISON, id: 3 }, holder: { kind: 'unit', unit: 'archers-1' } },
+  'kernel:effect-not-applied': { effect: 'core:poison', holder: { kind: 'field' }, reason: 'immune' },
   'kernel:effect-removed': { effect: 3, holder: { kind: 'unit', unit: 'archers-1' } },
   'kernel:flags-changed': { flags: [], unit: 'archers-1' },
   'kernel:hazard-added': { cells: ['6,6'], hazard: 'fire-wall', visibleTo: 'all' },
@@ -304,7 +346,7 @@ const PAYLOADS: { readonly [Type in KernelEventType]: KernelEventPayloads[Type] 
   'kernel:resource-changed': { resource: 'demo:mana', unit: 'archers-1', value: 1 },
   'kernel:roll-made': { counter: 13, name: 'core:damage', result: 3, source: 'generator' },
   'kernel:steps-saved': { steps: [] },
-  'kernel:tags-changed': { tags: {}, unit: 'archers-1' },
+  'kernel:tags-changed': { added: [], removed: [], unit: 'archers-1' },
   'kernel:trigger-fired': { fired: 1, trigger: 'reinforcements' },
   'kernel:unit-moved': { path: ['2,5'], unit: 'archers-1' },
   'kernel:unit-placed': { cell: '0,0', unit: 'archers-1' },
@@ -340,14 +382,6 @@ function applyKernel(type: string, state: BattleState): BattleState {
   const payload: unknown = Object.entries(PAYLOADS).find(([name]) => name === type)?.[1];
 
   return KERNEL.applyEvent(state, event(type, payload));
-}
-
-function unitOf(state: BattleState, id: string): Unit {
-  const unit = state.units.find((current) => current.id === id);
-
-  if (unit === undefined) throw new Error(`No unit ${id}`);
-
-  return unit;
 }
 
 function effectsOf(state: BattleState, holder: 'field' | 'hazard' | 'side' | 'unit'): readonly AppliedEffect[] {

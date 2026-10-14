@@ -1,6 +1,6 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import { difference, percentOf, product, quotient, sum } from '../arithmetic.ts';
+import { difference, percentOf, product, quotient, sum } from '../index.ts';
 
 describe('exact arithmetic', () => {
   it('adds, subtracts and multiplies exactly and stays within safe integers', () => {

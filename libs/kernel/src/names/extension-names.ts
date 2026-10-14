@@ -4,6 +4,12 @@
 export const KERNEL_PREFIX = 'kernel';
 
 /**
+ * The regular expression of a full extension name `package:name`, as a string for JSON Schemas; see
+ * {@link isExtensionName}.
+ */
+export const FULL_NAME_PATTERN = '^[a-z0-9~-][a-z0-9._~-]*:[a-z][a-z0-9]*(?:-[a-z0-9]+)*$';
+
+/**
  * Returns the prefix of the extensions that an npm package registers: the package name without the npm scope.
  *
  * The scope `@heroes2dgame` is dropped: `@heroes2dgame/rules-stdlib` gives `rules-stdlib`. Any other scope joins the
@@ -57,4 +63,4 @@ export function isExtensionName(name: string): boolean {
 const OWN_SCOPE = 'heroes2dgame';
 const MAX_NPM_NAME_LENGTH = 214;
 const NPM_NAME = /^(?:@([a-z0-9~-][a-z0-9._~-]*)\/)?([a-z0-9~-][a-z0-9._~-]*)$/;
-const FULL_NAME = /^[a-z0-9~-][a-z0-9._~-]*:[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
+const FULL_NAME = new RegExp(FULL_NAME_PATTERN);

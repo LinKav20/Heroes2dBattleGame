@@ -1,7 +1,7 @@
 import type { ExpressionNode } from '../content/index.ts';
 import type { EvaluatedValue, StepRejects } from '../extensions/index.ts';
-import type { ContentName, UnitId } from '../ids/index.ts';
-import { REJECTION_REASONS } from '../model/index.ts';
+import type { ContentName } from '../ids/index.ts';
+import { REJECTION_REASONS, type SideTarget, type UnitTarget } from '../model/index.ts';
 
 /**
  * Returns the value of a formula or a condition as a result of evaluation.
@@ -18,8 +18,10 @@ export function outOfRange(node: ExpressionNode): StepRejects {
 }
 
 /**
- * Returns the rejection of a command whose attribute gets a value out of the safe range.
+ * Returns the rejection of a command whose attribute of a unit or a side gets a value out of the safe range.
  */
-export function attributeOutOfRange(unit: UnitId, attribute: ContentName): StepRejects {
-  return { kind: 'reject', params: { attribute, unit }, reason: REJECTION_REASONS.outOfRange };
+export function attributeOutOfRange(of: SideTarget | UnitTarget, attribute: ContentName): StepRejects {
+  const holder = of.kind === 'unit' ? { unit: of.unit } : { side: of.side };
+
+  return { kind: 'reject', params: { attribute, ...holder }, reason: REJECTION_REASONS.outOfRange };
 }

@@ -2,7 +2,7 @@ import { summonedUnitNumber, type CellId, type ContentName, type Tag, type UnitI
 import type { AbilityUse, SideHolder, Unit, UnitHolder } from '../../model/index.ts';
 import type { KernelEventAppliers } from './appliers.ts';
 import { KERNEL_EVENTS } from './names.ts';
-import { changeSide, changeUnit, hasId, takeId } from './state-changes.ts';
+import { changeSide, changeUnit, hasId, takeId, withTagSources } from './state-changes.ts';
 
 /**
  * The payload of `kernel:unit-placed`.
@@ -63,13 +63,16 @@ export interface FlagsChangedPayload {
 }
 
 /**
- * The payload of `kernel:tags-changed`.
+ * The payload of `kernel:tags-changed`: one source gives a unit tags or takes them back. The state keeps only such
+ * tags; the kernel adds the tags of the creature and of the effects that act on the unit when it reads them.
  */
 export interface TagsChangedPayload {
   /** The unit. */
   readonly unit: UnitId;
-  /** How many sources give the unit each tag after the change. */
-  readonly tags: Readonly<Record<Tag, number>>;
+  /** The tags the source gives. */
+  readonly added: readonly Tag[];
+  /** The tags the source takes back. */
+  readonly removed: readonly Tag[];
 }
 
 /**
@@ -104,7 +107,7 @@ export interface UnitEventPayloads {
   readonly [KERNEL_EVENTS.resourceChanged]: ResourceChangedPayload;
   /** The flags of a unit changed. */
   readonly [KERNEL_EVENTS.flagsChanged]: FlagsChangedPayload;
-  /** The tags of a unit and the number of their sources changed. */
+  /** A source gave a unit tags or took them back. */
   readonly [KERNEL_EVENTS.tagsChanged]: TagsChangedPayload;
   /** A new unit was summoned. */
   readonly [KERNEL_EVENTS.unitSummoned]: UnitSummonedPayload;
@@ -131,8 +134,8 @@ export const UNIT_EVENTS: KernelEventAppliers<UnitEventPayloads> = {
     changeUnit(state, unit, (current) => ({ ...current, resources: { ...current.resources, [resource]: value } })),
   [KERNEL_EVENTS.flagsChanged]: (state, { flags, unit }) =>
     changeUnit(state, unit, (current) => ({ ...current, flags })),
-  [KERNEL_EVENTS.tagsChanged]: (state, { tags, unit }) =>
-    changeUnit(state, unit, (current) => ({ ...current, tags })),
+  [KERNEL_EVENTS.tagsChanged]: (state, { added, removed, unit }) =>
+    changeUnit(state, unit, (current) => ({ ...current, tags: withTagSources(current.tags, added, removed) })),
   [KERNEL_EVENTS.unitSummoned]: (state, { unit }) => {
     const number = summonedUnitNumber(unit.id);
 

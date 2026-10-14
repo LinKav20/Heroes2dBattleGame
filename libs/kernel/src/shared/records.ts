@@ -20,3 +20,15 @@ export function withoutKey<Value extends object, Key extends keyof Value>(value:
 
   return dropped === undefined ? value : rest;
 }
+
+/**
+ * Freezes a value and everything it holds, and returns it.
+ */
+export function freezeDeep<Value>(value: Value): Value {
+  if (typeof value === 'object' && value !== null) {
+    Object.values(value).forEach((member: unknown) => freezeDeep(member));
+    Object.freeze(value);
+  }
+
+  return value;
+}

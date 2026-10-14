@@ -1,122 +1,142 @@
-import type { ContentRegistry, Effect, Predicate } from '../../content/index.ts';
+import { definitionOf, type ContentRegistry, type Effect } from '../../content/index.ts';
 import type { Subjects } from '../../extensions/index.ts';
-import type { ContentName } from '../../ids/index.ts';
-import type { AppliedEffect, BattleState, Target, Unit } from '../../model/index.ts';
-import { ownValue } from '../../shared/index.ts';
+import type { ContentName, SideId, UnitId } from '../../ids/index.ts';
+import type { AppliedEffect, BattleState, SideTarget, Target, Unit, UnitTarget } from '../../model/index.ts';
+import { appliedSource } from '../subjects.ts';
 
 /**
- * An effect whose modifiers may change an attribute of a unit, with the participants of its formulas.
+ * An effect that acts on a unit or a side, with the participants of its formulas and conditions.
  */
 export interface ModifierSource {
   /** The definition of the effect. */
   readonly effect: Effect;
   /** How many times the effect is stacked. */
   readonly stacks: number;
-  /** The participants: the holder of the effect as `self`, the unit as `target` and the one that applied it. */
+  /** The participants: the holder of the effect as `self`, the unit or the side as `target`, and its source. */
   readonly subjects: Subjects;
-  /** The condition the effect acts under, if it has one. */
-  readonly activeWhile?: Predicate;
+  /** The applied effect, if the effect is not one of a definition. */
+  readonly applied?: AppliedEffect;
+}
+
+interface HeldApplied {
+  readonly applied: AppliedEffect;
+  readonly holder: Target | undefined;
 }
 
 /**
- * Returns the effects that act on a unit, in the order of application: the effects of its creature, of the
- * battlefield and of its items first, then the applied effects of the unit, its side and the field by the order they
- * were applied. An item with an equipment slot acts only while it is equipped.
+ * Returns the effects that act on a unit or a side, in the order of application. For a unit: the effects of its
+ * creature, of the battlefield and of its items first, then the applied effects of the unit, its side and the field by
+ * the order they were applied. For a side: the effects of the battlefield, then the applied effects of the side and the
+ * field. An item with an equipment slot acts only while it is equipped.
  *
- * An effect acts while its `activeWhile` holds; the mark `active` of an applied effect is not read.
+ * Whether an effect acts now is decided by its condition of activity, which the caller evaluates.
  *
- * @throws {TypeError} If the content has no definition of an effect, a creature or an item.
+ * @throws {TypeError} If the unit or the side is not in the battle.
+ * @throws {ContentError} If the content has no definition of an effect, a creature, an item or the battlefield.
  */
-export function modifierSources(state: BattleState, content: ContentRegistry, unit: Unit): readonly ModifierSource[] {
-  const self: Target = { kind: 'unit', unit: unit.id };
-  const creature = ownValue(content.creatures, unit.creature);
-
-  if (creature === undefined) throw new TypeError(`The content has no creature ${JSON.stringify(unit.creature)}.`);
-
+export function modifierSources(
+  state: BattleState,
+  content: ContentRegistry,
+  of: SideTarget | UnitTarget,
+): readonly ModifierSource[] {
   const battlefield = battlefieldEffects(state, content);
-  const items = itemEffects(content, unit);
-  const side: Target = { kind: 'side', side: unit.side };
-  const sideEffects = state.sides.find(({ id }) => id === unit.side)?.effects ?? [];
-  const applied: ReadonlyArray<{ readonly effect: AppliedEffect; readonly holder: Target | undefined }> = [
-    ...unit.effects.map((effect) => ({ effect, holder: self })),
-    ...sideEffects.map((effect) => ({ effect, holder: side })),
-    ...state.field.effects.map((effect) => ({ effect, holder: undefined })),
-  ].toSorted((left, right) => left.effect.id - right.effect.id);
+
+  if (of.kind === 'side') {
+    if (!state.sides.some(({ id }) => id === of.side)) {
+      throw new TypeError(`The battle has no side ${JSON.stringify(of.side)}.`);
+    }
+
+    return [
+      ...battlefield.map((name) => fromDefinition(content, name, { target: of })),
+      ...appliedOf(state, of.side, undefined).map(({ applied, holder }) => fromApplied(content, applied, holder, of)),
+    ];
+  }
+
+  const unit = battleUnit(state, of.unit);
 
   return [
-    ...creature.effects.map((name) => fromDefinition(content, name, { self, target: self })),
-    ...battlefield.map((name) => fromDefinition(content, name, { target: self })),
-    ...items.map((name) => fromDefinition(content, name, { self, target: self })),
-    ...applied.map(({ effect, holder }) => fromApplied(content, effect, holder, self)),
+    ...creatureEffects(content, unit).map((name) => fromDefinition(content, name, { self: of, target: of })),
+    ...battlefield.map((name) => fromDefinition(content, name, { target: of })),
+    ...itemEffects(content, unit).map((name) => fromDefinition(content, name, { self: of, target: of })),
+    ...appliedOf(state, unit.side, unit).map(({ applied, holder }) => fromApplied(content, applied, holder, of)),
   ];
+}
+
+/**
+ * Returns a unit of the battle.
+ *
+ * @throws {TypeError} If the battle has no such unit: a step or its parameters refer to it wrongly.
+ */
+export function battleUnit(state: BattleState, unit: UnitId): Unit {
+  const found = state.units.find(({ id }) => id === unit);
+
+  if (found === undefined) throw new TypeError(`The battle has no unit ${JSON.stringify(unit)}.`);
+
+  return found;
 }
 
 /**
  * Returns the effects of the battlefield of the battle.
  *
- * @throws {TypeError} If the content has no definition of the battlefield.
+ * @throws {ContentError} If the content has no definition of the battlefield.
  */
 export function battlefieldEffects(state: BattleState, content: ContentRegistry): readonly ContentName[] {
   return state.field.battlefield === undefined
     ? []
-    : definition(content.battlefields, state.field.battlefield, 'battlefield').effects;
+    : definitionOf(content.battlefields, state.field.battlefield, 'battlefield').effects;
 }
 
 /**
- * Returns the effects of the items of a unit; an item with an equipment slot gives its effects only while equipped.
+ * Returns the permanent effects of the creature of a unit and the effects of its items; an item with an equipment
+ * slot gives its effects only while equipped.
  *
- * @throws {TypeError} If the content has no definition of an item.
+ * @throws {ContentError} If the content has no definition of the creature or an item.
  */
-export function itemEffects(content: ContentRegistry, unit: Unit): readonly ContentName[] {
+export function unitDefinitionEffects(content: ContentRegistry, unit: Unit): readonly ContentName[] {
+  return [...creatureEffects(content, unit), ...itemEffects(content, unit)];
+}
+
+function creatureEffects(content: ContentRegistry, unit: Unit): readonly ContentName[] {
+  return definitionOf(content.creatures, unit.creature, 'creature').effects;
+}
+
+function itemEffects(content: ContentRegistry, unit: Unit): readonly ContentName[] {
   return unit.inventory.flatMap((carried) => {
-    const item = definition(content.items, carried.item, 'item');
+    const item = definitionOf(content.items, carried.item, 'item');
 
     return item.slot === undefined || carried.slot !== undefined ? item.effects : [];
   });
 }
 
-function fromDefinition(content: ContentRegistry, name: ContentName, subjects: Subjects): ModifierSource {
-  const effect = definition(content.effects, name, 'effect');
+function appliedOf(state: BattleState, side: SideId, unit: Unit | undefined): readonly HeldApplied[] {
+  const sideTarget: Target = { kind: 'side', side };
+  const sideEffects = state.sides.find(({ id }) => id === side)?.effects ?? [];
+  const unitTarget: Target | undefined = unit === undefined ? undefined : { kind: 'unit', unit: unit.id };
 
-  return effect.activeWhile === undefined
-    ? { effect, stacks: 1, subjects }
-    : { activeWhile: effect.activeWhile, effect, stacks: 1, subjects };
+  return [
+    ...(unit?.effects ?? []).map((applied) => ({ applied, holder: unitTarget })),
+    ...sideEffects.map((applied) => ({ applied, holder: sideTarget })),
+    ...state.field.effects.map((applied) => ({ applied, holder: undefined })),
+  ].toSorted((left, right) => left.applied.id - right.applied.id);
+}
+
+function fromDefinition(content: ContentRegistry, name: ContentName, subjects: Subjects): ModifierSource {
+  return { effect: definitionOf(content.effects, name, 'effect'), stacks: 1, subjects };
 }
 
 function fromApplied(
   content: ContentRegistry,
   applied: AppliedEffect,
   holder: Target | undefined,
-  target: Target,
+  target: SideTarget | UnitTarget,
 ): ModifierSource {
-  const source = sourceOf(applied);
+  const source = appliedSource(applied);
   const subjects: Subjects = {
     ...(holder === undefined ? {} : { self: holder }),
     ...(source === undefined ? {} : { source }),
     target,
   };
+  const effect = definitionOf(content.effects, applied.effect, 'effect');
 
-  const effect = definition(content.effects, applied.effect, 'effect');
-
-  return effect.activeWhile === undefined
-    ? { effect, stacks: applied.stacks, subjects }
-    : { activeWhile: effect.activeWhile, effect, stacks: applied.stacks, subjects };
-}
-
-function sourceOf(applied: AppliedEffect): Target | undefined {
-  if (applied.sourceUnit !== undefined) return { kind: 'unit', unit: applied.sourceUnit };
-
-  return applied.sourceSide === undefined ? undefined : { kind: 'side', side: applied.sourceSide };
-}
-
-function definition<Definition>(
-  table: Readonly<Record<ContentName, Definition>>,
-  name: ContentName,
-  what: string,
-): Definition {
-  const found = ownValue(table, name);
-
-  if (found === undefined) throw new TypeError(`The content has no ${what} ${JSON.stringify(name)}.`);
-
-  return found;
+  return { applied, effect, stacks: applied.stacks, subjects };
 }
