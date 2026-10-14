@@ -6,6 +6,16 @@ export type {
   CommandSteps,
 } from './command-kind.ts';
 export type { EventKind, ExtensionEventKind } from './event-kind.ts';
+export type {
+  ConditionExtension,
+  EvaluatedValue,
+  Evaluation,
+  ExpressionContext,
+  Expressions,
+  FormulaExtension,
+  SubjectRole,
+  Subjects,
+} from './expressions.ts';
 export {
   KERNEL_EXTENSION_KINDS,
   type KernelExtension,
@@ -13,25 +23,20 @@ export {
   type RegisteredExtension,
 } from './kernel-extension.ts';
 export type { Migration } from './migration.ts';
-export type {
-  ConditionExtension,
-  MechanicExtension,
-  OperationExtension,
-  TopologyExtension,
-} from './other-extensions.ts';
-export type {
-  EventDraft,
-  StepContext,
-  StepDone,
-  StepDraft,
-  StepKind,
-  StepNeedsValue,
-  StepRejects,
-  StepResult,
-} from './step-kind.ts';
+export type { OperationContext, OperationExtension } from './operations.ts';
+export type { MechanicExtension, TopologyExtension } from './other-extensions.ts';
+export type { StepContext, StepKind } from './step-kind.ts';
 export type {
   ChoiceNeed,
   RollNeed,
   StepNeed,
   TargetNeed,
 } from './step-needs.ts';
+export type {
+  EventDraft,
+  StepDone,
+  StepDraft,
+  StepNeedsValue,
+  StepRejects,
+  StepResult,
+} from './step-results.ts';

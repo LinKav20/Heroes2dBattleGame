@@ -1,6 +1,9 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import type {
   CommandKind,
+  ConditionExtension,
+  FormulaExtension,
+  OperationExtension,
   KERNEL_EXTENSION_KINDS,
   KernelExtension,
   KernelExtensionKind,
@@ -23,16 +26,25 @@ describe('createKernel', () => {
     expect(topologies.getByShortName('hex')).toBe(EXTENSIONS[3]);
     expect(events.get('acme-frost:frozen')).toBe(FROST_EVENT);
     expect(kernel.registries.steps.get('acme-frost:strike')).toBe(STRIKE_STEP);
+    expect(kernel.registries.formulas.get('rules-stdlib:double')).toBe(DOUBLE);
     expect(operations.getByShortName('adjacent')).toBeUndefined();
-    expect(operations.extensions).toHaveLength(1);
+    expect(operations.extensions.filter(({ name }) => !name.startsWith('kernel:'))).toStrictEqual([DAMAGE]);
   });
 
   it('creates empty registries without extensions', () => {
-    const { conditions, events, mechanics, operations, topologies } = createKernel({ extensions: [] }).registries;
-    const sizes = [conditions, mechanics, operations, topologies].map(({ extensions }) => extensions.length);
+    const registries = createKernel({ extensions: [] }).registries;
+    const { commands, mechanics, topologies } = registries;
+    const sizes = [commands, mechanics, topologies].map(({ extensions }) => extensions.length);
+    const builtIn = [
+      ...registries.conditions.extensions,
+      ...registries.events.extensions,
+      ...registries.formulas.extensions,
+      ...registries.operations.extensions,
+      ...registries.steps.extensions,
+    ];
 
-    expect(sizes).toStrictEqual([0, 0, 0, 0]);
-    expect(events.extensions.every(({ name }) => name.startsWith('kernel:'))).toBe(true);
+    expect(sizes).toStrictEqual([0, 0, 0]);
+    expect(builtIn.every(({ name }) => name.startsWith('kernel:'))).toBe(true);
   });
 
   it('gives every kernel its own registries', () => {
@@ -53,7 +65,7 @@ describe('createKernel', () => {
 
   it('rejects one name in two registries', () => {
     const clash: KernelExtension[] = [
-      { kind: 'operation', name: 'rules-stdlib:damage' },
+      { kind: 'operation', name: 'rules-stdlib:damage', run: () => ({ events: [], kind: 'done' }), schema: {} },
       { ...FROST_EVENT, name: 'rules-stdlib:damage' },
     ];
 
@@ -65,15 +77,15 @@ describe('createKernel', () => {
 
   it('rejects one short name in two registries', () => {
     const clash: KernelExtension[] = [
-      { kind: 'operation', name: 'rules-stdlib:damage', shortName: 'damage' },
-      { kind: 'condition', name: 'acme-frost:damage', shortName: 'damage' },
+      DAMAGE,
+      { ...ADJACENT, name: 'acme-frost:damage', shortName: 'damage' },
     ];
 
     expect(() => createKernel({ extensions: clash })).toThrow('the short name "damage"');
   });
 
   it('rejects the prefix of the kernel in other packages', () => {
-    const impostor: KernelExtension = { kind: 'condition', name: 'kernel:fake-and', shortName: 'fake-and' };
+    const impostor: KernelExtension = { ...ADJACENT, name: 'kernel:fake-and', shortName: 'fake-and' };
 
     expect(() => createKernel({ extensions: [impostor] })).toThrow(
       '"kernel:fake-and" uses the prefix "kernel", which belongs to the kernel',
@@ -98,11 +110,15 @@ describe('createKernel', () => {
       kind: { ...STRIKE_STEP, migrations: [{ from: 2, migrate: (value: unknown) => value }] },
       problem: 'needs exactly one migration from every version below 2',
     },
-    { kind: { ...FROST_EVENT, schema: undefined }, problem: 'needs a JSON Schema of its payload as an object' },
+    { kind: { ...FROST_EVENT, schema: undefined }, problem: 'needs a JSON Schema as an object' },
     { kind: { ...FROST_EVENT, apply: undefined }, problem: 'needs a function apply' },
     { kind: { ...STRIKE_STEP, run: undefined }, problem: 'needs a function run' },
     { kind: { ...ORDER, plan: undefined }, problem: 'needs a function plan' },
-    { kind: { ...ORDER, schema: undefined }, problem: 'needs a JSON Schema of its payload as an object' },
+    { kind: { ...ORDER, schema: undefined }, problem: 'needs a JSON Schema as an object' },
+    { kind: { ...ADJACENT, test: undefined }, problem: 'needs a function test' },
+    { kind: { ...ADJACENT, schema: undefined }, problem: 'needs a JSON Schema as an object' },
+    { kind: { ...DOUBLE, evaluate: undefined }, problem: 'needs a function evaluate' },
+    { kind: { ...DOUBLE, schema: undefined }, problem: 'needs a JSON Schema as an object' },
     {
       kind: { ...STRIKE_STEP, version: Number.MAX_SAFE_INTEGER },
       problem: `needs exactly one migration from every version below ${String(Number.MAX_SAFE_INTEGER)}`,
@@ -127,20 +143,44 @@ describe('createKernel', () => {
     expect(() => createKernel({ extensions: extensions as KernelExtension[] })).toThrow(
       'Cannot register kernel extensions:\n'
       + '- "Bad" needs a name "package:name" in lowercase letters, digits and dashes\n'
-      + '- "adapter-renderer-pixi:pixi" has an unknown kind; use command, condition, event, mechanic, operation, '
-      + 'step, topology\n'
+      + '- "adapter-renderer-pixi:pixi" has an unknown kind; use command, condition, event, formula, mechanic, '
+      + 'operation, step, topology\n'
       + '- the extension at position 2 is not an object',
     );
   });
 });
 
+const DAMAGE: OperationExtension = {
+  kind: 'operation',
+  name: 'rules-stdlib:damage',
+  run: () => ({ events: [], kind: 'done' }),
+  schema: { type: 'object' },
+  shortName: 'damage',
+};
+
+const ADJACENT: ConditionExtension = {
+  kind: 'condition',
+  name: 'rules-stdlib:adjacent',
+  schema: { type: 'object' },
+  shortName: 'adjacent',
+  test: () => ({ kind: 'value', value: true }),
+};
+
+const DOUBLE: FormulaExtension = {
+  evaluate: () => ({ kind: 'value', value: 2 }),
+  kind: 'formula',
+  name: 'rules-stdlib:double',
+  schema: { type: 'object' },
+};
+
 const EXTENSIONS: readonly [KernelExtension, KernelExtension, ...KernelExtension[]] = [
-  { kind: 'operation', name: 'rules-stdlib:damage', shortName: 'damage' },
-  { kind: 'condition', name: 'rules-stdlib:adjacent', shortName: 'adjacent' },
+  DAMAGE,
+  ADJACENT,
   { kind: 'mechanic', name: 'rules-stdlib:speed-with-waiting' },
   { kind: 'topology', name: 'rules-stdlib:hex', shortName: 'hex' },
   FROST_EVENT,
   STRIKE_STEP,
+  DOUBLE,
 ];
 
 const ORDER: CommandKind = {

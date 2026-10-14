@@ -25,10 +25,11 @@ export function extensionProblems(extension: RegisteredExtension): string[] {
 
 const KIND_CHECKS: Readonly<Record<KernelExtensionKind, readonly Check[]>> = {
   command: [needsFunction('plan'), needsSchema],
-  condition: [],
+  condition: [needsFunction('test'), needsSchema],
   event: [needsVersion, needsFunction('apply'), needsSchema],
+  formula: [needsFunction('evaluate'), needsSchema],
   mechanic: [],
-  operation: [],
+  operation: [needsFunction('run'), needsSchema],
   step: [needsVersion, needsFunction('run')],
   topology: [],
 };
@@ -38,7 +39,7 @@ function needsFunction(name: string): Check {
 }
 
 function needsSchema(label: string, extension: Readonly<Record<string, unknown>>): string[] {
-  return isRecord(extension.schema) ? [] : [`${label} needs a JSON Schema of its payload as an object`];
+  return isRecord(extension.schema) ? [] : [`${label} needs a JSON Schema as an object`];
 }
 
 function needsVersion(label: string, extension: Readonly<Record<string, unknown>>): string[] {

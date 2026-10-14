@@ -1,5 +1,5 @@
+import { MAX_DICE_PER_ROLL, MAX_DIE_SIDES } from '../../expressions/index.ts';
 import type { StepNeed } from '../../extensions/index.ts';
-import { MAX_DICE_PER_ROLL, MAX_DIE_SIDES } from '../limits.ts';
 import { allDifferent } from './targets.ts';
 
 /**

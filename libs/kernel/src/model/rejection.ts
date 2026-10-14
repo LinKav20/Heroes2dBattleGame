@@ -44,6 +44,8 @@ export const REJECTION_CODES = Object.freeze({
  * - `noOpenRequest`: with the code `nothing-to-answer`, an answer to a request that is not open; `request` is the
  *   identifier the answer names;
  * - `notAvailable`: a command the kernel cannot run yet; no parameters;
+ * - `outOfRange`: a formula or an attribute gets a value out of the safe range; `formula` is the full name of the
+ *   node, or `unit` and `attribute` name the attribute;
  * - `rngExhausted`: the generator has run out of values; `name` is the random value a step needed;
  * - `stepLimit`: the command ran too many steps or built too deep a stack of steps; no parameters;
  * - `unknownCommand`: a game command of an extension that no package declares; `name` is its full name.
@@ -54,6 +56,7 @@ export const REJECTION_REASONS = Object.freeze({
   invalidAnswer: kernelName('invalid-answer'),
   noOpenRequest: kernelName('no-open-request'),
   notAvailable: kernelName('not-available'),
+  outOfRange: kernelName('out-of-range'),
   rngExhausted: kernelName('rng-exhausted'),
   stepLimit: kernelName('step-limit'),
   unknownCommand: kernelName('unknown-command'),

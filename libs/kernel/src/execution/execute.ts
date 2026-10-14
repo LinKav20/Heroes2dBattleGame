@@ -1,4 +1,5 @@
 import type { ContentRegistry } from '../content/index.ts';
+import type { AttributeCache } from '../expressions/index.ts';
 import type { BattleState, Command } from '../model/index.ts';
 import { answerRequest } from './answer-request.ts';
 import type { ExecutionRegistries } from './context.ts';
@@ -19,6 +20,7 @@ import { startCommand } from './start-command.ts';
  */
 export function execute(
   registries: ExecutionRegistries,
+  cache: AttributeCache,
   state: BattleState,
   command: Command,
   content: ContentRegistry,
@@ -29,7 +31,7 @@ export function execute(
     );
   }
 
-  const context = { content, registries };
+  const context = { cache, content, registries };
 
   return command.kind === 'answer' ? answerRequest(context, state, command) : startCommand(context, state, command);
 }

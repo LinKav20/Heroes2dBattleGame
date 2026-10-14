@@ -1,14 +1,13 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { RUNNER_EVENTS } from '../../events/index.ts';
+import { MAX_DICE_PER_ROLL, MAX_DIE_SIDES } from '../../expressions/index.ts';
 import type { StepKind } from '../../extensions/index.ts';
 import { canonicalJson } from '../../json/index.ts';
 import { createKernel } from '../../kernel/index.ts';
 import type { BattleState, Command, InputValue, Rejection } from '../../model/index.ts';
 import { CONTENT, deepFreeze } from '../../tests/fixtures.ts';
 import {
-  MAX_DICE_PER_ROLL,
-  MAX_DIE_SIDES,
   MAX_STACK_DEPTH,
   MAX_STEPS_PER_COMMAND,
   type ExecuteAccepted,
@@ -17,6 +16,7 @@ import {
 import {
   applyAll,
   ask,
+  compute,
   DAMAGE,
   DUEL_EXTENSIONS,
   duelState,
@@ -390,6 +390,52 @@ describe('execute', () => {
 
     expect(KERNEL.execute(exhausted, strike('archers-1', 'pikemen-1'), CONTENT))
       .toStrictEqual({ ok: false, rejection: rule('kernel:rng-exhausted', { name: DAMAGE }) });
+  });
+});
+
+describe('formulas in steps', () => {
+  const twoDice = { count: 2, name: DAMAGE, sides: 6, type: 'kernel:dice' };
+  const doubled = { type: 'kernel:multiply', values: [twoDice, 2] };
+
+  it('roll the dice of a formula with the generator and run the step again with the roll', () => {
+    const { events, state } = accepted(KERNEL.execute(duelState('generator'), compute(doubled), CONTENT));
+    const [roll, result] = events;
+
+    expect(events.map(({ type }) => type)).toStrictEqual(['kernel:roll-made', 'kernel:variable-set']);
+    expect(roll?.payload).toMatchObject({ name: DAMAGE, source: 'generator' });
+    expect(state.variables.result).toBe(2 * (roll?.payload as { readonly result: number }).result);
+    expect(result?.cause).toBeUndefined();
+  });
+
+  it('ask the side of self for the dice of a formula from outside', () => {
+    const paused = accepted(KERNEL.execute(duelState('external'), compute(doubled), CONTENT)).state;
+    const answered = accepted(KERNEL.execute(paused, answerRoll(8, [2, 5]), CONTENT));
+
+    expect(paused.inputRequest).toStrictEqual({
+      count: 2,
+      id: 8,
+      kind: 'roll',
+      name: DAMAGE,
+      side: 'attacker',
+      sides: 6,
+      unit: 'archers-1',
+    });
+
+    expect(answered.state.variables.result).toBe(14);
+  });
+
+  it('reject the command when a formula leaves the safe range', () => {
+    const huge = { type: 'kernel:multiply', values: [Number.MAX_SAFE_INTEGER, 2] };
+
+    expect(KERNEL.execute(duelState('generator'), compute(huge), CONTENT)).toStrictEqual({
+      ok: false,
+      rejection: rule('kernel:out-of-range', { formula: 'kernel:multiply' }),
+    });
+  });
+
+  it('throw for an error of the content', () => {
+    expect(() => KERNEL.execute(duelState('generator'), compute({ left: 1, right: 0, type: 'kernel:divide' }), CONTENT))
+      .toThrow('divides by 0');
   });
 });
 

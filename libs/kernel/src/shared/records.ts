@@ -6,6 +6,13 @@ export function isRecord(value: unknown): value is Readonly<Record<string, unkno
 }
 
 /**
+ * Returns the value of an own key of a record, never a member of `Object.prototype` such as `constructor`.
+ */
+export function ownValue<Value>(record: Readonly<Record<string, Value>>, key: string): Value | undefined {
+  return Object.hasOwn(record, key) ? record[key] : undefined;
+}
+
+/**
  * Returns the object without one of its fields, or the same object if the field is absent.
  */
 export function withoutKey<Value extends object, Key extends keyof Value>(value: Value, key: Key): Omit<Value, Key> {

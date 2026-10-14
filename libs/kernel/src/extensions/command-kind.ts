@@ -2,7 +2,7 @@ import type { ContentRegistry } from '../content/index.ts';
 import type { JsonObject } from '../json/index.ts';
 import type { BattleState } from '../model/index.ts';
 import type { Extension } from '../names/index.ts';
-import type { StepDraft } from './step-kind.ts';
+import type { StepDraft } from './step-results.ts';
 
 /**
  * A kind of game command that a package with extensions declares: the schema of its payload and the steps it starts.

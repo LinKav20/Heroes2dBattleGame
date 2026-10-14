@@ -1,11 +1,8 @@
 import type { CommandKind } from './command-kind.ts';
 import type { EventKind, ExtensionEventKind } from './event-kind.ts';
-import type {
-  ConditionExtension,
-  MechanicExtension,
-  OperationExtension,
-  TopologyExtension,
-} from './other-extensions.ts';
+import type { ConditionExtension, FormulaExtension } from './expressions.ts';
+import type { OperationExtension } from './operations.ts';
+import type { MechanicExtension, TopologyExtension } from './other-extensions.ts';
 import type { StepKind } from './step-kind.ts';
 
 /**
@@ -16,13 +13,14 @@ export type KernelExtension
   = | CommandKind
     | ConditionExtension
     | ExtensionEventKind
+    | FormulaExtension
     | MechanicExtension
     | OperationExtension
     | StepKind
     | TopologyExtension;
 
 /**
- * An extension that the kernel keeps in a registry: an extension of a package or a kind of event of the kernel.
+ * An extension that the kernel keeps in a registry: an extension of a package or a built-in extension of the kernel.
  */
 export type RegisteredExtension = EventKind | KernelExtension;
 
@@ -38,6 +36,7 @@ export const KERNEL_EXTENSION_KINDS = Object.freeze([
   'command',
   'condition',
   'event',
+  'formula',
   'mechanic',
   'operation',
   'step',

@@ -69,7 +69,7 @@ export const CONTENT: ContentRegistry = {
     'core:poison': {
       blockedBy: ['Immunity.Poison'],
       duration: { count: 3, kind: 'turns', tick: 'holder-turn-start' },
-      endsOn: [{ condition: { type: 'kernel:is-holder' }, on: 'kernel:unit-healed' }],
+      endsOn: [{ condition: { left: 'self', right: 'target', type: 'kernel:same' }, on: 'kernel:unit-healed' }],
       forbids: [],
       grantsTags: ['Debuff.Poison'],
       modifiers: [{ attribute: 'core:speed', operation: 'percent', value: -25 }],

@@ -16,8 +16,13 @@ describe('the public API of the kernel', () => {
 
   it('freezes its constants', () => {
     const constants = [
+      kernel.COMPARISON_OPERATORS,
+      kernel.KERNEL_CONDITIONS,
       kernel.KERNEL_EVENTS,
       kernel.KERNEL_EXTENSION_KINDS,
+      kernel.KERNEL_FORMULAS,
+      kernel.KERNEL_OPERATIONS,
+      kernel.KERNEL_STEPS,
       kernel.MIGRATION_FAILURES,
       kernel.RANDOM_SOURCES,
       kernel.REJECTION_CODES,
@@ -29,8 +34,15 @@ describe('the public API of the kernel', () => {
     expect(constants.every((constant) => Object.isFrozen(constant))).toBe(true);
   });
 
-  it('names every event and every reason of the kernel with the prefix of the kernel', () => {
-    const names = [...Object.values(kernel.KERNEL_EVENTS), ...Object.values(kernel.REJECTION_REASONS)];
+  it('names every built-in extension and every reason of the kernel with the prefix of the kernel', () => {
+    const names = [
+      ...Object.values(kernel.KERNEL_CONDITIONS),
+      ...Object.values(kernel.KERNEL_EVENTS),
+      ...Object.values(kernel.KERNEL_FORMULAS),
+      ...Object.values(kernel.KERNEL_OPERATIONS),
+      ...Object.values(kernel.KERNEL_STEPS),
+      ...Object.values(kernel.REJECTION_REASONS),
+    ];
 
     expect(names.every((name) => name.startsWith(`${kernel.KERNEL_PREFIX}:`))).toBe(true);
     expect(new Set(names).size).toBe(names.length);
@@ -38,9 +50,14 @@ describe('the public API of the kernel', () => {
 });
 
 const VALUES = [
+  'COMPARISON_OPERATORS',
+  'KERNEL_CONDITIONS',
   'KERNEL_EVENTS',
   'KERNEL_EXTENSION_KINDS',
+  'KERNEL_FORMULAS',
+  'KERNEL_OPERATIONS',
   'KERNEL_PREFIX',
+  'KERNEL_STEPS',
   'MAX_DICE_PER_ROLL',
   'MAX_DIE_SIDES',
   'MAX_STACK_DEPTH',
@@ -52,6 +69,7 @@ const VALUES = [
   'RNG_FAILURES',
   'VISIBLE_TO_ALL',
   'VISIBLE_TO_NONE',
+  'applicationDraft',
   'canonicalJson',
   'createKernel',
   'createRegistry',
@@ -61,9 +79,12 @@ const VALUES = [
   'isExtensionName',
   'isKernelEvent',
   'kernelEventDraft',
+  'operationDrafts',
+  'removalDraft',
   'rngNext',
   'rngRange',
   'summonedUnitId',
+  'tickDraft',
 ];
 
 const TYPES = [
@@ -72,6 +93,7 @@ const TYPES = [
   'AbilityUse',
   'AbilityUsedPayload',
   'ActivePhase',
+  'ApplicationParams',
   'AppliedEffect',
   'ApplyEffectEdit',
   'AreaRule',
@@ -113,13 +135,17 @@ const TYPES = [
   'EffectStacking',
   'EndTurnCommand',
   'EndedPhase',
+  'EvaluatedValue',
+  'Evaluation',
   'EventBatch',
   'EventDraft',
   'EventKind',
   'ExecuteAccepted',
   'ExecuteRejected',
   'ExecuteResult',
+  'ExpressionContext',
   'ExpressionNode',
+  'Expressions',
   'Extension',
   'ExtensionCommand',
   'ExtensionEventKind',
@@ -128,6 +154,7 @@ const TYPES = [
   'FieldObstacle',
   'FinishDeploymentCommand',
   'FlagsChangedPayload',
+  'FormulaExtension',
   'GameCommand',
   'Hazard',
   'HazardAddedPayload',
@@ -170,7 +197,9 @@ const TYPES = [
   'Movement',
   'Obstacle',
   'Op',
+  'OperationContext',
   'OperationExtension',
+  'OperationParams',
   'Outcome',
   'OutcomeCondition',
   'PackVersion',
@@ -178,12 +207,14 @@ const TYPES = [
   'PlaceUnitCommand',
   'Predicate',
   'RandomSource',
+  'ReactionParams',
   'Registry',
   'RegistryKeys',
   'RegistryOptions',
   'Rejection',
   'RejectionCode',
   'RejectionReason',
+  'RemovalParams',
   'RemoveEffectEdit',
   'ResourceChangedPayload',
   'ResourceRule',
@@ -231,6 +262,8 @@ const TYPES = [
   'StepRejects',
   'StepResult',
   'StepsSavedPayload',
+  'SubjectRole',
+  'Subjects',
   'SurrenderCommand',
   'Tag',
   'TagsChangedPayload',
@@ -239,6 +272,8 @@ const TYPES = [
   'TargetRequest',
   'TargetRule',
   'TargetValue',
+  'TickMoment',
+  'TickParams',
   'TopologyExtension',
   'TriggerDef',
   'TriggerFiredPayload',

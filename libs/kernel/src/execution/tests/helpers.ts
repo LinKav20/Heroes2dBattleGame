@@ -1,4 +1,4 @@
-import type { RandomSource } from '../../content/index.ts';
+import type { RandomSource, ValueExpr } from '../../content/index.ts';
 import { KERNEL_EVENTS, kernelEventDraft } from '../../events/index.ts';
 import type {
   CommandKind,
@@ -38,6 +38,10 @@ export const DUEL_EXTENSIONS: readonly KernelExtension[] = [
   command('acme-duel:request', ({ payload }) => ({
     kind: 'steps',
     steps: [{ params: { need: payload }, type: 'acme-duel:ask' }],
+  })),
+  command('acme-duel:compute', ({ payload }) => ({
+    kind: 'steps',
+    steps: [{ params: { formula: payload }, type: 'acme-duel:formula' }],
   })),
   command('acme-duel:refuse', () => ({ kind: 'reject', reason: 'acme-duel:refused' })),
   command('acme-duel:mumble', () => ({ kind: 'reject', reason: 'refused' })),
@@ -155,6 +159,11 @@ export const DUEL_EXTENSIONS: readonly KernelExtension[] = [
   step<{ readonly need: StepNeed }>('acme-duel:ask', ({ inputs, params }) => (inputs.length === 0
     ? { kind: 'need', need: params.need }
     : { events: [], kind: 'done' })),
+  step<{ readonly formula: ValueExpr }>('acme-duel:formula', ({ expressions, params }) => {
+    const result = expressions.value(params.formula, { self: { kind: 'unit', unit: 'archers-1' } });
+
+    return result.kind === 'value' ? { events: [variableSet('result', result.value)], kind: 'done' } : result;
+  }),
   step('acme-duel:cheat', ({ state }) => ({
     events: [
       kernelEventDraft(KERNEL_EVENTS.inputRequested, {
@@ -209,6 +218,12 @@ export function ask(need: object): Command {
   const payload: unknown = need;
 
   return { kind: 'game', name: 'acme-duel:request', payload: payload as JsonValue, type: 'extension' };
+}
+
+export function compute(formula: unknown): Command {
+  const payload: unknown = formula;
+
+  return { kind: 'game', name: 'acme-duel:compute', payload: payload as JsonValue, type: 'extension' };
 }
 
 export function applyAll(kernel: Kernel, state: BattleState, events: readonly BattleEvent[]): BattleState {

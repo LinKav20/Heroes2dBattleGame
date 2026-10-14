@@ -1,9 +1,12 @@
+import { KERNEL_OPERATION_KINDS, kernelStepKinds } from '../effects/index.ts';
 import { KERNEL_EVENT_KINDS } from '../events/index.ts';
+import { KERNEL_CONDITION_KINDS, KERNEL_FORMULA_KINDS } from '../expressions/index.ts';
 import {
   KERNEL_EXTENSION_KINDS,
   type CommandKind,
   type ConditionExtension,
   type EventKind,
+  type FormulaExtension,
   type KernelExtensionKind,
   type MechanicExtension,
   type OperationExtension,
@@ -20,15 +23,17 @@ import { extensionProblems } from './extension-checks.ts';
 export interface KernelRegistries {
   /** Kinds of game commands that packages with extensions declare. */
   readonly commands: Registry<CommandKind>;
-  /** Checks such as "adjacent cell" that content uses in conditions. */
+  /** Nodes of conditions in content, such as "and" or "adjacent cell", those of the kernel included. */
   readonly conditions: Registry<ConditionExtension>;
   /** Kinds of events with their versions, schemas and migrations, those of the kernel included. */
   readonly events: Registry<EventKind>;
+  /** Nodes of formulas in content, such as a dice roll or a sum, those of the kernel included. */
+  readonly formulas: Registry<FormulaExtension>;
   /** Variants of the mechanics that rulesets refer to, such as the turn order or the attack calculation. */
   readonly mechanics: Registry<MechanicExtension>;
-  /** Operations such as damage, healing or summoning that content combines into behavior. */
+  /** Operations such as damage or healing that content combines into behavior, those of the kernel included. */
   readonly operations: Registry<OperationExtension>;
-  /** Kinds of steps of commands with their versions and migrations. */
+  /** Kinds of steps of commands with their versions and migrations, those of the kernel included. */
   readonly steps: Registry<StepKind>;
   /** Field topologies, such as hexes. */
   readonly topologies: Registry<TopologyExtension>;
@@ -41,14 +46,27 @@ export interface KernelRegistries {
  * @throws {TypeError} If any extension is invalid or clashes with another one. The message lists every problem found.
  */
 export function createKernelRegistries(extensions: readonly RegisteredExtension[]): KernelRegistries {
-  const builtIn = new Set<RegisteredExtension>(KERNEL_EVENT_KINDS);
-  const all = createRegistry<RegisteredExtension>('kernel', [...extensions, ...KERNEL_EVENT_KINDS], {
+  const ready: { operations?: Registry<OperationExtension> } = {};
+  const kernelExtensions = [
+    ...KERNEL_CONDITION_KINDS,
+    ...KERNEL_EVENT_KINDS,
+    ...KERNEL_FORMULA_KINDS,
+    ...KERNEL_OPERATION_KINDS,
+    ...kernelStepKinds(() => {
+      if (ready.operations === undefined) throw new TypeError('The registries of the kernel are not ready yet.');
+
+      return ready.operations;
+    }),
+  ];
+  const builtIn = new Set<RegisteredExtension>(kernelExtensions);
+  const all = createRegistry<RegisteredExtension>('kernel', [...extensions, ...kernelExtensions], {
     check: (extension) => (builtIn.has(extension) ? [] : extensionProblems(extension)),
   });
   const registries: KernelRegistries = {
     commands: registryOf(all, 'command'),
     conditions: registryOf(all, 'condition'),
     events: registryOf(all, 'event'),
+    formulas: registryOf(all, 'formula'),
     mechanics: registryOf(all, 'mechanic'),
     operations: registryOf(all, 'operation'),
     steps: registryOf(all, 'step'),
@@ -61,6 +79,8 @@ export function createKernelRegistries(extensions: readonly RegisteredExtension[
 
   if (registered !== all.extensions.length) throw new TypeError('A kind of extension has no registry.');
 
+  ready.operations = registries.operations;
+
   return Object.freeze(registries);
 }
 
@@ -68,6 +88,7 @@ const REGISTRY_NAMES: Readonly<Record<KernelExtensionKind, keyof KernelRegistrie
   command: 'commands',
   condition: 'conditions',
   event: 'events',
+  formula: 'formulas',
   mechanic: 'mechanics',
   operation: 'operations',
   step: 'steps',

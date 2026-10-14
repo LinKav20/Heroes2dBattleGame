@@ -45,6 +45,20 @@ export {
   type ValueExpr,
 } from './content/index.ts';
 export {
+  applicationDraft,
+  KERNEL_OPERATIONS,
+  KERNEL_STEPS,
+  operationDrafts,
+  removalDraft,
+  tickDraft,
+  type ApplicationParams,
+  type OperationParams,
+  type ReactionParams,
+  type RemovalParams,
+  type TickMoment,
+  type TickParams,
+} from './effects/index.ts';
+export {
   isKernelEvent,
   KERNEL_EVENTS,
   kernelEventDraft,
@@ -83,14 +97,19 @@ export {
   type VariableSetPayload,
 } from './events/index.ts';
 export {
-  MAX_DICE_PER_ROLL,
-  MAX_DIE_SIDES,
   MAX_STACK_DEPTH,
   MAX_STEPS_PER_COMMAND,
   type ExecuteAccepted,
   type ExecuteRejected,
   type ExecuteResult,
 } from './execution/index.ts';
+export {
+  COMPARISON_OPERATORS,
+  KERNEL_CONDITIONS,
+  KERNEL_FORMULAS,
+  MAX_DICE_PER_ROLL,
+  MAX_DIE_SIDES,
+} from './expressions/index.ts';
 export {
   KERNEL_EXTENSION_KINDS,
   type ChoiceNeed,
@@ -100,13 +119,19 @@ export {
   type CommandRejected,
   type CommandSteps,
   type ConditionExtension,
+  type EvaluatedValue,
+  type Evaluation,
   type EventDraft,
   type EventKind,
+  type ExpressionContext,
+  type Expressions,
   type ExtensionEventKind,
+  type FormulaExtension,
   type KernelExtension,
   type KernelExtensionKind,
   type MechanicExtension,
   type Migration,
+  type OperationContext,
   type OperationExtension,
   type RollNeed,
   type StepContext,
@@ -117,6 +142,8 @@ export {
   type StepNeedsValue,
   type StepRejects,
   type StepResult,
+  type SubjectRole,
+  type Subjects,
   type TargetNeed,
   type TopologyExtension,
 } from './extensions/index.ts';

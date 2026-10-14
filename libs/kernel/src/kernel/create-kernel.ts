@@ -1,6 +1,7 @@
 import type { ContentRegistry } from '../content/index.ts';
 import { applyEvent, migrateEvent, type MigrationResult } from '../events/index.ts';
 import { execute, type ExecuteResult } from '../execution/index.ts';
+import { AttributeCache } from '../expressions/index.ts';
 import type { KernelExtension } from '../extensions/index.ts';
 import type { BattleEvent, BattleState, Command } from '../model/index.ts';
 import { createKernelRegistries, type KernelRegistries } from './registries.ts';
@@ -15,7 +16,7 @@ export interface KernelOptions {
 
 /**
  * A kernel with its own registries. The kernel keeps no state in module variables, so two kernels never share
- * extensions.
+ * extensions. It keeps the values of attributes it has calculated for a state until the state is no longer used.
  */
 export interface Kernel {
   /** The registries the kernel was created with, its own extensions included. They never change. */
@@ -58,11 +59,12 @@ export interface Kernel {
  */
 export function createKernel(options: KernelOptions): Kernel {
   const registries = createKernelRegistries(options.extensions);
+  const cache = new AttributeCache();
 
   return Object.freeze({
     applyEvent: (state: BattleState, event: BattleEvent) => applyEvent(registries.events, state, event),
     execute: (state: BattleState, command: Command, content: ContentRegistry) =>
-      execute(registries, state, command, content),
+      execute(registries, cache, state, command, content),
     migrateEvent: (event: BattleEvent) => migrateEvent(registries.events, registries.steps, event),
     registries,
   });
