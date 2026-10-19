@@ -1,11 +1,17 @@
-import { ContentError, definitionOf, type Attribute, type ContentRegistry } from '../../content/index.ts';
+import {
+  ContentError,
+  creatureDefinition,
+  definitionOf,
+  type Attribute,
+  type ContentRegistry,
+} from '../../content/index.ts';
 import type { Evaluation, Expressions } from '../../extensions/index.ts';
 import type { ContentName } from '../../ids/index.ts';
-import type { BattleState, SideTarget, UnitTarget } from '../../model/index.ts';
+import { battleUnit, type BattleState, type SideTarget, type UnitTarget } from '../../model/index.ts';
 import { ownValue } from '../../shared/index.ts';
 import { attributeOutOfRange, evaluated } from '../results.ts';
 import { applyModifiers, type ModifierValue } from './calculation.ts';
-import { battleUnit, type ModifierSource } from './sources.ts';
+import type { ModifierSource } from './sources.ts';
 
 /**
  * What calculating attributes and tags needs: the state, the content, the effects acting on a unit or a side and
@@ -92,7 +98,7 @@ export function sourceActivity(scope: Expressions, source: ModifierSource): Eval
 function baseOf(input: AttributeInput, of: UnitTarget, attribute: ContentName): number {
   const unit = battleUnit(input.state, of.unit);
 
-  return ownValue(definitionOf(input.content.creatures, unit.creature, 'creature').attributes, attribute) ?? 0;
+  return ownValue(creatureDefinition(input.content, unit.creature).attributes, attribute) ?? 0;
 }
 
 function checkBounds(attribute: Attribute, base: number): void {

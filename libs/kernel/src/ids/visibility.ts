@@ -15,3 +15,12 @@ export const VISIBLE_TO_ALL: VisibleTo = 'all';
  * No side sees it; only an actor with full visibility does.
  */
 export const VISIBLE_TO_NONE: VisibleTo = Object.freeze([]);
+
+/**
+ * Returns which sides see both parts of the battle: the sides that are in both lists.
+ */
+export function visibleToBoth(left: VisibleTo, right: VisibleTo): VisibleTo {
+  if (left === 'all') return right;
+
+  return right === 'all' ? left : left.filter((side) => right.includes(side));
+}

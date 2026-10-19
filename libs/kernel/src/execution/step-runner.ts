@@ -1,7 +1,9 @@
-import { checkOwnSteps, KERNEL_STEPS, reactionsAfter, refreshDraft } from '../effects/index.ts';
+import { reactionsAfter, refreshDraft } from '../effects/index.ts';
 import { createExpressions } from '../expressions/index.ts';
+import { createFieldGeometry } from '../geometry/index.ts';
 import { REJECTION_REASONS, type BattleState, type Step } from '../model/index.ts';
-import { isKernelName } from '../names/index.ts';
+import { isKernelName, KERNEL_STEPS } from '../names/index.ts';
+import { checkOwnSteps } from '../operations/index.ts';
 import type { ExecutionContext } from './context.ts';
 import type { EventRecorder } from './event-recorder.ts';
 import { MAX_STEPS_PER_COMMAND } from './limits.ts';
@@ -83,10 +85,11 @@ function runStep(
   }
 
   const inputs = step.inputs ?? [];
-  const { attributes: cache, content, registries } = context;
+  const { attributes: cache, content, fields, registries } = context;
   const { state } = recorder;
-  const expressions = createExpressions({ cache, content, inputs, registries, state });
-  const result = kind.run({ content, expressions, inputs, params: step.params, state });
+  const field = createFieldGeometry(state, content, registries.topologies, fields);
+  const expressions = createExpressions({ cache, content, field, fields, inputs, registries, state });
+  const result = kind.run({ content, expressions, field, inputs, params: step.params, state });
 
   if (!isKernelName(step.type)) checkOwnSteps(step.type, result);
 
@@ -101,8 +104,9 @@ function runStep(
       }
 
       const cause = first < recorder.nextEventId ? first : step.cause;
-      const setup = { content, events: registries.events, index: context.reactions };
-      const reaction = reactions ? reactionsAfter(setup, recorder.events.slice(first), states) : undefined;
+      const { events, topologies } = registries;
+      const setup = { content, events, fields, index: context.reactions, topologies };
+      const reaction = reactions ? reactionsAfter(setup, recorder.events.slice(first), states, state) : undefined;
       const pushed = stack.pushDrafts(result.steps ?? [], cause)
         && (reaction === undefined || stack.pushDrafts([reaction], first));
 

@@ -1,3 +1,4 @@
+import type { AbilityEventPayloads } from './abilities.ts';
 import type { BattleEventPayloads } from './battle.ts';
 import type { EffectEventPayloads } from './effects.ts';
 import type { ExecutionEventPayloads } from './execution.ts';
@@ -9,7 +10,8 @@ import type { UnitEventPayloads } from './units.ts';
 /**
  * The payload of every kind of event of the kernel, by the full name of the kind.
  */
-export type KernelEventPayloads = BattleEventPayloads
+export type KernelEventPayloads = AbilityEventPayloads
+  & BattleEventPayloads
   & EffectEventPayloads
   & ExecutionEventPayloads
   & FieldEventPayloads

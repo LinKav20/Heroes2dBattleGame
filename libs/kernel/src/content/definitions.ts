@@ -27,17 +27,18 @@ export interface Creature {
 /**
  * How a unit moves: on the ground, over obstacles, or straight to the target cell.
  */
-export type Movement = 'fly' | 'teleport' | 'walk';
+export type Movement = (typeof MOVEMENTS)[number];
 
 /**
- * A number stored in the state that never exceeds its bound.
+ * A number of a unit stored in the state, such as mana. A gain never takes it above its bound; if the bound falls, the
+ * resource keeps its value until it is spent.
  */
 export interface ResourceRule {
   /** The full name of the attribute that bounds the resource. */
   readonly limit: ContentName;
   /** The value at the start of the battle. */
   readonly initial: 'empty' | 'full';
-  /** When the resource is restored to its bound, if ever. */
+  /** When the resource is restored to its bound, if ever: at the start of the turn of the unit, or of a round. */
   readonly restore?: 'battle' | 'round' | 'turn';
 }
 
@@ -51,7 +52,7 @@ export interface Ability {
   readonly tags: readonly Tag[];
   /** What using the ability costs. */
   readonly cost: AbilityCost;
-  /** How many turns of its user pass before the ability can be used again. */
+  /** How many turns of its user must start before the ability can be used again. */
   readonly cooldown: number;
   /** How many times the ability can be used per turn, round or battle. */
   readonly limits: UseLimits;
@@ -93,13 +94,18 @@ export interface UseLimits {
 export interface TargetRule {
   /** The kind of target. */
   readonly kind: 'area' | 'cell' | 'none' | 'self' | 'side' | 'unit';
-  /** The largest distance to the target in cells. */
+  /** The largest distance to the target in cells, from any cell of the user. */
   readonly range?: number;
-  /** The area around the target cell for the kind `area`. */
+  /**
+   * The area at the chosen cell for the kind `area`: a radius around it, or a line or a cone from the user toward it.
+   */
   readonly area?: AreaRule;
-  /** The target must satisfy this condition. */
+  /**
+   * The condition every target must satisfy. For an area, the units in it must satisfy it when the ability is used, and
+   * the others are left out.
+   */
   readonly filter?: Predicate;
-  /** How many targets to choose. */
+  /** At most this many different targets, at least one; 1 if not given. An area takes one cell. */
   readonly count?: number;
 }
 
@@ -148,3 +154,8 @@ export interface Obstacle {
   /** Whether the obstacle blocks the line of sight. */
   readonly blocksSight: boolean;
 }
+
+/**
+ * The ways a unit moves.
+ */
+export const MOVEMENTS = Object.freeze(['fly', 'teleport', 'walk'] as const);

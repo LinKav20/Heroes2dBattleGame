@@ -27,7 +27,7 @@ export {
 } from './kernel-extension.ts';
 export type { Migration } from './migration.ts';
 export type { OperationContext, OperationExtension } from './operations.ts';
-export type { MechanicExtension, TopologyExtension } from './other-extensions.ts';
+export type { MechanicExtension } from './other-extensions.ts';
 export type { StepContext, StepKind } from './step-kind.ts';
 export type {
   ChoiceNeed,
@@ -43,3 +43,11 @@ export type {
   StepRejects,
   StepResult,
 } from './step-results.ts';
+export type {
+  FieldGeometry,
+  PathOptions,
+  ReachableCell,
+  Route,
+  TopologyBody,
+  TopologyExtension,
+} from './topology.ts';

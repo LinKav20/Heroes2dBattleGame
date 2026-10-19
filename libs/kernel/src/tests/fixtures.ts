@@ -1,7 +1,14 @@
 import type { ContentRegistry, Effect, ExpressionNode, Ruleset } from '../content/index.ts';
 import type { ExecuteAccepted, ExecuteResult } from '../execution/index.ts';
-import type { ExtensionEventKind, StepKind } from '../extensions/index.ts';
+import type { ExtensionEventKind, StepKind, TopologyExtension } from '../extensions/index.ts';
+import type { JsonObject } from '../json/index.ts';
 import type { AppliedEffect, BattleEvent, BattleState, Unit } from '../model/index.ts';
+
+export interface GridParams extends JsonObject {
+  readonly width: number;
+  readonly height: number;
+  readonly hills?: readonly string[];
+}
 
 export const RULESET: Ruleset = {
   healthAttribute: 'core:health',
@@ -219,6 +226,7 @@ export const STATE: BattleState = {
   units: [
     {
       abilityUses: [{ ability: 'demo:fire-arrow', battle: 1, cooldown: 1, round: 1, turn: 1 }],
+      auras: [],
       cell: '1,5',
       count: 10,
       creature: 'demo:archer',
@@ -240,12 +248,15 @@ export const STATE: BattleState = {
       inventory: [{ charges: 1, count: 2, id: 4, item: 'demo:healing-potion' }],
       resources: { 'demo:mana': 3 },
       side: 'attacker',
+      spentActions: {},
       summoned: false,
       tags: {},
       visibleTo: 'all',
+      zones: [],
     },
     {
       abilityUses: [],
+      auras: [],
       cell: '14,5',
       count: 20,
       creature: 'demo:pikeman',
@@ -256,9 +267,11 @@ export const STATE: BattleState = {
       inventory: [],
       resources: {},
       side: 'defender',
+      spentActions: {},
       summoned: false,
       tags: {},
       visibleTo: ['defender'],
+      zones: [],
     },
   ],
   variables: { 'reinforcements-arrived': false },
@@ -296,6 +309,43 @@ export const STRIKE_STEP: StepKind = {
   name: 'acme-frost:strike',
   run: () => ({ events: [], kind: 'done' }),
   version: 2,
+};
+
+export const GRID: TopologyExtension<GridParams> = {
+  area: (params, rule, center, origin) => {
+    if (rule.shape === 'radius') return gridCells(params).filter((cell) => gridDistance(cell, center) <= rule.size);
+
+    if (origin === undefined) return [center];
+
+    const [fromX, fromY] = gridPoint(origin);
+    const [toX, toY] = gridPoint(center);
+    const stepX = Math.sign(toX - fromX);
+    const stepY = Math.sign(toY - fromY);
+
+    return counting(rule.size)
+      .map((index) => gridCell(fromX + stepX * (index + 1), fromY + stepY * (index + 1)))
+      .filter((cell) => gridCells(params).includes(cell));
+  },
+  cells: gridCells,
+  distance: (params, from, to) => gridDistance(from, to),
+  footprint: (params, cell, { size }) => {
+    const [x, y] = gridPoint(cell);
+    const cells = counting(size).map((index) => gridCell(x + index, y));
+
+    return cells.every((taken) => gridCells(params).includes(taken)) ? cells : undefined;
+  },
+  kind: 'topology',
+  moveCost: (params, from, to) => (params.hills?.includes(to) === true ? 3 : 1),
+  name: 'acme:grid',
+  neighbors: (params, cell) => {
+    const [x, y] = gridPoint(cell);
+    const around = [[x + 1, y], [x, y + 1], [x - 1, y], [x, y - 1]];
+
+    return around
+      .map(([nextX = 0, nextY = 0]) => gridCell(nextX, nextY))
+      .filter((next) => gridCells(params).includes(next));
+  },
+  schema: { type: 'object' },
 };
 
 export function deepFreeze<Value>(value: Value): Value {
@@ -354,6 +404,31 @@ export function unitOf(state: BattleState, id: string): Unit {
   if (unit === undefined) throw new Error(`No unit ${id}`);
 
   return unit;
+}
+
+export function gridCells(params: GridParams): readonly string[] {
+  return counting(params.height).flatMap((y) => counting(params.width).map((x) => gridCell(x, y)));
+}
+
+export function gridCell(x: number, y: number): string {
+  return `${String(x)},${String(y)}`;
+}
+
+export function counting(count: number): readonly number[] {
+  return [...Array.from({ length: count }).keys()];
+}
+
+export function gridPoint(cell: string): readonly [number, number] {
+  const [x = 0, y = 0] = cell.split(',').map(Number);
+
+  return [x, y];
+}
+
+export function gridDistance(from: string, to: string): number {
+  const [fromX, fromY] = gridPoint(from);
+  const [toX, toY] = gridPoint(to);
+
+  return Math.abs(fromX - toX) + Math.abs(fromY - toY);
 }
 
 export function asRecord(value: unknown): Readonly<Record<string, unknown>> {

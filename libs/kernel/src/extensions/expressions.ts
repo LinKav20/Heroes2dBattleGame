@@ -5,6 +5,7 @@ import type { AppliedEffect, BattleEvent, BattleState, SideTarget, Target, UnitT
 import type { Extension } from '../names/index.ts';
 import type { RollNeed } from './step-needs.ts';
 import type { StepRejects } from './step-results.ts';
+import type { FieldGeometry } from './topology.ts';
 
 /**
  * The participants a formula or a condition refers to: `self` is the unit or the side whose effect, ability or item
@@ -28,8 +29,9 @@ export type SubjectRole = keyof Subjects;
 /**
  * The result of evaluating a formula or a condition: the value, a dice roll the evaluation needs first, or the
  * rejection of the command. An evaluation of the kernel rejects only with `kernel:out-of-range`, when a result is out
- * of the safe range; a node of a package may also reject with a reason of its package. A step returns a result that is
- * not a value as its own result.
+ * of the safe range, and with `kernel:not-on-field`, when `kernel:distance` measures to a unit that does not stand on
+ * the field; a node of a package may also reject with a reason of its package. A step returns a result that is not a
+ * value as its own result.
  */
 export type Evaluation<Value> = EvaluatedValue<Value> | NeedsRoll | StepRejects;
 
@@ -135,6 +137,8 @@ export interface ExpressionContext extends ExpressionReader {
   readonly state: BattleState;
   /** The content of the battle. */
   readonly content: ContentRegistry;
+  /** The field of the state with its units and obstacles, as `FieldGeometry` describes. */
+  readonly field: FieldGeometry;
   /** The participants of the formula or the condition. */
   readonly subjects: Subjects;
   /** The applied effect the formula or the condition belongs to, if any. */

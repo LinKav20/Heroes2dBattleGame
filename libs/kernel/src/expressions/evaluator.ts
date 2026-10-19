@@ -5,9 +5,12 @@ import type {
   Evaluation,
   ExpressionContext,
   Expressions,
+  FieldGeometry,
   FormulaExtension,
   RollNeed,
+  TopologyExtension,
 } from '../extensions/index.ts';
+import { createFieldGeometry, type FieldCache } from '../geometry/index.ts';
 import type { ContentName, Tag, UnitId } from '../ids/index.ts';
 import type { BattleState, RollInput, SideTarget, StepInput, UnitTarget } from '../model/index.ts';
 import type { Registry } from '../names/index.ts';
@@ -28,6 +31,8 @@ export interface ExpressionRegistries {
   readonly conditions: Registry<ConditionExtension>;
   /** Nodes of formulas. */
   readonly formulas: Registry<FormulaExtension>;
+  /** Field topologies. */
+  readonly topologies: Registry<TopologyExtension>;
 }
 
 /**
@@ -44,6 +49,10 @@ export interface ExpressionSetup {
   readonly inputs: readonly StepInput[];
   /** The values of attributes and tags calculated before, if the kernel keeps them. */
   readonly cache?: AttributeCache;
+  /** The cells of fields the kernel has asked topologies for, if the kernel keeps them. */
+  readonly fields?: FieldCache;
+  /** The field of the state, if the caller has built it; otherwise the evaluation builds it when a node needs it. */
+  readonly field?: FieldGeometry;
 }
 
 /**
@@ -77,12 +86,22 @@ class Evaluator implements ExpressionEngine, AttributeInput {
 
   private used = 0;
 
+  private geometry?: FieldGeometry;
+
   constructor(setup: ExpressionSetup) {
     this.setup = setup;
     this.state = setup.state;
     this.content = setup.content;
     this.rolls = setup.inputs.filter((input): input is RollInput => input.kind === 'roll');
     this.settled = new ScopedExpressions(this, { rolls: false });
+  }
+
+  get field(): FieldGeometry {
+    const { content, fields, registries, state } = this.setup;
+
+    this.geometry ??= this.setup.field ?? createFieldGeometry(state, content, registries.topologies, fields);
+
+    return this.geometry;
   }
 
   formula(formula: ValueExpr, context: ExpressionContext): Evaluation<number> {
@@ -171,7 +190,8 @@ class Evaluator implements ExpressionEngine, AttributeInput {
   roll(need: RollNeed, allowed: boolean): Evaluation<number> {
     if (!allowed) {
       throw new ContentError(
-        `A modifier or a condition of activity rolls ${JSON.stringify(need.name)}, but it cannot roll dice.`,
+        `A formula rolls ${JSON.stringify(need.name)} where the kernel only checks or reads values, so dice cannot `
+        + 'be rolled there: for example in a modifier, a condition of activity or a requirement of an ability.',
       );
     }
 

@@ -2,8 +2,9 @@ import type { CommandKind } from './command-kind.ts';
 import type { EventKind, ExtensionEventKind } from './event-kind.ts';
 import type { ConditionExtension, FormulaExtension } from './expressions.ts';
 import type { OperationExtension } from './operations.ts';
-import type { MechanicExtension, TopologyExtension } from './other-extensions.ts';
+import type { MechanicExtension } from './other-extensions.ts';
 import type { StepKind } from './step-kind.ts';
+import type { TopologyExtension } from './topology.ts';
 
 /**
  * An extension of the kernel. A package with extensions exports a list of them, and the point of assembly passes the

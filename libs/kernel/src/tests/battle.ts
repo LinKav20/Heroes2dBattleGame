@@ -1,7 +1,7 @@
-import type { ContentRegistry, Effect, Op } from '../../content/index.ts';
-import { KERNEL_EVENTS, kernelEventDraft } from '../../events/index.ts';
-import type { ExecuteAccepted } from '../../execution/index.ts';
-import { createExpressions } from '../../expressions/index.ts';
+import type { ContentRegistry, Effect, Op } from '../content/index.ts';
+import { KERNEL_EVENTS, kernelEventDraft } from '../events/index.ts';
+import type { ExecuteAccepted } from '../execution/index.ts';
+import { createExpressions } from '../expressions/index.ts';
 import type {
   CommandKind,
   EventDraft,
@@ -9,12 +9,13 @@ import type {
   OperationExtension,
   StepDraft,
   StepKind,
-} from '../../extensions/index.ts';
-import type { JsonValue } from '../../json/index.ts';
-import { createKernel, type Kernel } from '../../kernel/index.ts';
-import type { AppliedEffect, BattleState, Command } from '../../model/index.ts';
-import { accepted, CONTENT, FROZEN_STATE, node } from '../../tests/fixtures.ts';
-import { KERNEL_STEPS, operationDrafts } from '../index.ts';
+} from '../extensions/index.ts';
+import type { JsonValue } from '../json/index.ts';
+import { createKernel, type Kernel } from '../kernel/index.ts';
+import type { AppliedEffect, BattleState, Command } from '../model/index.ts';
+import { KERNEL_STEPS } from '../names/index.ts';
+import { operationDrafts } from '../operations/index.ts';
+import { accepted, CONTENT, FROZEN_STATE, GRID, node } from './fixtures.ts';
 
 export const RUN: CommandKind = {
   kind: 'command',
@@ -88,7 +89,7 @@ export const SNEAKY: OperationExtension = {
   schema: { type: 'object' },
 };
 
-export const KERNEL: Kernel = createKernel({ extensions: [RUN, EMIT, ASK, DROP, HIT, POKE, SNEAK, SNEAKY] });
+export const KERNEL: Kernel = createKernel({ extensions: [RUN, EMIT, ASK, DROP, HIT, POKE, SNEAK, SNEAKY, GRID] });
 
 export const ARCHERS = { kind: 'unit', unit: 'archers-1' } as const;
 

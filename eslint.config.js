@@ -173,6 +173,7 @@ export default defineConfig(
       }],
       '@typescript-eslint/consistent-type-exports': ['error', { fixMixedExportsWithInlineTypeSpecifier: true }],
       '@typescript-eslint/no-import-type-side-effects': 'error',
+      'no-duplicate-imports': 'error',
       '@typescript-eslint/consistent-type-definitions': ['error', 'interface'],
       '@typescript-eslint/array-type': ['error', { default: 'array-simple' }],
       '@typescript-eslint/explicit-module-boundary-types': 'error',

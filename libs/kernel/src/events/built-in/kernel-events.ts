@@ -2,6 +2,7 @@ import type { EventDraft, EventKind } from '../../extensions/index.ts';
 import type { VisibleTo } from '../../ids/index.ts';
 import type { BattleEvent } from '../../model/index.ts';
 import { compareCodeUnits } from '../../shared/index.ts';
+import { ABILITY_EVENTS } from './abilities.ts';
 import type { KernelEventAppliers } from './appliers.ts';
 import { BATTLE_EVENTS } from './battle.ts';
 import { EFFECT_EVENTS } from './effects.ts';
@@ -26,6 +27,7 @@ export type KernelEvent<Type extends KernelEventType = KernelEventType> = {
  * have no schema, because `protocol` describes them.
  */
 export const KERNEL_EVENT_KINDS: readonly EventKind[] = kernelEventKinds({
+  ...ABILITY_EVENTS,
   ...BATTLE_EVENTS,
   ...EFFECT_EVENTS,
   ...EXECUTION_EVENTS,

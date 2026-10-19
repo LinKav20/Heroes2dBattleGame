@@ -1,11 +1,12 @@
+import { effectDefinition } from '../content/index.ts';
 import type { StepContext, StepDraft, StepKind, StepResult, Subjects } from '../extensions/index.ts';
 import type { BattleEvent } from '../model/index.ts';
+import { KERNEL_STEPS } from '../names/index.ts';
+import { DONE, operationDrafts } from '../operations/index.ts';
 import { withoutKey } from '../shared/index.ts';
 import { activity, unlessHolds } from './activity.ts';
 import { appliedSubjects, presentEffect } from './applied.ts';
-import { DONE, operationDrafts, removalDraft } from './drafts.ts';
-import { effectDefinition } from './holders.ts';
-import { KERNEL_STEPS } from './names.ts';
+import { removalDraft } from './drafts.ts';
 import type { Reaction, ReactionBatch, ReactionParams } from './params.ts';
 
 /**

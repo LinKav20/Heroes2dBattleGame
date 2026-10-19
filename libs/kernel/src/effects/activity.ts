@@ -2,8 +2,8 @@ import type { Effect } from '../content/index.ts';
 import { evaluated } from '../expressions/index.ts';
 import type { Evaluation, Expressions, StepResult } from '../extensions/index.ts';
 import type { AppliedEffect, EffectHolder } from '../model/index.ts';
+import { DONE } from '../operations/index.ts';
 import { appliedSubjects } from './applied.ts';
-import { DONE } from './drafts.ts';
 
 /**
  * Tells whether an effect on its holder acts now: its condition of activity holds with the participants of the

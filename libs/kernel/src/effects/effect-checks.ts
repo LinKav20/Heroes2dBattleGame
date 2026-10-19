@@ -1,4 +1,4 @@
-import { ContentError, type Effect } from '../content/index.ts';
+import { ContentError, type Aura, type Effect } from '../content/index.ts';
 import type { EffectHolder } from '../model/index.ts';
 
 /**
@@ -13,6 +13,22 @@ export function checkEffect(effect: Effect, holder: EffectHolder): void {
 
   if (problem !== undefined) {
     throw new ContentError(`The effect ${JSON.stringify(effect.name)} ${problem}.`, { definition: effect.name });
+  }
+}
+
+/**
+ * Checks the aura of an effect: its area is a radius of a whole number of cells from 0 around the holder.
+ *
+ * @throws {ContentError} If the aura breaks this rule.
+ */
+export function checkAura(effect: Effect, aura: Aura): void {
+  const { shape, size } = aura.area;
+
+  if (shape !== 'radius' || !Number.isSafeInteger(size) || size < 0) {
+    throw new ContentError(
+      `The effect ${JSON.stringify(effect.name)} needs a radius of a whole number of cells from 0 for its aura.`,
+      { definition: effect.name },
+    );
   }
 }
 

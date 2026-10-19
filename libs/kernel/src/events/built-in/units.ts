@@ -1,8 +1,8 @@
 import { summonedUnitNumber, type CellId, type ContentName, type Tag, type UnitId } from '../../ids/index.ts';
-import type { AbilityUse, SideHolder, Unit, UnitHolder } from '../../model/index.ts';
+import type { Unit } from '../../model/index.ts';
 import type { KernelEventAppliers } from './appliers.ts';
 import { KERNEL_EVENTS } from './names.ts';
-import { changeSide, changeUnit, hasId, takeId, withTagSources } from './state-changes.ts';
+import { changeUnit, hasId, takeId, withNames, withTagSources } from './state-changes.ts';
 
 /**
  * The payload of `kernel:unit-placed`.
@@ -76,21 +76,35 @@ export interface TagsChangedPayload {
 }
 
 /**
+ * The payload of `kernel:auras-changed`.
+ */
+export interface AurasChangedPayload {
+  /** The unit. */
+  readonly unit: UnitId;
+  /** The effects of the auras that began to cover the unit, sorted. */
+  readonly added: readonly ContentName[];
+  /** The effects of the auras that no longer cover the unit, sorted. */
+  readonly removed: readonly ContentName[];
+}
+
+/**
+ * The payload of `kernel:zones-changed`.
+ */
+export interface ZonesChangedPayload {
+  /** The unit. */
+  readonly unit: UnitId;
+  /** The hazard zones the unit entered, sorted. */
+  readonly added: readonly string[];
+  /** The hazard zones the unit left, sorted. */
+  readonly removed: readonly string[];
+}
+
+/**
  * The payload of `kernel:unit-summoned`.
  */
 export interface UnitSummonedPayload {
   /** The new unit; its identifier is `#` followed by the next number of the state. */
   readonly unit: Unit;
-}
-
-/**
- * The payload of `kernel:ability-used`.
- */
-export interface AbilityUsedPayload {
-  /** The unit or the side that used the ability. */
-  readonly holder: SideHolder | UnitHolder;
-  /** How the ability has been used after this use. */
-  readonly use: AbilityUse;
 }
 
 /**
@@ -109,10 +123,12 @@ export interface UnitEventPayloads {
   readonly [KERNEL_EVENTS.flagsChanged]: FlagsChangedPayload;
   /** A source gave a unit tags or took them back. */
   readonly [KERNEL_EVENTS.tagsChanged]: TagsChangedPayload;
+  /** Auras began or stopped covering a unit. */
+  readonly [KERNEL_EVENTS.aurasChanged]: AurasChangedPayload;
+  /** A unit entered or left hazard zones. */
+  readonly [KERNEL_EVENTS.zonesChanged]: ZonesChangedPayload;
   /** A new unit was summoned. */
   readonly [KERNEL_EVENTS.unitSummoned]: UnitSummonedPayload;
-  /** A unit used an ability, or a side used its own ability. */
-  readonly [KERNEL_EVENTS.abilityUsed]: AbilityUsedPayload;
 }
 
 /**
@@ -136,6 +152,10 @@ export const UNIT_EVENTS: KernelEventAppliers<UnitEventPayloads> = {
     changeUnit(state, unit, (current) => ({ ...current, flags })),
   [KERNEL_EVENTS.tagsChanged]: (state, { added, removed, unit }) =>
     changeUnit(state, unit, (current) => ({ ...current, tags: withTagSources(current.tags, added, removed) })),
+  [KERNEL_EVENTS.aurasChanged]: (state, { added, removed, unit }) =>
+    changeUnit(state, unit, (current) => ({ ...current, auras: withNames(current.auras, added, removed, 'aura') })),
+  [KERNEL_EVENTS.zonesChanged]: (state, { added, removed, unit }) =>
+    changeUnit(state, unit, (current) => ({ ...current, zones: withNames(current.zones, added, removed, 'zone') })),
   [KERNEL_EVENTS.unitSummoned]: (state, { unit }) => {
     const number = summonedUnitNumber(unit.id);
 
@@ -147,18 +167,8 @@ export const UNIT_EVENTS: KernelEventAppliers<UnitEventPayloads> = {
 
     return { ...state, nextId, units: [...state.units, unit] };
   },
-  [KERNEL_EVENTS.abilityUsed]: (state, { holder, use }) =>
-    holder.kind === 'unit'
-      ? changeUnit(state, holder.unit, (unit) => ({ ...unit, abilityUses: recordUse(unit.abilityUses, use) }))
-      : changeSide(state, holder.side, (side) => ({ ...side, abilityUses: recordUse(side.abilityUses, use) })),
 };
 
 function placed(unit: Unit, cell: CellId, facing: string | undefined): Unit {
   return facing === undefined ? { ...unit, cell } : { ...unit, cell, facing };
-}
-
-function recordUse(uses: readonly AbilityUse[], use: AbilityUse): readonly AbilityUse[] {
-  if (!uses.some(({ ability }) => ability === use.ability)) return [...uses, use];
-
-  return uses.map((current) => (current.ability === use.ability ? use : current));
 }

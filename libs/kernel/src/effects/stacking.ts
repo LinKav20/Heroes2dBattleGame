@@ -3,9 +3,9 @@ import { EFFECT_NOT_APPLIED_REASONS, KERNEL_EVENTS, kernelEventDraft } from '../
 import type { Expressions, StepContext, StepResult } from '../extensions/index.ts';
 import { canonicalJson } from '../json/index.ts';
 import type { AppliedEffect } from '../model/index.ts';
+import { operationDrafts } from '../operations/index.ts';
 import { withoutKey } from '../shared/index.ts';
 import { appliedSubjects, remainingOf } from './applied.ts';
-import { operationDrafts } from './drafts.ts';
 import { applyNew, notApplied, removedByTags, strengthOf } from './new-effect.ts';
 import type { ApplicationParams } from './params.ts';
 

@@ -236,7 +236,7 @@ describe('attributes of units', () => {
       .toThrow('The attribute "core:speed" of the unit "pikemen-1" depends on itself.');
 
     expect(() => speed(withEffects({ pikemen: [applied(10, 'acme:lucky')] }), 'pikemen-1'))
-      .toThrow('cannot roll dice');
+      .toThrow('dice cannot be rolled');
   });
 
   it('keep a calculated value for the same state and content', () => {

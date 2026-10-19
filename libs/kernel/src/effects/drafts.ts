@@ -1,34 +1,11 @@
-import type { Op } from '../content/index.ts';
-import type { StepDone, StepDraft } from '../extensions/index.ts';
-import { KERNEL_STEPS } from './names.ts';
+import type { StepDraft } from '../extensions/index.ts';
+import { KERNEL_STEPS } from '../names/index.ts';
 import type {
   ApplicationParams,
-  OperationParams,
-  OperationScope,
   RemovalParams,
   TickParams,
   TurnParams,
 } from './params.ts';
-
-/**
- * The result of a step that does nothing.
- */
-export const DONE: StepDone = Object.freeze({ events: [], kind: 'done' });
-
-/**
- * Returns the result of a step that adds steps and gives no events.
- */
-export function stepsDone(steps: readonly StepDraft[]): StepDone {
-  return steps.length === 0 ? DONE : { events: [], kind: 'done', steps };
-}
-
-/**
- * Returns the steps that run operations of content one after another with the given participants, applied effect and
- * event.
- */
-export function operationDrafts(ops: readonly Op[], scope: OperationScope): ReadonlyArray<StepDraft<OperationParams>> {
-  return ops.map((op) => ({ params: { ...scope, op }, type: KERNEL_STEPS.operation }));
-}
 
 /**
  * Returns the step that applies an effect.
@@ -56,6 +33,13 @@ export function tickDraft(params: TickParams): StepDraft<TickParams> {
  */
 export function turnDraft(params: TurnParams): StepDraft<TurnParams> {
   return { params, type: KERNEL_STEPS.effectTurn };
+}
+
+/**
+ * Returns the step that brings the auras that cover units and the hazard zones they stand in up to date.
+ */
+export function areaRefreshDraft(): StepDraft {
+  return { params: {}, type: KERNEL_STEPS.areaRefresh };
 }
 
 /**

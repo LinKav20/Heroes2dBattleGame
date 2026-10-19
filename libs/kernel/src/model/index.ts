@@ -36,6 +36,7 @@ export type {
 export {
   holderTarget,
   targetHolder,
+  userTarget,
   type EffectHolder,
   type FieldHolder,
   type HazardHolder,
@@ -53,6 +54,16 @@ export type {
   UnitTarget,
 } from './input-requests.ts';
 export type { InventoryItem } from './inventory.ts';
+export {
+  battleSide,
+  battleUnit,
+  findHazard,
+  findSide,
+  findUnit,
+  isWorn,
+  standsOnField,
+  unitItem,
+} from './lookups.ts';
 export type {
   ActivePhase,
   BattlePhase,
@@ -63,11 +74,16 @@ export type {
   TurnPhase,
 } from './phases.ts';
 export {
+  isKernelRejection,
   REJECTION_CODES,
   REJECTION_REASONS,
+  TARGET_PROBLEMS,
+  type KernelRejection,
+  type KernelRejectionParams,
   type Rejection,
   type RejectionCode,
   type RejectionReason,
+  type TargetProblem,
 } from './rejection.ts';
 export type { Side } from './sides.ts';
 export type {
@@ -89,4 +105,5 @@ export type {
   Step,
   StepInput,
 } from './steps.ts';
+export { allDifferent, copyTarget, targetKey } from './targets.ts';
 export type { Unit } from './units.ts';

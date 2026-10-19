@@ -54,6 +54,13 @@ export function holderTarget(holder: EffectHolder): SideTarget | UnitTarget | un
 }
 
 /**
+ * Returns a unit or a side as a participant of a formula.
+ */
+export function userTarget(user: SideHolder | UnitHolder): SideTarget | UnitTarget {
+  return user.kind === 'side' ? { kind: 'side', side: user.side } : { kind: 'unit', unit: user.unit };
+}
+
+/**
  * Returns a participant of a formula as a holder: a unit or a side, or nothing for a cell or no participant.
  */
 export function targetHolder(target: Target | undefined): SideHolder | UnitHolder | undefined {

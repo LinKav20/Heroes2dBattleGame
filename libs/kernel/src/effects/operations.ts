@@ -1,4 +1,4 @@
-import { contentError, type ExpressionNode, type Op } from '../content/index.ts';
+import { contentError, type ExpressionNode, type Op, effectDefinition } from '../content/index.ts';
 import { KERNEL_EVENTS, kernelEventDraft } from '../events/index.ts';
 import {
   CONDITION_SCHEMA,
@@ -18,10 +18,11 @@ import type { OperationContext, OperationExtension, StepResult } from '../extens
 import { VISIBLE_TO_ALL } from '../ids/index.ts';
 import type { JsonObject } from '../json/index.ts';
 import { targetHolder, type EffectHolder } from '../model/index.ts';
+import { KERNEL_OPERATIONS } from '../names/index.ts';
+import { stepsDone } from '../operations/index.ts';
 import { isRecord } from '../shared/index.ts';
-import { applicationDraft, removalDraft, stepsDone } from './drafts.ts';
-import { effectDefinition, effectsOf, sideOf } from './holders.ts';
-import { KERNEL_OPERATIONS } from './names.ts';
+import { applicationDraft, removalDraft } from './drafts.ts';
+import { effectsOf, sideOf } from './holders.ts';
 
 /**
  * The operations that the kernel registers itself: apply an effect, remove effects by tags and set a scenario

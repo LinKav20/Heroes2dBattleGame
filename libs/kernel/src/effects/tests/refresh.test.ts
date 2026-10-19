@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { ContentError } from '../../content/index.ts';
 import { KERNEL_EVENTS, kernelEventDraft } from '../../events/index.ts';
 import type { InputValue } from '../../model/index.ts';
-import { accepted, applied, effect, node, unitOf } from '../../tests/fixtures.ts';
 import {
   AFTER_ROUND_5,
   contentWith,
@@ -14,7 +13,8 @@ import {
   BARE_STATE,
   types,
   withUnitEffects,
-} from './helpers.ts';
+} from '../../tests/battle.ts';
+import { accepted, applied, effect, node, unitOf } from '../../tests/fixtures.ts';
 
 describe('the marks of activity', () => {
   const content = contentWith(

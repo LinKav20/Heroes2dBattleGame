@@ -1,3 +1,5 @@
+import { compareCodeUnits } from './order.ts';
+
 /**
  * Tells whether a value is an object that is not an array, so its fields can be read by name.
  */
@@ -31,4 +33,12 @@ export function freezeDeep<Value>(value: Value): Value {
   }
 
   return value;
+}
+
+/**
+ * Returns the entries of a record sorted by key in the order of code units, so they never depend on the order in which
+ * the keys were added.
+ */
+export function sortedEntries<Value>(record: Readonly<Record<string, Value>>): ReadonlyArray<readonly [string, Value]> {
+  return Object.entries(record).toSorted(([left], [right]) => compareCodeUnits(left, right));
 }

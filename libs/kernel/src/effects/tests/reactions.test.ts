@@ -3,8 +3,7 @@ import { ContentError } from '../../content/index.ts';
 import { KERNEL_EVENTS, kernelEventDraft } from '../../events/index.ts';
 import type { EventDraft } from '../../extensions/index.ts';
 import type { BattleState, Command, Unit } from '../../model/index.ts';
-import { accepted, applied, CONTENT, effect, node, unitOf } from '../../tests/fixtures.ts';
-import { applicationDraft, operationDrafts } from '../index.ts';
+import { operationDrafts } from '../../operations/index.ts';
 import {
   contentWith,
   emit,
@@ -18,7 +17,9 @@ import {
   types,
   variables,
   withUnitEffects,
-} from './helpers.ts';
+} from '../../tests/battle.ts';
+import { accepted, applied, CONTENT, effect, node, unitOf } from '../../tests/fixtures.ts';
+import { applicationDraft } from '../index.ts';
 
 describe('reactions of effects', () => {
   const content = contentWith(

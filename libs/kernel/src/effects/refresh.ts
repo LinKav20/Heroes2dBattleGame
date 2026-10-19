@@ -1,9 +1,9 @@
+import { effectDefinition } from '../content/index.ts';
 import { KERNEL_EVENTS, kernelEventDraft } from '../events/index.ts';
 import type { EventDraft, StepContext, StepKind, StepResult } from '../extensions/index.ts';
 import type { EffectHolder } from '../model/index.ts';
+import { KERNEL_STEPS } from '../names/index.ts';
 import { activity } from './activity.ts';
-import { effectDefinition } from './holders.ts';
-import { KERNEL_STEPS } from './names.ts';
 
 /**
  * Brings the marks of activity of the effects of units up to date: an effect is marked active while its condition of

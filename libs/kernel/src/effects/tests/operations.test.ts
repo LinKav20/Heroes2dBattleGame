@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { ContentError } from '../../content/index.ts';
 import { createKernel } from '../../kernel/index.ts';
-import { effect, node, unitOf } from '../../tests/fixtures.ts';
-import { KERNEL_OPERATION_KINDS, KERNEL_OPERATIONS, KERNEL_STEPS, operationDrafts } from '../index.ts';
+import { KERNEL_OPERATIONS, KERNEL_STEPS } from '../../names/index.ts';
+import { operationDrafts } from '../../operations/index.ts';
 import {
   ARCHERS,
   contentWith,
@@ -10,7 +10,9 @@ import {
   PIKEMEN,
   run,
   BARE_STATE,
-} from './helpers.ts';
+} from '../../tests/battle.ts';
+import { effect, node, unitOf } from '../../tests/fixtures.ts';
+import { KERNEL_OPERATION_KINDS } from '../index.ts';
 
 describe('the operations and the steps of the kernel', () => {
   it('are registered by the kernel itself with the names of the constants and a schema each', () => {

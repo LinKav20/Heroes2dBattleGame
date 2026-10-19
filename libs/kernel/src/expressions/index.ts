@@ -1,7 +1,11 @@
 export { difference, percentOf, product, quotient, sum } from './arithmetic.ts';
 export { AttributeCache } from './attributes/attribute-cache.ts';
 export { applyModifiers, type AttributeBounds, type ModifierValue } from './attributes/calculation.ts';
-export { battlefieldEffects, battleUnit, unitDefinitionEffects } from './attributes/sources.ts';
+export {
+  battlefieldEffects,
+  ownDefinitionEffects,
+  unitDefinitionEffects,
+} from './attributes/sources.ts';
 export {
   defineCondition,
   defineFormula,
@@ -54,5 +58,13 @@ export {
   stringParam,
 } from './params.ts';
 export { evaluated, outOfRange } from './results.ts';
-export { appliedSource, SUBJECT_ROLES, subjectHolder, subjectSide, subjectUnit } from './subjects.ts';
+export {
+  appliedSource,
+  SUBJECT_ROLES,
+  subjectCells,
+  subjectHolder,
+  subjectSide,
+  subjectUnit,
+  type SubjectReader,
+} from './subjects.ts';
 export { hasTag, isBlocked, matchesAny, tagMatches } from './tags.ts';

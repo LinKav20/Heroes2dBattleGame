@@ -124,23 +124,28 @@ export interface TriggerDef {
 }
 
 /**
- * An aura: an effect that the holder applies to units around it.
+ * An aura: an effect that acts on the units around the holder as an effect of their own creature does. The area of an
+ * aura is a radius of a whole number of cells from 0.
  */
 export interface Aura {
   /** The area around the holder. */
   readonly area: AreaRule;
   /** Whose units the aura affects. */
   readonly affects: 'all' | 'allies' | 'enemies';
-  /** The effect the aura applies. */
+  /** The full name of the effect that acts on the covered units as their own. */
   readonly effect: ContentName;
 }
 
 /**
- * An area of cells that the field topology builds.
+ * An area of cells that the field topology builds: a radius around a cell, or a line or a cone from the cell of the
+ * user toward a cell.
  */
 export interface AreaRule {
   /** The shape of the area. */
   readonly shape: 'cone' | 'line' | 'radius';
-  /** The size of the area in cells. */
+  /**
+   * The size of the area in cells: the radius around the center, the length of a line, or how far a cone goes from
+   * the user.
+   */
   readonly size: number;
 }

@@ -1,9 +1,9 @@
-import { definitionOf } from '../../content/index.ts';
+import { creatureDefinition } from '../../content/index.ts';
 import type { Evaluation } from '../../extensions/index.ts';
 import type { Tag, UnitId } from '../../ids/index.ts';
+import { battleUnit } from '../../model/index.ts';
 import { evaluated } from '../results.ts';
 import type { AttributeInput } from './attribute-value.ts';
-import { battleUnit } from './sources.ts';
 
 /**
  * Returns the tags of a unit with the number of their sources: the tags in the state, which operations give, the tags
@@ -15,7 +15,7 @@ import { battleUnit } from './sources.ts';
 export function unitTags(input: AttributeInput, unitId: UnitId): Evaluation<Readonly<Record<Tag, number>>> {
   const unit = battleUnit(input.state, unitId);
   const tags = new Map(Object.entries(unit.tags));
-  const given: Tag[] = [...definitionOf(input.content.creatures, unit.creature, 'creature').tags];
+  const given: Tag[] = [...creatureDefinition(input.content, unit.creature).tags];
 
   for (const source of input.sources({ kind: 'unit', unit: unitId })) {
     if (source.effect.grantsTags.length === 0) continue;

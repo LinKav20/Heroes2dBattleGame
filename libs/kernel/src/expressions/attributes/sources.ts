@@ -1,7 +1,25 @@
-import { definitionOf, type ContentRegistry, type Effect } from '../../content/index.ts';
+import {
+  creatureDefinition,
+  definitionOf,
+  effectDefinition,
+  itemDefinition,
+  type ContentRegistry,
+  type Effect,
+} from '../../content/index.ts';
 import type { Subjects } from '../../extensions/index.ts';
-import type { ContentName, SideId, UnitId } from '../../ids/index.ts';
-import type { AppliedEffect, BattleState, SideTarget, Target, Unit, UnitTarget } from '../../model/index.ts';
+import type { ContentName, SideId } from '../../ids/index.ts';
+import {
+  battleSide,
+  battleUnit,
+  findSide,
+  isWorn,
+  type AppliedEffect,
+  type BattleState,
+  type SideTarget,
+  type Target,
+  type Unit,
+  type UnitTarget,
+} from '../../model/index.ts';
 import { appliedSource } from '../subjects.ts';
 
 /**
@@ -25,9 +43,10 @@ interface HeldApplied {
 
 /**
  * Returns the effects that act on a unit or a side, in the order of application. For a unit: the effects of its
- * creature, of the battlefield and of its items first, then the applied effects of the unit, its side and the field by
- * the order they were applied. For a side: the effects of the battlefield, then the applied effects of the side and the
- * field. An item with an equipment slot acts only while it is equipped.
+ * creature, of the battlefield, of its items and of the auras that cover it first, then the applied effects of the
+ * unit, its side, the field and the hazard zones it stands in by the order they were applied. For a side: the effects
+ * of the battlefield, then the applied effects of the side and the field. An item with an equipment slot acts only
+ * while it is equipped.
  *
  * Whether an effect acts now is decided by its condition of activity, which the caller evaluates.
  *
@@ -42,9 +61,7 @@ export function modifierSources(
   const battlefield = battlefieldEffects(state, content);
 
   if (of.kind === 'side') {
-    if (!state.sides.some(({ id }) => id === of.side)) {
-      throw new TypeError(`The battle has no side ${JSON.stringify(of.side)}.`);
-    }
+    battleSide(state, of.side);
 
     return [
       ...battlefield.map((name) => fromDefinition(content, name, { target: of })),
@@ -58,21 +75,9 @@ export function modifierSources(
     ...creatureEffects(content, unit).map((name) => fromDefinition(content, name, { self: of, target: of })),
     ...battlefield.map((name) => fromDefinition(content, name, { target: of })),
     ...itemEffects(content, unit).map((name) => fromDefinition(content, name, { self: of, target: of })),
+    ...auraEffects(content, unit).map((name) => fromDefinition(content, name, { self: of, target: of })),
     ...appliedOf(state, unit.side, unit).map(({ applied, holder }) => fromApplied(content, applied, holder, of)),
   ];
-}
-
-/**
- * Returns a unit of the battle.
- *
- * @throws {TypeError} If the battle has no such unit: a step or its parameters refer to it wrongly.
- */
-export function battleUnit(state: BattleState, unit: UnitId): Unit {
-  const found = state.units.find(({ id }) => id === unit);
-
-  if (found === undefined) throw new TypeError(`The battle has no unit ${JSON.stringify(unit)}.`);
-
-  return found;
 }
 
 /**
@@ -87,41 +92,64 @@ export function battlefieldEffects(state: BattleState, content: ContentRegistry)
 }
 
 /**
- * Returns the permanent effects of the creature of a unit and the effects of its items; an item with an equipment
- * slot gives its effects only while equipped.
+ * Returns the effects that act on a unit as its own: the permanent effects of its creature, the effects of its items
+ * and the effects of the auras that cover it, except those it already has from its creature or items. An item with an
+ * equipment slot gives its effects only while equipped.
  *
  * @throws {ContentError} If the content has no definition of the creature or an item.
  */
 export function unitDefinitionEffects(content: ContentRegistry, unit: Unit): readonly ContentName[] {
+  return [...ownDefinitionEffects(content, unit), ...auraEffects(content, unit)];
+}
+
+/**
+ * Returns the effects of a unit that are its own and not of the auras that cover it: the permanent effects of its
+ * creature and the effects of its items. Only they can create auras.
+ *
+ * @throws {ContentError} If the content has no definition of the creature or an item.
+ */
+export function ownDefinitionEffects(content: ContentRegistry, unit: Unit): readonly ContentName[] {
   return [...creatureEffects(content, unit), ...itemEffects(content, unit)];
 }
 
+function auraEffects(content: ContentRegistry, unit: Unit): readonly ContentName[] {
+  if (unit.auras.length === 0) return [];
+
+  const own = ownDefinitionEffects(content, unit);
+
+  return unit.auras.filter((name) => !own.includes(name));
+}
+
 function creatureEffects(content: ContentRegistry, unit: Unit): readonly ContentName[] {
-  return definitionOf(content.creatures, unit.creature, 'creature').effects;
+  return creatureDefinition(content, unit.creature).effects;
 }
 
 function itemEffects(content: ContentRegistry, unit: Unit): readonly ContentName[] {
   return unit.inventory.flatMap((carried) => {
-    const item = definitionOf(content.items, carried.item, 'item');
+    const item = itemDefinition(content, carried.item);
 
-    return item.slot === undefined || carried.slot !== undefined ? item.effects : [];
+    return isWorn(item, carried) ? item.effects : [];
   });
 }
 
 function appliedOf(state: BattleState, side: SideId, unit: Unit | undefined): readonly HeldApplied[] {
   const sideTarget: Target = { kind: 'side', side };
-  const sideEffects = state.sides.find(({ id }) => id === side)?.effects ?? [];
+  const sideEffects = findSide(state, side)?.effects ?? [];
   const unitTarget: Target | undefined = unit === undefined ? undefined : { kind: 'unit', unit: unit.id };
+
+  const zoneEffects = state.field.hazards
+    .filter(({ id }) => unit?.zones.includes(id) === true)
+    .flatMap(({ effects }) => effects);
 
   return [
     ...(unit?.effects ?? []).map((applied) => ({ applied, holder: unitTarget })),
     ...sideEffects.map((applied) => ({ applied, holder: sideTarget })),
-    ...state.field.effects.map((applied) => ({ applied, holder: undefined })),
+    ...[...state.field.effects, ...zoneEffects].map((applied) => ({ applied, holder: undefined })),
   ].toSorted((left, right) => left.applied.id - right.applied.id);
 }
 
 function fromDefinition(content: ContentRegistry, name: ContentName, subjects: Subjects): ModifierSource {
-  return { effect: definitionOf(content.effects, name, 'effect'), stacks: 1, subjects };
+  return { effect: effectDefinition(content, name), stacks: 1, subjects };
 }
 
 function fromApplied(
@@ -136,7 +164,7 @@ function fromApplied(
     ...(source === undefined ? {} : { source }),
     target,
   };
-  const effect = definitionOf(content.effects, applied.effect, 'effect');
+  const effect = effectDefinition(content, applied.effect);
 
   return { applied, effect, stacks: applied.stacks, subjects };
 }

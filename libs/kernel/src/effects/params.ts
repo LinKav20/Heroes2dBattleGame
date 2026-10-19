@@ -1,16 +1,7 @@
-import type { CountedDuration, Op } from '../content/index.ts';
-import type { Subjects } from '../extensions/index.ts';
+import type { CountedDuration } from '../content/index.ts';
 import type { ContentName } from '../ids/index.ts';
 import type { JsonObject } from '../json/index.ts';
-import type {
-  AppliedEffect,
-  BattleEvent,
-  EffectHolder,
-  SideHolder,
-  SideTarget,
-  UnitHolder,
-  UnitTarget,
-} from '../model/index.ts';
+import type { BattleEvent, EffectHolder, SideHolder, SideTarget, UnitHolder, UnitTarget } from '../model/index.ts';
 
 /**
  * The parameters of `kernel:effect-application`: apply an effect to a holder.
@@ -75,26 +66,6 @@ export interface TurnParams {
   readonly effect: ContentName;
   /** The identifier of the applied effect; an effect of a definition has none. */
   readonly applied?: number;
-}
-
-/**
- * What operations of content run with: their participants, the applied effect and the event they react to.
- */
-export interface OperationScope {
-  /** The participants of the operation. */
-  readonly subjects: Subjects;
-  /** The applied effect whose operation it is, if any. */
-  readonly effect?: AppliedEffect;
-  /** The event a trigger reacts to, if the operation is one of a trigger. */
-  readonly event?: BattleEvent;
-}
-
-/**
- * The parameters of `kernel:operation`: run one operation of content.
- */
-export interface OperationParams extends OperationScope {
-  /** The operation. */
-  readonly op: Op;
 }
 
 /**

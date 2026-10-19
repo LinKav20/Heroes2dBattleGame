@@ -29,7 +29,7 @@ export interface HazardRemovedPayload {
 export interface FieldEventPayloads {
   /** A hazard zone appeared on the field; its effects come with separate events. */
   readonly [KERNEL_EVENTS.hazardAdded]: HazardAddedPayload;
-  /** A hazard zone disappeared from the field together with its effects. */
+  /** A hazard zone disappeared from the field together with its effects, and the units no longer stand in it. */
   readonly [KERNEL_EVENTS.hazardRemoved]: HazardRemovedPayload;
 }
 
@@ -47,5 +47,7 @@ export const FIELD_EVENTS: KernelEventAppliers<FieldEventPayloads> = {
   [KERNEL_EVENTS.hazardRemoved]: (state, { hazard }) => ({
     ...state,
     field: { ...state.field, hazards: removeById(state.field.hazards, hazard, 'hazard zone') },
+    units: state.units.map((unit) =>
+      (unit.zones.includes(hazard) ? { ...unit, zones: unit.zones.filter((zone) => zone !== hazard) } : unit)),
   }),
 };

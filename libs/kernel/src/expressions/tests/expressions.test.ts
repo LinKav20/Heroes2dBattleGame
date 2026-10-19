@@ -276,7 +276,9 @@ describe('formulas', () => {
     const narrower = expressions.within({ rolls: false }).within({ rolls: true, subjects: {} });
 
     expect(() => narrower.value(dice(1, 6))).toThrow(ContentError);
-    expect(() => narrower.roll({ count: 1, kind: 'roll', name: 'core:damage', sides: 6 })).toThrow('cannot roll dice');
+
+    expect(() => narrower.roll({ count: 1, kind: 'roll', name: 'core:damage', sides: 6 }))
+      .toThrow('dice cannot be rolled');
   });
 
   it('roll no dice for a count of 0 and treat wrong dice as errors of the content', () => {

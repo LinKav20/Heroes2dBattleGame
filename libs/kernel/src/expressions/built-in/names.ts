@@ -46,6 +46,7 @@ export const KERNEL_FORMULAS = Object.freeze({
   add: kernelName('add'),
   attribute: kernelName('attribute'),
   dice: kernelName('dice'),
+  distance: kernelName('distance'),
   divide: kernelName('divide'),
   effectParam: kernelName('effect-param'),
   effectStacks: kernelName('effect-stacks'),

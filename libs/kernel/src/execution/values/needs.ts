@@ -1,6 +1,6 @@
 import { MAX_DICE_PER_ROLL, MAX_DIE_SIDES } from '../../expressions/index.ts';
 import type { StepNeed } from '../../extensions/index.ts';
-import { allDifferent } from './targets.ts';
+import { allDifferent } from '../../model/index.ts';
 
 /**
  * Checks that a value a step needs can be given: a roll has from 1 to {@link MAX_DICE_PER_ROLL} dice of 1 to

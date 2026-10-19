@@ -1,4 +1,5 @@
-import { KERNEL_OPERATION_KINDS, kernelStepKinds } from '../effects/index.ts';
+import { ABILITY_STEP_KINDS } from '../abilities/index.ts';
+import { EFFECT_STEP_KINDS, KERNEL_OPERATION_KINDS } from '../effects/index.ts';
 import { KERNEL_EVENT_KINDS } from '../events/index.ts';
 import { KERNEL_CONDITION_KINDS, KERNEL_FORMULA_KINDS } from '../expressions/index.ts';
 import {
@@ -15,6 +16,7 @@ import {
   type TopologyExtension,
 } from '../extensions/index.ts';
 import { createRegistry, indexRegistry, type Registry } from '../names/index.ts';
+import { operationStep, UNIT_OPERATION_KINDS } from '../operations/index.ts';
 import { extensionProblems } from './extension-checks.ts';
 
 /**
@@ -52,7 +54,10 @@ export function createKernelRegistries(extensions: readonly RegisteredExtension[
     ...KERNEL_EVENT_KINDS,
     ...KERNEL_FORMULA_KINDS,
     ...KERNEL_OPERATION_KINDS,
-    ...kernelStepKinds(() => {
+    ...UNIT_OPERATION_KINDS,
+    ...ABILITY_STEP_KINDS,
+    ...EFFECT_STEP_KINDS,
+    operationStep(() => {
       if (ready.operations === undefined) throw new TypeError('The registries of the kernel are not ready yet.');
 
       return ready.operations;

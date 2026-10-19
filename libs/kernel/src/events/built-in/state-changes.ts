@@ -1,5 +1,6 @@
 import type { SideId, Tag, UnitId } from '../../ids/index.ts';
 import type { AppliedEffect, BattleState, EffectHolder, Hazard, Side, Unit } from '../../model/index.ts';
+import { compareCodeUnits } from '../../shared/index.ts';
 
 /**
  * Returns the state with one unit replaced by the result of `change`.
@@ -137,6 +138,36 @@ export function withTagSources(
   }
 
   return Object.fromEntries([...next].filter(([, sources]) => sources > 0));
+}
+
+/**
+ * Returns the sorted names of a unit after some are added and others removed, for example the hazard zones it stands
+ * in.
+ *
+ * @throws {RangeError} If a name repeats among the added or the removed, a removed name is missing, or an added one is
+ * already there.
+ */
+export function withNames(
+  names: readonly string[],
+  added: readonly string[],
+  removed: readonly string[],
+  what: string,
+): readonly string[] {
+  if (new Set(added).size !== added.length || new Set(removed).size !== removed.length) {
+    throw new RangeError(`The ${what}s to add or to remove repeat: ${JSON.stringify([...added, ...removed])}.`);
+  }
+
+  const kept = names.filter((name) => !removed.includes(name));
+
+  if (kept.length + removed.length !== names.length) {
+    throw new RangeError(`The unit lacks one of the ${what}s ${JSON.stringify(removed)} to remove.`);
+  }
+
+  if (added.some((name) => kept.includes(name))) {
+    throw new RangeError(`The unit already has one of the ${what}s ${JSON.stringify(added)}.`);
+  }
+
+  return [...kept, ...added].toSorted(compareCodeUnits);
 }
 
 function changeById<Item extends { readonly id: unknown }>(

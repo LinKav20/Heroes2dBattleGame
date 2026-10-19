@@ -1,7 +1,14 @@
-import { definitionOf, type ContentRegistry, type Effect } from '../content/index.ts';
+import type { ContentRegistry } from '../content/index.ts';
 import { battlefieldEffects, unitDefinitionEffects } from '../expressions/index.ts';
 import type { ContentName, SideId } from '../ids/index.ts';
-import type { AppliedEffect, BattleState, EffectHolder } from '../model/index.ts';
+import {
+  findHazard,
+  findSide,
+  findUnit,
+  type AppliedEffect,
+  type BattleState,
+  type EffectHolder,
+} from '../model/index.ts';
 
 /**
  * A holder of effects with the effects applied to it.
@@ -30,15 +37,6 @@ export interface ActingEffect {
 }
 
 /**
- * Returns the definition of an effect.
- *
- * @throws {ContentError} If the content has no such effect.
- */
-export function effectDefinition(content: ContentRegistry, name: ContentName): Effect {
-  return definitionOf(content.effects, name, 'effect');
-}
-
-/**
  * Returns the effects applied to a holder, or none if the holder does not exist.
  */
 export function effectsOf(state: BattleState, holder: EffectHolder): readonly AppliedEffect[] {
@@ -48,15 +46,15 @@ export function effectsOf(state: BattleState, holder: EffectHolder): readonly Ap
     }
 
     case 'hazard': {
-      return state.field.hazards.find(({ id }) => id === holder.hazard)?.effects ?? [];
+      return findHazard(state, holder.hazard)?.effects ?? [];
     }
 
     case 'side': {
-      return state.sides.find(({ id }) => id === holder.side)?.effects ?? [];
+      return findSide(state, holder.side)?.effects ?? [];
     }
 
     case 'unit': {
-      return state.units.find(({ id }) => id === holder.unit)?.effects ?? [];
+      return findUnit(state, holder.unit)?.effects ?? [];
     }
 
     default: {
@@ -66,8 +64,8 @@ export function effectsOf(state: BattleState, holder: EffectHolder): readonly Ap
 }
 
 /**
- * Returns the effects of definitions a holder has: the effects of the creature and the equipped items of a unit, the
- * effects of the battlefield for the field, and none for a side or a hazard zone.
+ * Returns the effects of definitions a holder has: the effects of the creature and the equipped items of a unit and of
+ * the auras that cover it, the effects of the battlefield for the field, and none for a side or a hazard zone.
  *
  * @throws {ContentError} If the content has no definition the holder refers to.
  */
@@ -80,7 +78,7 @@ export function definitionEffectsOf(
 
   if (holder.kind !== 'unit') return [];
 
-  const unit = state.units.find(({ id }) => id === holder.unit);
+  const unit = findUnit(state, holder.unit);
 
   return unit === undefined ? [] : unitDefinitionEffects(content, unit);
 }
@@ -127,5 +125,5 @@ export function actingEffects(
 export function sideOf(state: BattleState, holder: EffectHolder): SideId | undefined {
   if (holder.kind === 'side') return holder.side;
 
-  return holder.kind === 'unit' ? state.units.find(({ id }) => id === holder.unit)?.side : undefined;
+  return holder.kind === 'unit' ? findUnit(state, holder.unit)?.side : undefined;
 }

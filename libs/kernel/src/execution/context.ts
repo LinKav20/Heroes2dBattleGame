@@ -1,7 +1,15 @@
 import type { ContentRegistry } from '../content/index.ts';
 import type { ReactionIndex } from '../effects/index.ts';
 import type { AttributeCache } from '../expressions/index.ts';
-import type { CommandKind, ConditionExtension, EventKind, FormulaExtension, StepKind } from '../extensions/index.ts';
+import type {
+  CommandKind,
+  ConditionExtension,
+  EventKind,
+  FormulaExtension,
+  StepKind,
+  TopologyExtension,
+} from '../extensions/index.ts';
+import type { FieldCache } from '../geometry/index.ts';
 import type { Registry } from '../names/index.ts';
 
 /**
@@ -18,17 +26,22 @@ export interface ExecutionRegistries {
   readonly formulas: Registry<FormulaExtension>;
   /** Kinds of steps. */
   readonly steps: Registry<StepKind>;
+  /** Field topologies. */
+  readonly topologies: Registry<TopologyExtension>;
 }
 
 /**
- * What the kernel keeps between commands: the values of attributes and tags and which effects react to which events.
- * Both are held for the objects of the state and the content, which therefore never change in place.
+ * What the kernel keeps between commands: the values of attributes and tags, which effects react to which events and
+ * the cells of fields. They are held for the objects of the state, the content and the parameters of the field, which
+ * therefore never change in place.
  */
 export interface ExecutionCaches {
   /** The values of attributes and tags calculated before. */
   readonly attributes: AttributeCache;
   /** Which effects of content react to which kinds of events. */
   readonly reactions: ReactionIndex;
+  /** The cells of fields the kernel has asked topologies for. */
+  readonly fields: FieldCache;
 }
 
 /**

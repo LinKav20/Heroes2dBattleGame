@@ -1,9 +1,10 @@
+import { effectDefinition } from '../content/index.ts';
 import { KERNEL_EVENTS, kernelEventDraft } from '../events/index.ts';
 import type { EventDraft, StepContext, StepDraft, StepKind, StepResult } from '../extensions/index.ts';
 import type { EffectHolder } from '../model/index.ts';
+import { KERNEL_STEPS } from '../names/index.ts';
 import { removalDraft, turnDraft } from './drafts.ts';
-import { allHolders, definitionEffectsOf, effectDefinition, effectsOf, type HeldEffects } from './holders.ts';
-import { KERNEL_STEPS } from './names.ts';
+import { allHolders, definitionEffectsOf, effectsOf, type HeldEffects } from './holders.ts';
 import type { TickMoment, TickParams } from './params.ts';
 
 /**

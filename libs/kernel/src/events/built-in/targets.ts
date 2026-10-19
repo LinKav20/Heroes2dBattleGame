@@ -16,6 +16,9 @@ export type KernelEventTargets = {
  */
 export const KERNEL_EVENT_TARGETS: KernelEventTargets = {
   [KERNEL_EVENTS.abilityUsed]: ({ holder }) => holderTarget(holder),
+  [KERNEL_EVENTS.abilityUsesChanged]: ({ holder }) => holderTarget(holder),
+  [KERNEL_EVENTS.actionsChanged]: ({ unit }) => ({ kind: 'unit', unit }),
+  [KERNEL_EVENTS.aurasChanged]: ({ unit }) => ({ kind: 'unit', unit }),
   [KERNEL_EVENTS.effectApplied]: ({ holder }) => holderTarget(holder),
   [KERNEL_EVENTS.effectChanged]: ({ holder }) => holderTarget(holder),
   [KERNEL_EVENTS.effectNotApplied]: ({ holder }) => holderTarget(holder),
@@ -35,4 +38,5 @@ export const KERNEL_EVENT_TARGETS: KernelEventTargets = {
   [KERNEL_EVENTS.unitMoved]: ({ unit }) => ({ kind: 'unit', unit }),
   [KERNEL_EVENTS.unitPlaced]: ({ unit }) => ({ kind: 'unit', unit }),
   [KERNEL_EVENTS.unitSummoned]: ({ unit }) => ({ kind: 'unit', unit: unit.id }),
+  [KERNEL_EVENTS.zonesChanged]: ({ unit }) => ({ kind: 'unit', unit }),
 };

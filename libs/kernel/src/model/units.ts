@@ -26,6 +26,16 @@ export interface Unit {
   /** The effects on the unit in the order they were applied. */
   readonly effects: readonly AppliedEffect[];
   /**
+   * The effects of the auras that cover the unit, by full name, sorted. They act on the unit as the effects of its
+   * creature do. The kernel brings them up to date after every game command.
+   */
+  readonly auras: readonly ContentName[];
+  /**
+   * The hazard zones the unit stands in, sorted. The effects of these zones act on the unit. The kernel brings them up
+   * to date together with the auras.
+   */
+  readonly zones: readonly string[];
+  /**
    * The tags that operations gave the unit through `kernel:tags-changed`, with how many sources gave each. The full
    * tags of the unit also include the tags of its creature and of the effects acting on it; the kernel calculates
    * them.
@@ -38,6 +48,12 @@ export interface Unit {
   readonly flags: readonly string[];
   /** The items of the unit. */
   readonly inventory: readonly InventoryItem[];
+  /**
+   * The actions of the turn the unit has spent during its current turn, by the full name of the kind of action, for
+   * example `core:bonus-action`. How many actions of a kind a unit has every turn is the value of the attribute with
+   * the same name.
+   */
+  readonly spentActions: Readonly<Record<ContentName, number>>;
   /** How the unit has used its abilities. */
   readonly abilityUses: readonly AbilityUse[];
   /** Whether the unit was summoned during the battle. */

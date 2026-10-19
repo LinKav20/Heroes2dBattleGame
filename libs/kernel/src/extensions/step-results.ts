@@ -45,7 +45,7 @@ export interface StepRejects {
   readonly kind: 'reject';
   /**
    * The full name of the reason: a reason of the package, for example `acme-duel:no-target`, or `kernel:out-of-range`
-   * that an evaluation of a formula gave. Any other reason is an error of the extension.
+   * or `kernel:not-on-field` that an evaluation of a formula gave. Any other reason is an error of the extension.
    */
   readonly reason: string;
   /** The details of the reason, as JSON. */

@@ -1,5 +1,5 @@
 import type { ContentRegistry, Predicate, ValueExpr } from '../content/index.ts';
-import type { Evaluation, ExpressionContext, RollNeed } from '../extensions/index.ts';
+import type { Evaluation, ExpressionContext, FieldGeometry, RollNeed } from '../extensions/index.ts';
 import type { ContentName, Tag, UnitId } from '../ids/index.ts';
 import type { BattleState, SideTarget, UnitTarget } from '../model/index.ts';
 
@@ -12,6 +12,8 @@ export interface ExpressionEngine {
   readonly state: BattleState;
   /** The content of the battle. */
   readonly content: ContentRegistry;
+  /** The field of the state. */
+  readonly field: FieldGeometry;
   /** Evaluates a formula in the context of a node. */
   formula(formula: ValueExpr, context: ExpressionContext): Evaluation<number>;
   /** Evaluates a condition in the context of a node. */

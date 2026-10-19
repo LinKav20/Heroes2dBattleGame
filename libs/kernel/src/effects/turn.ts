@@ -1,9 +1,9 @@
+import { effectDefinition } from '../content/index.ts';
 import type { StepContext, StepKind, StepResult } from '../extensions/index.ts';
+import { KERNEL_STEPS } from '../names/index.ts';
+import { DONE, operationDrafts, stepsDone } from '../operations/index.ts';
 import { activity, unlessHolds } from './activity.ts';
 import { appliedSubjects, presentEffect } from './applied.ts';
-import { DONE, operationDrafts, stepsDone } from './drafts.ts';
-import { effectDefinition } from './holders.ts';
-import { KERNEL_STEPS } from './names.ts';
 import type { TurnParams } from './params.ts';
 
 /**

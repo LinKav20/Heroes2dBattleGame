@@ -1,12 +1,13 @@
-import type { Effect } from '../content/index.ts';
+import { type Effect, effectDefinition } from '../content/index.ts';
 import { EFFECT_NOT_APPLIED_REASONS } from '../events/index.ts';
-import { battleUnit, evaluated, isBlocked } from '../expressions/index.ts';
+import { evaluated, isBlocked } from '../expressions/index.ts';
 import type { Evaluation, Expressions, StepContext, StepKind, StepResult } from '../extensions/index.ts';
+import { battleUnit } from '../model/index.ts';
+import { KERNEL_STEPS } from '../names/index.ts';
+import { operationDrafts } from '../operations/index.ts';
 import { appliedSubjects } from './applied.ts';
-import { operationDrafts } from './drafts.ts';
 import { checkEffect } from './effect-checks.ts';
-import { effectDefinition, effectsOf } from './holders.ts';
-import { KERNEL_STEPS } from './names.ts';
+import { effectsOf } from './holders.ts';
 import { applyNew, draftOf, notApplied, removedByTags } from './new-effect.ts';
 import type { ApplicationParams } from './params.ts';
 import { applyAgain } from './stacking.ts';

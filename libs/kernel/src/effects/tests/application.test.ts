@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ContentError } from '../../content/index.ts';
 import type { AppliedEffect, BattleState } from '../../model/index.ts';
-import { applied, effect, node, unitOf } from '../../tests/fixtures.ts';
-import { applicationDraft, removalDraft } from '../index.ts';
 import {
   AFTER_ROUND_5,
   ARCHERS,
@@ -16,7 +14,9 @@ import {
   types,
   variables,
   withUnitEffects,
-} from './helpers.ts';
+} from '../../tests/battle.ts';
+import { applied, effect, node, unitOf } from '../../tests/fixtures.ts';
+import { applicationDraft, removalDraft } from '../index.ts';
 
 describe('applying an effect', () => {
   it('stores it with the next number, its duration, strength, parameters and visibility and runs operations', () => {

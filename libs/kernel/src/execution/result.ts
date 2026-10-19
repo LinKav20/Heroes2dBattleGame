@@ -53,8 +53,8 @@ export function ruleViolation(reason: RejectionReason, params: JsonObject = {}):
 
 /**
  * Returns the rejection of a command that the rules do not allow, with the reason a step or a command of an
- * extension gave: a reason of a package with extensions, or `kernel:out-of-range`, which only a step may give when an
- * evaluation gives it.
+ * extension gave: a reason of a package with extensions, or `kernel:out-of-range` or `kernel:not-on-field`, which only
+ * a step may give when an evaluation gives it.
  *
  * @throws {TypeError} If the reason is neither.
  */
@@ -66,7 +66,7 @@ export function extensionViolation(
   const { params = {}, reason } = rejection;
   const value: unknown = reason;
   const allowed = typeof value === 'string'
-    && (isOwnReason(value) || (fromStep && value === REJECTION_REASONS.outOfRange));
+    && (isOwnReason(value) || (fromStep && STEP_REASONS.has(value)));
 
   if (!allowed) {
     throw new TypeError(
@@ -86,6 +86,8 @@ export function nothingToAnswer(request: number): ExecuteRejected {
 
   return rejected({ code: REJECTION_CODES.nothingToAnswer, params: { request }, reason });
 }
+
+const STEP_REASONS: ReadonlySet<string> = new Set([REJECTION_REASONS.notOnField, REJECTION_REASONS.outOfRange]);
 
 function isOwnReason(reason: string): boolean {
   return isExtensionName(reason) && !isKernelName(reason);

@@ -4,6 +4,7 @@ import type { AppliedEffect, BattleEvent, BattleState, StepInput } from '../mode
 import type { Extension } from '../names/index.ts';
 import type { Expressions, Subjects } from './expressions.ts';
 import type { StepResult } from './step-results.ts';
+import type { FieldGeometry } from './topology.ts';
 
 /**
  * What an operation sees when it runs. An operation runs as a step of the command, so it may give events, add steps
@@ -22,6 +23,8 @@ export interface OperationContext {
    * operation takes its own rolls through `expressions.roll`.
    */
   readonly expressions: Expressions;
+  /** The field of the state with its units and obstacles, as `FieldGeometry` describes. */
+  readonly field: FieldGeometry;
   /** The participants of the operation: the holder of the effect or the user of the ability, its target and source. */
   readonly subjects: Subjects;
   /** The applied effect whose operation it is, if any; after the effect is removed, its last state. */

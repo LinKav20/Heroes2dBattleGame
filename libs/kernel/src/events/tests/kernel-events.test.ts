@@ -220,11 +220,47 @@ describe('events of the kernel', () => {
 
   it('kernel:ability-used replaces the use of the same ability or adds a new one', () => {
     const use = { ability: 'demo:fire-arrow', battle: 2, cooldown: 2, round: 1, turn: 1 };
-    const unit = apply(KERNEL_EVENTS.abilityUsed, { holder: { kind: 'unit', unit: 'archers-1' }, use });
-    const side = apply(KERNEL_EVENTS.abilityUsed, { holder: { kind: 'side', side: 'defender' }, use });
+    const unit = apply(KERNEL_EVENTS.abilityUsed, { holder: { kind: 'unit', unit: 'archers-1' }, targets: [], use });
+    const side = apply(KERNEL_EVENTS.abilityUsed, { holder: { kind: 'side', side: 'defender' }, targets: [], use });
 
     expect(unitOf(unit, 'archers-1').abilityUses).toStrictEqual([use]);
     expect(side.sides[1]?.abilityUses).toStrictEqual([use]);
+  });
+
+  it('kernel:ability-uses-changed replaces all uses, and kernel:actions-changed the spent actions', () => {
+    const uses = [{ ability: 'demo:fire-arrow', battle: 1, cooldown: 0, round: 1, turn: 0 }];
+    const unit = apply(KERNEL_EVENTS.abilityUsesChanged, { holder: { kind: 'unit', unit: 'archers-1' }, uses });
+    const side = apply(KERNEL_EVENTS.abilityUsesChanged, { holder: { kind: 'side', side: 'defender' }, uses });
+    const spent = apply(KERNEL_EVENTS.actionsChanged, { spent: { 'core:action': 1 }, unit: 'archers-1' });
+
+    expect(unitOf(unit, 'archers-1').abilityUses).toStrictEqual(uses);
+    expect(side.sides[1]?.abilityUses).toStrictEqual(uses);
+    expect(unitOf(spent, 'archers-1').spentActions).toStrictEqual({ 'core:action': 1 });
+  });
+
+  it('kernel:auras-changed and kernel:zones-changed add and remove auras and zones and keep them sorted', () => {
+    const covered = apply(KERNEL_EVENTS.aurasChanged, { added: ['demo:b', 'demo:a'], removed: [], unit: 'archers-1' });
+    const change = { added: ['demo:c'], removed: ['demo:a'], unit: 'archers-1' };
+    const moved = KERNEL.applyEvent(covered, kernelEvent(KERNEL_EVENTS.aurasChanged, change));
+    const placed = apply(KERNEL_EVENTS.zonesChanged, { added: ['swamp'], removed: [], unit: 'archers-1' });
+
+    expect(unitOf(covered, 'archers-1').auras).toStrictEqual(['demo:a', 'demo:b']);
+    expect(unitOf(moved, 'archers-1').auras).toStrictEqual(['demo:b', 'demo:c']);
+    expect(unitOf(placed, 'archers-1').zones).toStrictEqual(['swamp']);
+
+    expect(() => apply(KERNEL_EVENTS.zonesChanged, { added: [], removed: ['swamp'], unit: 'archers-1' }))
+      .toThrow('lacks one of the zones');
+
+    const again = kernelEvent(KERNEL_EVENTS.aurasChanged, { ...change, added: ['demo:a'], removed: ['demo:b'] });
+
+    expect(() => KERNEL.applyEvent(covered, again))
+      .toThrow('already has one of the auras');
+
+    expect(() => apply(KERNEL_EVENTS.aurasChanged, { added: ['demo:a', 'demo:a'], removed: [], unit: 'archers-1' }))
+      .toThrow('The auras to add or to remove repeat');
+
+    expect(() => apply(KERNEL_EVENTS.zonesChanged, { added: [], removed: ['swamp', 'swamp'], unit: 'archers-1' }))
+      .toThrow('The zones to add or to remove repeat');
   });
 
   it('kernel:unit-summoned adds a unit named after the next identifier', () => {
@@ -266,6 +302,11 @@ describe('events of the kernel', () => {
       .toStrictEqual({ cells: ['6,6'], effects: [], id: 'fire-wall', visibleTo: 'all' });
 
     expect(removed.field.hazards.map(({ id }) => id)).toStrictEqual(['fire-wall']);
+
+    const standing = apply(KERNEL_EVENTS.zonesChanged, { added: ['swamp'], removed: [], unit: 'archers-1' });
+    const gone = KERNEL.applyEvent(standing, kernelEvent(KERNEL_EVENTS.hazardRemoved, { hazard: 'swamp' }));
+
+    expect(unitOf(gone, 'archers-1').zones).toStrictEqual([]);
 
     expect(() => apply(KERNEL_EVENTS.hazardAdded, { cells: [], hazard: 'swamp', visibleTo: 'all' }))
       .toThrow('already has');
@@ -325,8 +366,13 @@ const POISON: AppliedEffect = { active: true, effect: 'core:poison', id: 8, para
 const PAYLOADS: { readonly [Type in KernelEventType]: KernelEventPayloads[Type] } = {
   'kernel:ability-used': {
     holder: { kind: 'unit', unit: 'archers-1' },
+    item: 4,
+    targets: [{ kind: 'unit', unit: 'pikemen-1' }],
     use: { ability: 'demo:fire-arrow', battle: 2, cooldown: 2, round: 2, turn: 1 },
   },
+  'kernel:ability-uses-changed': { holder: { kind: 'side', side: 'attacker' }, uses: [] },
+  'kernel:actions-changed': { spent: {}, unit: 'archers-1' },
+  'kernel:auras-changed': { added: ['core:poison'], removed: [], unit: 'archers-1' },
   'kernel:battle-ended': { outcome: { kind: 'draw', winners: [] } },
   'kernel:command-aborted': { rejection: { code: 'rule-violation', params: {}, reason: 'acme-duel:failed' } },
   'kernel:effect-applied': { effect: POISON, holder: { kind: 'field' } },
@@ -353,6 +399,7 @@ const PAYLOADS: { readonly [Type in KernelEventType]: KernelEventPayloads[Type] 
   'kernel:unit-summoned': {
     unit: {
       abilityUses: [],
+      auras: [],
       count: 3,
       creature: 'demo:pikeman',
       effects: [],
@@ -362,12 +409,15 @@ const PAYLOADS: { readonly [Type in KernelEventType]: KernelEventPayloads[Type] 
       inventory: [],
       resources: {},
       side: 'defender',
+      spentActions: {},
       summoned: true,
       tags: {},
       visibleTo: 'all',
+      zones: [],
     },
   },
   'kernel:variable-set': { value: 3, variable: 'waves' },
+  'kernel:zones-changed': { added: ['swamp'], removed: [], unit: 'pikemen-1' },
 };
 
 function kernelEvent<Type extends KernelEventType>(type: Type, payload: KernelEventPayloads[Type]): KernelEvent<Type> {

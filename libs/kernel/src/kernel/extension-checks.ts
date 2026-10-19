@@ -31,7 +31,10 @@ const KIND_CHECKS: Readonly<Record<KernelExtensionKind, readonly Check[]>> = {
   mechanic: [],
   operation: [needsFunction('run'), needsSchema],
   step: [needsVersion, needsFunction('run'), mayHaveFunction('migrateEvents')],
-  topology: [],
+  topology: [
+    needsSchema,
+    ...['area', 'cells', 'distance', 'footprint', 'moveCost', 'neighbors'].map((name) => needsFunction(name)),
+  ],
 };
 
 function needsFunction(name: string): Check {

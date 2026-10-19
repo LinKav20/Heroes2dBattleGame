@@ -8,7 +8,7 @@ import type {
   KernelExtension,
   KernelExtensionKind,
 } from '../../extensions/index.ts';
-import { FROST_EVENT, STRIKE_STEP } from '../../tests/fixtures.ts';
+import { FROST_EVENT, GRID, STRIKE_STEP } from '../../tests/fixtures.ts';
 import { createKernel } from '../index.ts';
 
 describe('createKernel', () => {
@@ -121,6 +121,8 @@ describe('createKernel', () => {
     { kind: { ...DOUBLE, schema: undefined }, problem: 'needs a JSON Schema as an object' },
     { kind: { ...FROST_EVENT, target: 1 }, problem: 'needs a function target or none' },
     { kind: { ...STRIKE_STEP, migrateEvents: 'yes' }, problem: 'needs a function migrateEvents or none' },
+    { kind: { ...GRID, footprint: undefined }, problem: 'needs a function footprint' },
+    { kind: { ...GRID, schema: undefined }, problem: 'needs a JSON Schema as an object' },
     {
       kind: { ...STRIKE_STEP, version: Number.MAX_SAFE_INTEGER },
       problem: `needs exactly one migration from every version below ${String(Number.MAX_SAFE_INTEGER)}`,
@@ -179,7 +181,7 @@ const EXTENSIONS: readonly [KernelExtension, KernelExtension, ...KernelExtension
   DAMAGE,
   ADJACENT,
   { kind: 'mechanic', name: 'rules-stdlib:speed-with-waiting' },
-  { kind: 'topology', name: 'rules-stdlib:hex', shortName: 'hex' },
+  { ...GRID, name: 'rules-stdlib:hex', shortName: 'hex' },
   FROST_EVENT,
   STRIKE_STEP,
   DOUBLE,

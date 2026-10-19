@@ -7,11 +7,3 @@ export interface MechanicExtension extends Extension {
   /** The registry the extension belongs to. */
   readonly kind: 'mechanic';
 }
-
-/**
- * A field topology, such as hexes.
- */
-export interface TopologyExtension extends Extension {
-  /** The registry the extension belongs to. */
-  readonly kind: 'topology';
-}

@@ -10,6 +10,9 @@ export type KernelEventType = (typeof KERNEL_EVENTS)[keyof typeof KERNEL_EVENTS]
  */
 export const KERNEL_EVENTS = Object.freeze({
   abilityUsed: kernelName('ability-used'),
+  abilityUsesChanged: kernelName('ability-uses-changed'),
+  actionsChanged: kernelName('actions-changed'),
+  aurasChanged: kernelName('auras-changed'),
   battleEnded: kernelName('battle-ended'),
   commandAborted: kernelName('command-aborted'),
   effectApplied: kernelName('effect-applied'),
@@ -35,6 +38,7 @@ export const KERNEL_EVENTS = Object.freeze({
   unitPlaced: kernelName('unit-placed'),
   unitSummoned: kernelName('unit-summoned'),
   variableSet: kernelName('variable-set'),
+  zonesChanged: kernelName('zones-changed'),
 });
 
 /**

@@ -4,6 +4,7 @@ import type { Extension } from '../names/index.ts';
 import type { Expressions } from './expressions.ts';
 import type { Migration } from './migration.ts';
 import type { StepResult } from './step-results.ts';
+import type { FieldGeometry } from './topology.ts';
 
 /**
  * A kind of step of a command: how the step runs, its format version and the migrations of its older versions.
@@ -55,4 +56,6 @@ export interface StepContext<Params extends object = object> {
    * the evaluation ask for one, so a step that evaluates formulas takes its own rolls through `expressions.roll` too.
    */
   readonly expressions: Expressions;
+  /** The field of the state with its units and obstacles, as `FieldGeometry` describes. */
+  readonly field: FieldGeometry;
 }

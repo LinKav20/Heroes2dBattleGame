@@ -2,9 +2,8 @@ import { ContentError } from '../content/index.ts';
 import { isNode } from '../expressions/index.ts';
 import type { OperationExtension, StepContext, StepKind, StepResult } from '../extensions/index.ts';
 import type { BattleEvent } from '../model/index.ts';
-import { isKernelName, type Registry } from '../names/index.ts';
+import { isKernelName, KERNEL_STEPS, type Registry } from '../names/index.ts';
 import { checkOwnSteps } from './kernel-only.ts';
-import { KERNEL_STEPS } from './names.ts';
 import type { OperationParams } from './params.ts';
 
 /**
@@ -26,7 +25,7 @@ export function operationStep(operations: () => Registry<OperationExtension>): S
     },
     migrations: [],
     name: KERNEL_STEPS.operation,
-    run: ({ content, expressions, inputs, params, state }: StepContext<OperationParams>): StepResult => {
+    run: ({ content, expressions, field, inputs, params, state }: StepContext<OperationParams>): StepResult => {
       const { effect, event, op, subjects } = params;
 
       if (!isNode(op)) throw new ContentError(`${JSON.stringify(op)} is not an operation.`);
@@ -42,7 +41,7 @@ export function operationStep(operations: () => Registry<OperationExtension>): S
         ...(effect === undefined ? {} : { effect }),
         ...(event === undefined ? {} : { event }),
       };
-      const result = kind.run(op, { ...scope, content, expressions: expressions.within(scope), inputs, state });
+      const result = kind.run(op, { ...scope, content, expressions: expressions.within(scope), field, inputs, state });
 
       if (!isKernelName(kind.name)) checkOwnSteps(kind.name, result);
 

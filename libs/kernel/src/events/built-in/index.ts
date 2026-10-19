@@ -1,4 +1,10 @@
 export type {
+  AbilityEventPayloads,
+  AbilityUsedPayload,
+  AbilityUsesChangedPayload,
+  ActionsChangedPayload,
+} from './abilities.ts';
+export type {
   BattleEndedPayload,
   BattleEventPayloads,
   PhaseChangedPayload,
@@ -45,7 +51,7 @@ export type {
   VariableSetPayload,
 } from './scenario.ts';
 export type {
-  AbilityUsedPayload,
+  AurasChangedPayload,
   FlagsChangedPayload,
   HealthChangedPayload,
   ResourceChangedPayload,
@@ -54,4 +60,5 @@ export type {
   UnitMovedPayload,
   UnitPlacedPayload,
   UnitSummonedPayload,
+  ZonesChangedPayload,
 } from './units.ts';

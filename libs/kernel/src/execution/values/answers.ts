@@ -1,5 +1,11 @@
-import type { InputRequest, InputValue, StepInput } from '../../model/index.ts';
-import { allDifferent, copyTarget, targetKey } from './targets.ts';
+import {
+  allDifferent,
+  copyTarget,
+  targetKey,
+  type InputRequest,
+  type InputValue,
+  type StepInput,
+} from '../../model/index.ts';
 
 /**
  * Checks an answer against the open request and returns the value the waiting step receives, or nothing if the

@@ -4,6 +4,7 @@ import type {
   ExpressionContext,
   Expressions,
   ExpressionScope,
+  FieldGeometry,
   RollNeed,
   Subjects,
 } from '../extensions/index.ts';
@@ -24,6 +25,10 @@ export class ScopedExpressions implements Expressions {
   constructor(engine: ExpressionEngine, scope: ExpressionScope) {
     this.engine = engine;
     this.scope = scope;
+  }
+
+  get field(): FieldGeometry {
+    return this.engine.field;
   }
 
   value(formula: ValueExpr, subjects?: Subjects): Evaluation<number> {

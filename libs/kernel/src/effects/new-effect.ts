@@ -1,12 +1,13 @@
-import type { Effect } from '../content/index.ts';
+import { type Effect, effectDefinition } from '../content/index.ts';
 import { KERNEL_EVENTS, kernelEventDraft, type EffectNotAppliedReason } from '../events/index.ts';
 import { evaluated, matchesAny } from '../expressions/index.ts';
 import type { Evaluation, Expressions, StepContext, StepDraft, StepResult } from '../extensions/index.ts';
 import type { AppliedEffect } from '../model/index.ts';
+import { operationDrafts } from '../operations/index.ts';
 import { activity } from './activity.ts';
 import { appliedSubjects, remainingOf, visibilityOf } from './applied.ts';
-import { operationDrafts, removalDraft } from './drafts.ts';
-import { effectDefinition, effectsOf } from './holders.ts';
+import { removalDraft } from './drafts.ts';
+import { effectsOf } from './holders.ts';
 import type { ApplicationParams } from './params.ts';
 import { removal } from './removal.ts';
 

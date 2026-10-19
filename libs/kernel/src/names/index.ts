@@ -8,5 +8,13 @@ export {
   prefixOf,
 } from './extension-names.ts';
 export type { Extension } from './extension.ts';
+export {
+  isKernelOnlyStep,
+  KERNEL_ONLY_STEPS,
+  KERNEL_OPERATIONS,
+  KERNEL_STEPS,
+  type KernelOperationType,
+  type KernelStepType,
+} from './kernel-names.ts';
 export type { RegistryKeys, RegistryOptions } from './registry-options.ts';
 export { createRegistry, indexRegistry, type Registry } from './registry.ts';

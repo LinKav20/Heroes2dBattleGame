@@ -1,4 +1,4 @@
-import type { Target } from '../../model/index.ts';
+import type { Target } from './input-requests.ts';
 
 /**
  * Returns a key that tells targets apart: two targets with the same key are the same target.

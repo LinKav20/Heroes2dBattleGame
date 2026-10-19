@@ -1,16 +1,17 @@
 import { contentError, type ExpressionNode, type ValueExpr } from '../../content/index.ts';
 import type { FormulaExtension } from '../../extensions/index.ts';
+import { REJECTION_REASONS } from '../../model/index.ts';
 import { isRecord, ownValue } from '../../shared/index.ts';
 import { formulaParam, isFormula, roleParam, stringParam } from '../params.ts';
 import { evaluated } from '../results.ts';
-import { subjectHolder } from '../subjects.ts';
+import { subjectCells, subjectHolder } from '../subjects.ts';
 import { defineFormula } from './define.ts';
 import { KERNEL_FORMULAS } from './names.ts';
 import { FORMULA_SCHEMA, listSchema, NAME_SCHEMA, referenceSchema, ROLE_SCHEMA, TABLE_ROW_SCHEMA } from './schema.ts';
 
 /**
- * The nodes of formulas that the kernel registers itself for values of the battle: an attribute of a participant,
- * the round, a scenario variable and a table of values.
+ * The nodes of formulas that the kernel registers itself for values of the battle: an attribute of a participant, the
+ * least distance between the cells of two participants, the round, a scenario variable and a table of values.
  */
 export const VALUE_KINDS: readonly FormulaExtension[] = [
   defineFormula(
@@ -21,6 +22,17 @@ export const VALUE_KINDS: readonly FormulaExtension[] = [
       return context.attribute(of, stringParam(node, 'attribute'));
     },
   ),
+  defineFormula({ name: KERNEL_FORMULAS.distance, params: { from: ROLE_SCHEMA, to: ROLE_SCHEMA } }, (node, context) => {
+    const from = subjectCells(node, context, roleParam(node, 'from'));
+    const to = subjectCells(node, context, roleParam(node, 'to'));
+    const distance = context.field.distanceBetween(from.cells, to.cells);
+
+    if (distance !== undefined) return evaluated(distance);
+
+    const unit = from.cells.length === 0 ? from.unit : to.unit;
+
+    return { kind: 'reject', params: unit === undefined ? {} : { unit }, reason: REJECTION_REASONS.notOnField };
+  }),
   defineFormula({ name: KERNEL_FORMULAS.round, params: {} }, (node, context) => evaluated(context.state.round)),
   defineFormula({ name: KERNEL_FORMULAS.variable, params: { variable: NAME_SCHEMA } }, (node, context) => {
     const variable = stringParam(node, 'variable');

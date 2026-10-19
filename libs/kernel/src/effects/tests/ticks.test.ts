@@ -1,6 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { applied, CONTENT, effect, node, unitOf } from '../../tests/fixtures.ts';
-import { tickDraft } from '../index.ts';
 import {
   contentWith,
   mark,
@@ -8,7 +6,9 @@ import {
   run,
   BARE_STATE,
   withUnitEffects,
-} from './helpers.ts';
+} from '../../tests/battle.ts';
+import { applied, CONTENT, effect, node, unitOf } from '../../tests/fixtures.ts';
+import { tickDraft } from '../index.ts';
 
 describe('ticks of effects', () => {
   const content = contentWith(
