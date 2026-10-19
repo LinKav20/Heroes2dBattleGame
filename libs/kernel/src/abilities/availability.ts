@@ -13,6 +13,7 @@ import {
   battleUnit,
   isWorn,
   REJECTION_REASONS,
+  turnRejection,
   unitItem,
   type AbilityUse,
   type BattleState,
@@ -21,9 +22,10 @@ import {
   type Unit,
   type UnitHolder,
   type UnitTarget,
+  forbidden,
 } from '../model/index.ts';
 import { checkItem } from '../operations/index.ts';
-import { forbidden, whenValue, type AbilityCheck, type AbilityForbidden } from './check-results.ts';
+import { whenValue, type AbilityCheck } from './check-results.ts';
 import { costCheck, usesCheck } from './cost-checks.ts';
 import { checkAbility } from './definitions.ts';
 import type { AbilityRequest } from './params.ts';
@@ -65,7 +67,7 @@ export function abilityCheck(
   request: AbilityRequest,
 ): AbilityCheck | undefined {
   const user = userOf(state, content, request.user);
-  const owned = turnCheck(state, user) ?? ownCheck(content, user, request);
+  const owned = turnRejection(state, request.user) ?? ownCheck(content, user, request);
 
   if (owned !== undefined) return owned;
 
@@ -81,20 +83,6 @@ export function abilityCheck(
     ?? targetsCheck(state, field, ability, user, request.targets, scoped);
 }
 
-/**
- * Checks the first rule of an ability: the unit is alive and the unit or the side has the turn, as
- * {@link abilityCheck} describes.
- *
- * @throws {TypeError} If the unit or the side is not in the battle.
- */
-export function turnRejection(
-  state: BattleState,
-  content: ContentRegistry,
-  user: SideHolder | UnitHolder,
-): AbilityForbidden | undefined {
-  return turnCheck(state, userOf(state, content, user));
-}
-
 function userOf(state: BattleState, content: ContentRegistry, user: SideHolder | UnitHolder): AbilityUser {
   if (user.kind === 'unit') {
     const unit = battleUnit(state, user.unit);
@@ -106,20 +94,6 @@ function userOf(state: BattleState, content: ContentRegistry, user: SideHolder |
   const side = battleSide(state, user.side);
 
   return { abilities: side.abilities, side: side.id, target: { kind: 'side', side: side.id }, uses: side.abilityUses };
-}
-
-function turnCheck(state: BattleState, user: AbilityUser): AbilityForbidden | undefined {
-  const { unit } = user;
-
-  if (unit?.count === 0) return forbidden(REJECTION_REASONS.unitDead, { unit: unit.id });
-
-  const { phase } = state;
-
-  if (phase.kind !== 'turn' || phase.side !== user.side) return forbidden(REJECTION_REASONS.notYourTurn);
-
-  const own = unit === undefined || phase.unit === undefined || phase.unit === unit.id;
-
-  return own ? undefined : forbidden(REJECTION_REASONS.notYourTurn);
 }
 
 function ownCheck(content: ContentRegistry, user: AbilityUser, request: AbilityRequest): AbilityCheck | undefined {

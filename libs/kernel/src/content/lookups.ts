@@ -3,6 +3,8 @@ import { definitionOf } from './content-error.ts';
 import type { ContentRegistry } from './content-registry.ts';
 import type { Ability, Creature, Item } from './definitions.ts';
 import type { Effect } from './effects.ts';
+import type { Ruleset } from './ruleset.ts';
+import type { Scenario } from './scenario.ts';
 
 /**
  * Returns the definition of an ability.
@@ -38,4 +40,22 @@ export function effectDefinition(content: ContentRegistry, name: ContentName): E
  */
 export function itemDefinition(content: ContentRegistry, name: ContentName): Item {
   return definitionOf(content.items, name, 'item');
+}
+
+/**
+ * Returns the definition of a ruleset.
+ *
+ * @throws {ContentError} If the content has no such ruleset.
+ */
+export function rulesetDefinition(content: ContentRegistry, name: ContentName): Ruleset {
+  return definitionOf(content.rulesets, name, 'ruleset');
+}
+
+/**
+ * Returns the definition of a scenario.
+ *
+ * @throws {ContentError} If the content has no such scenario.
+ */
+export function scenarioDefinition(content: ContentRegistry, name: ContentName): Scenario {
+  return definitionOf(content.scenarios, name, 'scenario');
 }

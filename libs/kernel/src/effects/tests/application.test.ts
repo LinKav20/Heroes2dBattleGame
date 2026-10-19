@@ -6,7 +6,7 @@ import {
   ARCHERS,
   ATTACKER,
   contentWith,
-  mark,
+  markOp,
   PIKEMEN,
   run,
   BARE_STATE,
@@ -22,7 +22,7 @@ describe('applying an effect', () => {
   it('stores it with the next number, its duration, strength, parameters and visibility and runs operations', () => {
     const content = contentWith(effect('acme:curse', {
       grantsTags: ['Debuff.Curse'],
-      onApply: [mark('level', node('kernel:effect-param', { param: 'level' }))],
+      onApply: [markOp('level', node('kernel:effect-param', { param: 'level' }))],
       strength: 5,
       visibility: 'owner',
     }));
@@ -94,7 +94,7 @@ describe('applying an effect', () => {
 
   it('removes effects by tags and runs the operations of an instant effect, which stays nowhere', () => {
     const content = contentWith(
-      effect('acme:flash', { duration: { kind: 'instant' }, onApply: [mark('flash')], removes: ['Debuff'] }),
+      effect('acme:flash', { duration: { kind: 'instant' }, onApply: [markOp('flash')], removes: ['Debuff'] }),
       effect('acme:poison', { tags: ['Debuff.Poison'] }),
     );
     const state = withUnitEffects(BARE_STATE, 'pikemen-1', [applied(7, 'acme:poison')]);
@@ -161,7 +161,7 @@ describe('applying an effect', () => {
 describe('the parameters of an application', () => {
   const power = node('kernel:effect-param', { param: 'power' });
   const content = contentWith(
-    effect('acme:bolt', { duration: { kind: 'instant' }, onApply: [mark('damage', power)] }),
+    effect('acme:bolt', { duration: { kind: 'instant' }, onApply: [markOp('damage', power)] }),
     effect('acme:charm', { condition: node('kernel:compare', { left: power, operator: '>', right: 2 }) }),
     effect('acme:ward', { stacking: 'strongest', strength: power }),
   );
@@ -211,7 +211,7 @@ describe('applying an effect again', () => {
   });
 
   it('with stack runs the operations of every new stack up to the largest number of stacks', () => {
-    const onApply = [mark('stacks', node('kernel:effect-stacks'))];
+    const onApply = [markOp('stacks', node('kernel:effect-stacks'))];
     const content = contentWith(effect('acme:a', { maxStacks: 2, onApply }));
     const draft = applicationDraft({ effect: 'acme:a', holder: PIKEMEN });
     const second = run(existing('acme:a'), content, draft);
@@ -225,8 +225,8 @@ describe('applying an effect again', () => {
   it('with replace removes the old effect with its operations and keeps the tags it gives', () => {
     const content = contentWith(effect('acme:a', {
       grantsTags: ['Buff.A'],
-      onApply: [mark('applied')],
-      onRemove: [mark('removed', node('kernel:effect-param', { default: 0, param: 'power' }))],
+      onApply: [markOp('applied')],
+      onRemove: [markOp('removed', node('kernel:effect-param', { default: 0, param: 'power' }))],
       stacking: 'replace',
     }));
     const old = existing('acme:a', { params: { power: 4 } });
@@ -269,7 +269,7 @@ describe('applying an effect again', () => {
 
   it('removes the effects the new one removes by tags, also when it only refreshes', () => {
     const content = contentWith(
-      effect('acme:poison', { onRemove: [mark('cured')], tags: ['Debuff.Poison'] }),
+      effect('acme:poison', { onRemove: [markOp('cured')], tags: ['Debuff.Poison'] }),
       effect('acme:shield', { tags: ['Buff.Shield'] }),
       effect('acme:cleanse', { removes: ['Debuff'], stacking: 'refresh' }),
     );
@@ -289,7 +289,7 @@ describe('applying an effect again', () => {
 
 describe('removing an effect', () => {
   it('runs its operations with the effect as it was and leaves a gone effect alone', () => {
-    const content = contentWith(effect('acme:curse', { onRemove: [mark('stacks', node('kernel:effect-stacks'))] }));
+    const content = contentWith(effect('acme:curse', { onRemove: [markOp('stacks', node('kernel:effect-stacks'))] }));
     const state = withUnitEffects(BARE_STATE, 'pikemen-1', [applied(8, 'acme:curse', { stacks: 3 })]);
     const lifted = run(state, content, removalDraft({ effect: 8, holder: PIKEMEN }));
 

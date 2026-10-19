@@ -75,7 +75,7 @@ describe('using an ability', () => {
     },
     {
       name: 'a unit between turns',
-      rejection: ['kernel:not-your-turn', {}],
+      rejection: ['kernel:wrong-phase', {}],
       state: { ...READY, phase: { kind: 'round-start' } },
     },
     {

@@ -1,9 +1,15 @@
-import { applyEventOfKind, kernelEventDraft, RUNNER_EVENTS, type KernelEventPayloads, type KernelEventType }
-  from '../events/index.ts';
+import {
+  applyEventOfKind,
+  COURSE_EVENTS,
+  kernelEventDraft,
+  RUNNER_EVENTS,
+  type KernelEventPayloads,
+  type KernelEventType,
+} from '../events/index.ts';
 import type { EventDraft, EventKind } from '../extensions/index.ts';
 import type { VisibleTo } from '../ids/index.ts';
 import type { BattleEvent, BattleState } from '../model/index.ts';
-import type { Registry } from '../names/index.ts';
+import { isKernelName, type Registry } from '../names/index.ts';
 
 /**
  * Collects the events of one command: numbers them from 0, gives them their cause and the current version of their
@@ -59,6 +65,13 @@ export class EventRecorder {
       throw new TypeError(
         `The step ${JSON.stringify(step)} gives ${JSON.stringify(draft.type)}, but only the kernel gives this event `
         + 'while it runs a command.',
+      );
+    }
+
+    if (!isKernelName(step) && COURSE_EVENTS.some((type) => type === draft.type)) {
+      throw new TypeError(
+        `The step ${JSON.stringify(step)} gives ${JSON.stringify(draft.type)}, but only the kernel leads the course `
+        + 'of the battle.',
       );
     }
 

@@ -3,6 +3,7 @@ import { KERNEL_EVENTS, kernelEventDraft } from '../events/index.ts';
 import type { EventDraft, StepContext, StepDraft, StepKind, StepResult } from '../extensions/index.ts';
 import type { EffectHolder } from '../model/index.ts';
 import { KERNEL_STEPS } from '../names/index.ts';
+import { kernelStep } from '../operations/index.ts';
 import { removalDraft, turnDraft } from './drafts.ts';
 import { allHolders, definitionEffectsOf, effectsOf, type HeldEffects } from './holders.ts';
 import type { TickMoment, TickParams } from './params.ts';
@@ -15,13 +16,7 @@ import type { TickMoment, TickParams } from './params.ts';
  * the turn of its holder. A unit or a side has its turn at its start, and the field and a hazard zone at the end of a
  * round; the effects of the creature, the items and the battlefield run their operations at the turn of their holder.
  */
-export const TICK_STEP: StepKind<TickParams> = Object.freeze({
-  kind: 'step',
-  migrations: [],
-  name: KERNEL_STEPS.effectTick,
-  run: tick,
-  version: 1,
-});
+export const TICK_STEP: StepKind<TickParams> = kernelStep(KERNEL_STEPS.effectTick, tick);
 
 function tick({ content, params, state }: StepContext<TickParams>): StepResult {
   const events: EventDraft[] = [];

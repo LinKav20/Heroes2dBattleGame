@@ -11,26 +11,22 @@ import {
   type UnitHolder,
 } from '../model/index.ts';
 import { KERNEL_STEPS } from '../names/index.ts';
+import { kernelStep } from '../operations/index.ts';
 import { sortedEntries } from '../shared/index.ts';
 import type { AbilityTickParams } from './params.ts';
 
 /**
- * Starts a turn or a round for abilities, actions and resources. At the start of the turn of a unit or a side, its
+ * Starts a round or a turn for abilities, actions and resources. At the start of the turn of a unit or a side, its
  * uses during the turn start from 0 and its cooldowns go down by one turn; a unit gets back the actions of the turn it
- * has spent, and its resources restored every turn reach their bound. At the start of a round, the uses during the
- * round of every unit and side start from 0, and the resources restored every round reach their bound. A resource
- * that is already above its bound keeps its value, and a unit with no creatures left restores nothing.
+ * has spent, and its resources restored every turn reach their bound. For another turn of a unit in the same round it
+ * only gets back its actions. At the start of a round, the uses during the round of every unit and side start from 0,
+ * and the resources restored every round reach their bound. A resource that is already above its bound keeps its
+ * value, and a unit with no creatures left restores nothing. Only the kernel puts the step on the stack.
  *
  * @throws {TypeError} If the unit or the side is not in the battle.
  * @throws {ContentError} If the content has no definition of a creature or of the attribute that bounds a resource.
  */
-export const ABILITY_TICK_STEP: StepKind<AbilityTickParams> = Object.freeze({
-  kind: 'step',
-  migrations: [],
-  name: KERNEL_STEPS.abilityTick,
-  run: tick,
-  version: 1,
-});
+export const ABILITY_TICK_STEP: StepKind<AbilityTickParams> = kernelStep(KERNEL_STEPS.abilityTick, tick);
 
 function tick({ content, expressions, params, state }: StepContext<AbilityTickParams>): StepResult {
   const events: EventDraft[] = [];
@@ -64,6 +60,9 @@ function tick({ content, expressions, params, state }: StepContext<AbilityTickPa
   }
 
   const unit = battleUnit(state, holder.unit);
+
+  if (params.actionsOnly === true) return { events: actionsBack(unit), kind: 'done' };
+
   const restored = restore(unit, creatureDefinition(content, unit.creature).resources, 'turn', expressions);
 
   if (restored.kind !== 'value') return restored;
@@ -72,12 +71,13 @@ function tick({ content, expressions, params, state }: StepContext<AbilityTickPa
 }
 
 function turnEvents(unit: Unit, holder: UnitHolder): readonly EventDraft[] {
-  const uses = usesChange(holder, unit.abilityUses, turnStarted, unit.visibleTo);
-  const spent = { spent: {}, unit: unit.id };
+  return [...usesChange(holder, unit.abilityUses, turnStarted, unit.visibleTo), ...actionsBack(unit)];
+}
 
-  return Object.keys(unit.spentActions).length === 0
-    ? uses
-    : [...uses, kernelEventDraft(KERNEL_EVENTS.actionsChanged, spent, unit.visibleTo)];
+function actionsBack(unit: Unit): readonly EventDraft[] {
+  if (Object.keys(unit.spentActions).length === 0) return [];
+
+  return [kernelEventDraft(KERNEL_EVENTS.actionsChanged, { spent: {}, unit: unit.id }, unit.visibleTo)];
 }
 
 function restore(

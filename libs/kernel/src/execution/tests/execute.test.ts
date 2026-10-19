@@ -1,13 +1,17 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
+import { giveUpDraft } from '../../battle/drafts.ts';
 import { ContentError } from '../../content/index.ts';
+import { ReactionIndex } from '../../effects/index.ts';
 import { RUNNER_EVENTS } from '../../events/index.ts';
-import { MAX_DICE_PER_ROLL, MAX_DIE_SIDES } from '../../expressions/index.ts';
-import type { FormulaExtension, StepKind } from '../../extensions/index.ts';
+import { AttributeCache, MAX_DICE_PER_ROLL, MAX_DIE_SIDES } from '../../expressions/index.ts';
+import type { FormulaExtension, StepDraft, StepKind } from '../../extensions/index.ts';
+import { FieldCache } from '../../geometry/index.ts';
 import { canonicalJson } from '../../json/index.ts';
 import { createKernel } from '../../kernel/index.ts';
 import type { AppliedEffect, BattleState, Command, InputValue, Rejection, Unit } from '../../model/index.ts';
-import { accepted, CONTENT, deepFreeze, effect, unitOf } from '../../tests/fixtures.ts';
+import { accepted, CONTENT, deepFreeze, effect, HEX, SPEED_ORDER, unitOf } from '../../tests/fixtures.ts';
+import { runDrafts } from '../../tests/run-drafts.ts';
 import {
   MAX_STACK_DEPTH,
   MAX_STEPS_PER_COMMAND,
@@ -102,6 +106,7 @@ describe('execute', () => {
     });
 
     expect(state.steps).toStrictEqual([
+      ACTION_END,
       { params: { attacker: 'archers-1', target: 'pikemen-1' }, type: 'acme-duel:strike', version: 1 },
     ]);
 
@@ -226,7 +231,7 @@ describe('execute', () => {
     const value: unknown = { dice: [1, 2], kind: 'roll', note: 'extra' };
     const again = accepted(KERNEL.execute(paused, answer(8, value as InputValue), CONTENT));
 
-    expect(again.state.steps[0]?.inputs).toStrictEqual([{ dice: [1, 2], kind: 'roll', name: LUCK, result: 3 }]);
+    expect(again.state.steps[1]?.inputs).toStrictEqual([{ dice: [1, 2], kind: 'roll', name: LUCK, result: 3 }]);
   });
 
   it.each([
@@ -256,8 +261,8 @@ describe('execute', () => {
 
   it.each<{ readonly name: string; readonly command: Command; readonly rejection: Rejection }>([
     {
-      command: { kind: 'game', type: 'wait', unit: 'archers-1' },
-      name: 'a command of the kernel',
+      command: { kind: 'game', target: 'pikemen-1', type: 'attack', unit: 'archers-1' },
+      name: 'a command of the kernel without a planner',
       rejection: rule('kernel:not-available'),
     },
     {
@@ -288,7 +293,7 @@ describe('execute', () => {
     { command: sequence('acme-duel:loop'), name: 'too many steps', rejection: rule('kernel:step-limit') },
     { command: sequence('acme-duel:deep'), name: 'too deep a stack', rejection: rule('kernel:step-limit') },
     {
-      command: sequence(...Array.from({ length: MAX_STACK_DEPTH + 1 }, () => 'acme-duel:pair')),
+      command: sequence(...Array.from({ length: MAX_STACK_DEPTH }, () => 'acme-duel:pair')),
       name: 'a plan deeper than the stack',
       rejection: rule('kernel:step-limit'),
     },
@@ -296,8 +301,8 @@ describe('execute', () => {
     expect(KERNEL.execute(duelState('generator'), command, CONTENT)).toStrictEqual({ ok: false, rejection });
   });
 
-  it('accepts a plan exactly as deep as the stack', () => {
-    const command = sequence(...Array.from({ length: MAX_STACK_DEPTH }, () => 'acme-duel:mark'));
+  it('accepts a plan exactly as deep as the stack with the step that ends the action', () => {
+    const command = sequence(...Array.from({ length: MAX_STACK_DEPTH - 1 }, () => 'acme-duel:mark'));
 
     expect(KERNEL.execute(duelState('generator'), command, CONTENT).ok).toBe(true);
   });
@@ -340,7 +345,7 @@ describe('execute', () => {
     expect(counting.execute(duelState('generator'), sequence('acme-duel:deep'), CONTENT))
       .toStrictEqual(violation('kernel:step-limit'));
 
-    expect(runs).toBe(MAX_STACK_DEPTH);
+    expect(runs).toBe(MAX_STACK_DEPTH - 1);
   });
 
   it('runs the steps a step adds in the order it lists them', () => {
@@ -369,7 +374,7 @@ describe('execute', () => {
       ['kernel:steps-saved', 0],
     ]);
 
-    expect(state.steps).toStrictEqual([{ params: {}, type: 'acme-duel:choose', version: 1 }]);
+    expect(state.steps).toStrictEqual([ACTION_END, { params: {}, type: 'acme-duel:choose', version: 1 }]);
   });
 
   it('checks the number of targets and repeated targets', () => {
@@ -451,7 +456,7 @@ describe('formulas in steps', () => {
       name: 'acme-duel:count',
       schema: { type: 'object' },
     };
-    const kernel = createKernel({ extensions: [...DUEL_EXTENSIONS, counting] });
+    const kernel = createKernel({ extensions: [...DUEL_EXTENSIONS, HEX, SPEED_ORDER, counting] });
     const counted = effect('acme-duel:counted', {
       duration: { kind: 'battle' },
       modifiers: [{ attribute: 'core:speed', operation: 'add', value: { type: 'acme-duel:count' } }],
@@ -474,22 +479,27 @@ describe('formulas in steps', () => {
 describe('the end of the battle', () => {
   it('stops the command: the remaining steps do not run and no request opens', () => {
     const before = duelState('generator');
-    const { events, state } = accepted(KERNEL.execute(before, sequence('acme-duel:end', 'acme-duel:mark'), CONTENT));
+    const { events, state } = ended(before, { params: {}, type: 'acme-duel:mark' });
 
     expect(events.map(({ type }) => type)).toStrictEqual(['kernel:battle-ended']);
-    expect(state.phase).toStrictEqual({ kind: 'ended', outcome: { kind: 'draw', winners: [] } });
+
+    expect(state.phase).toStrictEqual({
+      kind: 'ended',
+      outcome: { kind: 'surrender', side: 'attacker', winners: ['defender'] },
+    });
+
     expect(state.steps).toStrictEqual([]);
     expect('inputRequest' in state).toBe(false);
     expect(applyAll(KERNEL, before, events)).toStrictEqual(state);
   });
 
   it('rejects game commands and has nothing to answer afterwards', () => {
-    const ended = accepted(KERNEL.execute(duelState('generator'), sequence('acme-duel:end'), CONTENT)).state;
+    const over = ended(duelState('generator')).state;
 
-    expect(KERNEL.execute(ended, strike('archers-1', 'pikemen-1'), CONTENT))
+    expect(KERNEL.execute(over, strike('archers-1', 'pikemen-1'), CONTENT))
       .toStrictEqual(violation('kernel:battle-over'));
 
-    expect(KERNEL.execute(ended, answerRoll(8, [1]), CONTENT)).toStrictEqual(nothingToAnswer(8));
+    expect(KERNEL.execute(over, answerRoll(8, [1]), CONTENT)).toStrictEqual(nothingToAnswer(8));
   });
 });
 
@@ -556,6 +566,7 @@ describe('errors of extensions', () => {
 
   it.each([
     { command: sequence('acme-duel:cheat'), error: 'only the kernel gives this event' },
+    { command: sequence('acme-duel:usurp'), error: 'but only the kernel leads the course of the battle' },
     { command: sequence('acme-duel:ghost'), error: 'The kernel has no kind of event "acme-duel:unknown".' },
     { command: sequence('acme-duel:summon'), error: 'The kernel has no kind of step "acme-duel:unknown".' },
     { command: sequence('acme-duel:grumble'), error: 'a reason needs a full name with the prefix of a package' },
@@ -610,11 +621,11 @@ describe('errors of extensions', () => {
 
   it('throw for a saved step of another version and for saved steps without a request', () => {
     const paused = accepted(KERNEL.execute(duelState('external'), strike('archers-1', 'pikemen-1'), CONTENT)).state;
-    const [saved] = paused.steps;
+    const saved = paused.steps.at(-1);
 
     if (saved === undefined) throw new Error('No saved step');
 
-    const older = { ...paused, steps: [{ ...saved, version: 2 }] };
+    const older = { ...paused, steps: [...paused.steps.slice(0, -1), { ...saved, version: 2 }] };
     const { inputRequest: open, ...stray } = paused;
 
     expect(open).toBeDefined();
@@ -635,7 +646,21 @@ describe('errors of extensions', () => {
   });
 });
 
+const ACTION_END = {
+  flow: true,
+  params: { holder: { kind: 'unit', unit: 'archers-1' } },
+  type: 'kernel:action-end',
+  version: 1,
+};
+
 const INVALID_ANSWER: ExecuteResult = { ok: false, rejection: rule('kernel:invalid-answer', { request: 8 }) };
+
+function ended(state: BattleState, ...after: readonly StepDraft[]): ExecuteAccepted {
+  const caches = { attributes: new AttributeCache(), fields: new FieldCache(), reactions: new ReactionIndex() };
+  const steps = [giveUpDraft({ kind: 'surrender', side: 'attacker' }), ...after];
+
+  return accepted(runDrafts(KERNEL.registries, caches, state, steps, CONTENT));
+}
 
 function answerRoll(request: number, dice: readonly number[]): Command {
   return { kind: 'answer', request, value: { dice, kind: 'roll' } };

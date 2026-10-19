@@ -52,6 +52,11 @@ export interface TopologyExtension<Params extends JsonObject = JsonObject> exten
    * takes only its cell.
    */
   footprint(params: Params, cell: CellId, body: TopologyBody): readonly CellId[] | undefined;
+  /**
+   * Returns the directions a creature may face on the field, if the topology has directions. Without this function a
+   * unit has no direction, and a command that gives one is invalid.
+   */
+  directions?(params: Params): readonly string[];
 }
 
 /**
@@ -86,6 +91,8 @@ export interface TopologyBody {
 export interface FieldGeometry {
   /** Every cell of the field in the order of the topology. */
   readonly cells: readonly CellId[];
+  /** The directions a unit may face, none if the topology has no directions. */
+  readonly directions: readonly string[];
   /** Tells whether a cell is on the field. */
   hasCell(cell: CellId): boolean;
   /** Returns the neighbors of a cell of the field. */
@@ -105,6 +112,11 @@ export interface FieldGeometry {
    * first, or nothing if the cell is not on the field or the unit does not fit there.
    */
   cellsAt(unit: UnitId, cell: CellId, facing?: string): readonly CellId[] | undefined;
+  /**
+   * Tells whether a unit can stand in a cell facing a direction, its current one if none is given: it fits there, and
+   * none of its cells is taken by an obstacle that blocks movement or by another unit on the field.
+   */
+  canStand(unit: UnitId, cell: CellId, facing?: string): boolean;
   /**
    * Returns the cells a unit touches on a way from its cell: the cells it takes in every cell of the way in its current
    * direction, and in the last cell in the direction it ends with, its current one if none is given. A flying unit

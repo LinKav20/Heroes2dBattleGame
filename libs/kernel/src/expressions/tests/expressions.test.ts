@@ -178,6 +178,21 @@ describe('formulas', () => {
     expect(() => value(node(KERNEL_FORMULAS.variable, { variable: 'toString' }), {}, state)).toThrow('not a number');
   });
 
+  it('count the units with creatures left of a named side or of the side of a participant', () => {
+    const fallen = { ...FROZEN_STATE, units: FROZEN_STATE.units.map((unit) => ({ ...unit, count: 0 })) };
+    const archers = { self: { kind: 'unit', unit: 'archers-1' } } as const;
+
+    expect(value(node(KERNEL_FORMULAS.unitsAlive, { side: 'defender' }))).toBe(1);
+    expect(value(node(KERNEL_FORMULAS.unitsAlive, { of: 'self' }), archers)).toBe(1);
+    expect(value(node(KERNEL_FORMULAS.unitsAlive, { side: 'attacker' }), {}, fallen)).toBe(0);
+    expect(() => value(node(KERNEL_FORMULAS.unitsAlive))).toThrow('needs either a participant in "of"');
+
+    expect(() => value(node(KERNEL_FORMULAS.unitsAlive, { of: 'self', side: 'defender' }), archers))
+      .toThrow('needs either a participant in "of"');
+
+    expect(() => value(node(KERNEL_FORMULAS.unitsAlive, { of: 'target' }))).toThrow(ContentError);
+  });
+
   it('look up a table: the last row whose key is not above the value, or the first row', () => {
     const rows = [{ from: -1, value: 10 }, { from: 2, value: 20 }, { from: 5, value: node(KERNEL_FORMULAS.round) }];
 

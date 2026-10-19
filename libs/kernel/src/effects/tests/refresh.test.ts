@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { giveUpDraft } from '../../battle/drafts.ts';
 import { ContentError } from '../../content/index.ts';
 import { KERNEL_EVENTS, kernelEventDraft } from '../../events/index.ts';
 import type { InputValue } from '../../model/index.ts';
@@ -7,7 +8,7 @@ import {
   contentWith,
   emit,
   KERNEL,
-  mark,
+  markOp,
   run,
   runSteps,
   BARE_STATE,
@@ -21,14 +22,14 @@ describe('the marks of activity', () => {
     effect('acme:night', { activeWhile: AFTER_ROUND_5 }),
     effect('acme:alarm', {
       duration: { kind: 'battle' },
-      triggers: [{ on: 'kernel:effect-changed', ops: [mark('alarm')], priority: 0 }],
+      triggers: [{ on: 'kernel:effect-changed', ops: [markOp('alarm')], priority: 0 }],
     }),
     effect('acme:quiet', {
       activeWhile: node('kernel:variable-is', { value: false, variable: 'reinforcements-arrived' }),
     }),
     effect('acme:herald', {
       duration: { kind: 'battle' },
-      triggers: [{ on: 'kernel:effect-changed', ops: [mark('reinforcements-arrived')], priority: 0 }],
+      triggers: [{ on: 'kernel:effect-changed', ops: [markOp('reinforcements-arrived')], priority: 0 }],
     }),
     effect('acme:fog', {
       activeWhile: node('kernel:has-tag', { of: 'target', tag: 'Creature' }),
@@ -87,13 +88,13 @@ describe('the marks of activity', () => {
 
   it('are brought up to date without reactions when the battle ends', () => {
     const state = withUnitEffects(BARE_STATE, 'pikemen-1', [applied(5, 'acme:night'), applied(6, 'acme:alarm')]);
-    const ended = kernelEventDraft(KERNEL_EVENTS.battleEnded, { outcome: { kind: 'draw', winners: [] } }, 'all');
-    const result = run(state, content, emit([ended]), emit([], [mark('late')]));
+    const ended = giveUpDraft({ kind: 'surrender', side: 'attacker' });
+    const result = run(state, content, ended, emit([], [markOp('late')]));
 
     expect(types(result)).toStrictEqual(['kernel:battle-ended', 'kernel:effect-changed']);
   });
 
-  it('are brought up to date without reactions when the rules forbid the rest of a command after an answer', () => {
+  it('are brought up to date when the rest of a command is forbidden after an answer and the battle goes on', () => {
     const state = withUnitEffects(BARE_STATE, 'pikemen-1', [applied(5, 'acme:night'), applied(6, 'acme:alarm')]);
     const paused = accepted(KERNEL.execute(state, runSteps([{ params: {}, type: 'acme:ask' }]), content));
     const value: InputValue = { dice: [3], kind: 'roll' };
@@ -106,6 +107,7 @@ describe('the marks of activity', () => {
       'kernel:roll-made',
       'kernel:command-aborted',
       'kernel:effect-changed',
+      'kernel:variable-set',
     ]);
   });
 });

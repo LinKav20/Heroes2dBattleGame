@@ -3,7 +3,7 @@ import type { Ability, ContentRegistry } from '../../content/index.ts';
 import { MAX_STACK_DEPTH, type ExecuteAccepted } from '../../execution/index.ts';
 import type { BattleState, Command } from '../../model/index.ts';
 import { ABILITY_CONTENT, READY, used, useAbility, VOLLEY } from '../../tests/abilities.ts';
-import { ARCHERS, KERNEL, PIKEMEN, run, withUnitEffects } from '../../tests/battle.ts';
+import { ARCHERS, KERNEL, PIKEMEN, runSteps, withUnitEffects } from '../../tests/battle.ts';
 import { accepted, applied, effect, node, unitOf } from '../../tests/fixtures.ts';
 
 describe('kernel:ability-targets', () => {
@@ -51,10 +51,11 @@ describe('kernel:ability-targets', () => {
     const params = { ability: 'demo:shout', next: 0, targets: [], user: ARCHERS };
     const targets = { params, type: 'kernel:ability-targets' };
 
-    expect(() => run(READY, ABILITY_CONTENT, use))
+    expect(() => KERNEL.execute(READY, runSteps([use]), ABILITY_CONTENT))
       .toThrow('"acme:run" adds the step "kernel:ability-use", but only the kernel adds such steps.');
 
-    expect(() => run(READY, ABILITY_CONTENT, targets)).toThrow('adds the step "kernel:ability-targets"');
+    expect(() => KERNEL.execute(READY, runSteps([targets]), ABILITY_CONTENT))
+      .toThrow('adds the step "kernel:ability-targets"');
   });
 });
 

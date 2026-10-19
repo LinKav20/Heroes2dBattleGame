@@ -1,6 +1,7 @@
 import type { CommandRejected, StepRejects } from '../extensions/index.ts';
 import type { JsonObject } from '../json/index.ts';
 import {
+  packageRejection,
   REJECTION_CODES,
   REJECTION_REASONS,
   type BattleState,
@@ -8,7 +9,6 @@ import {
   type Rejection,
   type RejectionReason,
 } from '../model/index.ts';
-import { isExtensionName, isKernelName } from '../names/index.ts';
 
 /**
  * The result of a command: its events and the state after them, or the reason the kernel rejected it.
@@ -53,29 +53,16 @@ export function ruleViolation(reason: RejectionReason, params: JsonObject = {}):
 
 /**
  * Returns the rejection of a command that the rules do not allow, with the reason a step or a command of an
- * extension gave: a reason of a package with extensions, or `kernel:out-of-range` or `kernel:not-on-field`, which only
- * a step may give when an evaluation gives it.
+ * extension gave, as `packageRejection` allows it.
  *
- * @throws {TypeError} If the reason is neither.
+ * @throws {TypeError} If the reason is not allowed.
  */
 export function extensionViolation(
   source: string,
   rejection: CommandRejected | StepRejects,
-  fromStep = true,
+  from: 'command' | 'step' = 'step',
 ): ExecuteRejected {
-  const { params = {}, reason } = rejection;
-  const value: unknown = reason;
-  const allowed = typeof value === 'string'
-    && (isOwnReason(value) || (fromStep && STEP_REASONS.has(value)));
-
-  if (!allowed) {
-    throw new TypeError(
-      `${JSON.stringify(source)} rejects the command with the reason ${JSON.stringify(value)}, but a reason needs `
-      + 'a full name with the prefix of a package with extensions.',
-    );
-  }
-
-  return rejected({ code: REJECTION_CODES.ruleViolation, params, reason });
+  return rejected(packageRejection(source, rejection, from));
 }
 
 /**
@@ -85,12 +72,6 @@ export function nothingToAnswer(request: number): ExecuteRejected {
   const reason = REJECTION_REASONS.noOpenRequest;
 
   return rejected({ code: REJECTION_CODES.nothingToAnswer, params: { request }, reason });
-}
-
-const STEP_REASONS: ReadonlySet<string> = new Set([REJECTION_REASONS.notOnField, REJECTION_REASONS.outOfRange]);
-
-function isOwnReason(reason: string): boolean {
-  return isExtensionName(reason) && !isKernelName(reason);
 }
 
 function rejected(rejection: Rejection): ExecuteRejected {

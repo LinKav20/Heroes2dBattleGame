@@ -20,6 +20,7 @@ import {
   type UnitHolder,
 } from '../model/index.ts';
 import { KERNEL_STEPS } from '../names/index.ts';
+import { kernelStep } from '../operations/index.ts';
 import { compareCodeUnits } from '../shared/index.ts';
 import { activity } from './activity.ts';
 import { visibilityOf } from './applied.ts';
@@ -54,13 +55,7 @@ interface Change {
  * @throws {ContentError} If an aura is not a radius of a whole number of cells, or a condition of activity rolls dice
  * or is described wrongly.
  */
-export const AREA_REFRESH_STEP: StepKind = Object.freeze({
-  kind: 'step',
-  migrations: [],
-  name: KERNEL_STEPS.areaRefresh,
-  run: refreshAreas,
-  version: 1,
-});
+export const AREA_REFRESH_STEP: StepKind = kernelStep(KERNEL_STEPS.areaRefresh, refreshAreas);
 
 function refreshAreas({ content, expressions, field, state }: StepContext): StepResult {
   const covered = coverage(state, content, expressions, field);

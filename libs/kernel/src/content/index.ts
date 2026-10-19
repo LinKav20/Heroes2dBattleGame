@@ -33,7 +33,14 @@ export type {
   InstantDuration,
   TriggerDef,
 } from './effects.ts';
-export { abilityDefinition, creatureDefinition, effectDefinition, itemDefinition } from './lookups.ts';
+export {
+  abilityDefinition,
+  creatureDefinition,
+  effectDefinition,
+  itemDefinition,
+  rulesetDefinition,
+  scenarioDefinition,
+} from './lookups.ts';
 export type {
   ExpressionNode,
   Op,
@@ -43,9 +50,11 @@ export type {
 export {
   RANDOM_SOURCES,
   type MechanicChoice,
+  type MovementRule,
   type RandomSource,
   type Rounding,
   type Ruleset,
+  type TurnRule,
 } from './ruleset.ts';
 export type {
   OutcomeCondition,

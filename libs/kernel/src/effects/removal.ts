@@ -3,7 +3,7 @@ import { KERNEL_EVENTS, kernelEventDraft } from '../events/index.ts';
 import type { EventDraft, StepContext, StepDraft, StepKind, StepResult } from '../extensions/index.ts';
 import type { AppliedEffect, EffectHolder } from '../model/index.ts';
 import { KERNEL_STEPS } from '../names/index.ts';
-import { DONE, operationDrafts } from '../operations/index.ts';
+import { DONE, operationDrafts, kernelStep } from '../operations/index.ts';
 import { appliedSubjects } from './applied.ts';
 import { effectsOf } from './holders.ts';
 import type { RemovalParams } from './params.ts';
@@ -21,13 +21,7 @@ export interface RemovalResult {
 /**
  * Removes an applied effect from its holder; an effect that is already gone is left alone.
  */
-export const REMOVAL_STEP: StepKind<RemovalParams> = Object.freeze({
-  kind: 'step',
-  migrations: [],
-  name: KERNEL_STEPS.effectRemoval,
-  run: removeEffect,
-  version: 1,
-});
+export const REMOVAL_STEP: StepKind<RemovalParams> = kernelStep(KERNEL_STEPS.effectRemoval, removeEffect);
 
 /**
  * Returns the events and the steps of removing an applied effect.

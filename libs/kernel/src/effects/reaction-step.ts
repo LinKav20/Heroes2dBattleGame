@@ -2,7 +2,7 @@ import { effectDefinition } from '../content/index.ts';
 import type { StepContext, StepDraft, StepKind, StepResult, Subjects } from '../extensions/index.ts';
 import type { BattleEvent } from '../model/index.ts';
 import { KERNEL_STEPS } from '../names/index.ts';
-import { DONE, operationDrafts } from '../operations/index.ts';
+import { DONE, operationDrafts, kernelStep } from '../operations/index.ts';
 import { withoutKey } from '../shared/index.ts';
 import { activity, unlessHolds } from './activity.ts';
 import { appliedSubjects, presentEffect } from './applied.ts';
@@ -17,9 +17,10 @@ import type { Reaction, ReactionBatch, ReactionParams } from './params.ts';
  * and operations `self` is the holder of the effect, `source` the one that applied it and `target` the unit or the side
  * the event is about; they see the effect and the event.
  */
-export const REACTION_STEP: StepKind<ReactionParams> = Object.freeze({
-  kind: 'step',
-  migrateEvents: (params: ReactionParams, migrate: (event: BattleEvent) => BattleEvent): ReactionParams => {
+export const REACTION_STEP: StepKind<ReactionParams> = kernelStep(
+  KERNEL_STEPS.reaction,
+  react,
+  (params: ReactionParams, migrate: (event: BattleEvent) => BattleEvent): ReactionParams => {
     const batches = params.batches.map((batch) => {
       const event = migrate(batch.event);
 
@@ -28,11 +29,7 @@ export const REACTION_STEP: StepKind<ReactionParams> = Object.freeze({
 
     return batches.every((batch, position) => batch === params.batches[position]) ? params : { ...params, batches };
   },
-  migrations: [],
-  name: KERNEL_STEPS.reaction,
-  run: react,
-  version: 1,
-});
+);
 
 function react(context: StepContext<ReactionParams>): StepResult {
   const { batches } = context.params;

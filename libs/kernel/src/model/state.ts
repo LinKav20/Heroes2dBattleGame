@@ -3,6 +3,7 @@ import type { ContentName } from '../ids/index.ts';
 import type { JsonValue } from '../json/index.ts';
 import type { RngState } from '../rng/index.ts';
 import type { Field } from './field.ts';
+import type { TurnHolder } from './holders.ts';
 import type { InputRequest } from './input-requests.ts';
 import type { BattlePhase } from './phases.ts';
 import type { Side } from './sides.ts';
@@ -28,6 +29,11 @@ export interface BattleState {
   readonly round: number;
   /** Where the battle is by the rules. */
   readonly phase: BattlePhase;
+  /**
+   * The turns that have ended in the current round, in order. The order of turns of the ruleset decides by them who
+   * gets the next turn; a new round starts with none.
+   */
+  readonly turns: readonly TurnRecord[];
   /** The sides in the order of the scenario. */
   readonly sides: readonly Side[];
   /** The units in the order of the scenario, with added and summoned units after them. */
@@ -75,9 +81,26 @@ export interface StateFormatVersion {
 }
 
 /**
+ * A turn that has ended in the current round.
+ */
+export interface TurnRecord {
+  /** The side or the unit that had the turn. */
+  readonly holder: TurnHolder;
+  /** Whether the unit put the rest of its turn off by the command `wait`. */
+  readonly waited: boolean;
+  /** Whether the turn ended as it started, before the side or the unit could act, for example because it is dead. */
+  readonly skipped: boolean;
+}
+
+/**
  * The state of a scenario trigger.
  */
 export interface TriggerState {
   /** How many times the trigger has fired. */
   readonly fired: number;
 }
+
+/**
+ * The version of the format of the part of the state that the kernel owns.
+ */
+export const KERNEL_STATE_VERSION = 1;

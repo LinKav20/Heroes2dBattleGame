@@ -28,6 +28,7 @@ export type {
   PlaceUnitCommand,
   RetreatCommand,
   ShootCommand,
+  StartBattleCommand,
   SurrenderCommand,
   UseAbilityCommand,
   UseItemCommand,
@@ -35,12 +36,14 @@ export type {
 } from './game-commands.ts';
 export {
   holderTarget,
+  sameHolder,
   targetHolder,
-  userTarget,
+  turnHolderOf,
   type EffectHolder,
   type FieldHolder,
   type HazardHolder,
   type SideHolder,
+  type TurnHolder,
   type UnitHolder,
 } from './holders.ts';
 export type {
@@ -67,6 +70,7 @@ export {
 export type {
   ActivePhase,
   BattlePhase,
+  BetweenTurnsPhase,
   DeploymentPhase,
   EndedPhase,
   Outcome,
@@ -74,10 +78,14 @@ export type {
   TurnPhase,
 } from './phases.ts';
 export {
+  forbidden,
+  isFormulaReason,
   isKernelRejection,
+  packageRejection,
   REJECTION_CODES,
   REJECTION_REASONS,
   TARGET_PROBLEMS,
+  type Forbidden,
   type KernelRejection,
   type KernelRejectionParams,
   type Rejection,
@@ -95,10 +103,12 @@ export type {
   StateEdit,
   StateEditCommand,
 } from './state-edits.ts';
-export type {
-  BattleState,
-  StateFormatVersion,
-  TriggerState,
+export {
+  KERNEL_STATE_VERSION,
+  type BattleState,
+  type StateFormatVersion,
+  type TriggerState,
+  type TurnRecord,
 } from './state.ts';
 export type {
   RollInput,
@@ -106,4 +116,5 @@ export type {
   StepInput,
 } from './steps.ts';
 export { allDifferent, copyTarget, targetKey } from './targets.ts';
+export { fieldUnitsOf, hasActed, turnRecordsOf, turnRejection } from './turns.ts';
 export type { Unit } from './units.ts';

@@ -1,7 +1,8 @@
 import type { ContentRegistry, Effect, Op } from '../content/index.ts';
+import { ReactionIndex } from '../effects/index.ts';
 import { KERNEL_EVENTS, kernelEventDraft } from '../events/index.ts';
 import type { ExecuteAccepted } from '../execution/index.ts';
-import { createExpressions } from '../expressions/index.ts';
+import { AttributeCache, createExpressions } from '../expressions/index.ts';
 import type {
   CommandKind,
   EventDraft,
@@ -10,12 +11,14 @@ import type {
   StepDraft,
   StepKind,
 } from '../extensions/index.ts';
+import { FieldCache } from '../geometry/index.ts';
 import type { JsonValue } from '../json/index.ts';
 import { createKernel, type Kernel } from '../kernel/index.ts';
 import type { AppliedEffect, BattleState, Command } from '../model/index.ts';
 import { KERNEL_STEPS } from '../names/index.ts';
 import { operationDrafts } from '../operations/index.ts';
-import { accepted, CONTENT, FROZEN_STATE, GRID, node } from './fixtures.ts';
+import { accepted, CONTENT, FROZEN_STATE, GRID, HEX, node, SPEED_ORDER } from './fixtures.ts';
+import { runDrafts } from './run-drafts.ts';
 
 export const RUN: CommandKind = {
   kind: 'command',
@@ -89,7 +92,9 @@ export const SNEAKY: OperationExtension = {
   schema: { type: 'object' },
 };
 
-export const KERNEL: Kernel = createKernel({ extensions: [RUN, EMIT, ASK, DROP, HIT, POKE, SNEAK, SNEAKY, GRID] });
+export const KERNEL: Kernel = createKernel({
+  extensions: [RUN, EMIT, ASK, DROP, HIT, POKE, SNEAK, SNEAKY, GRID, HEX, SPEED_ORDER],
+});
 
 export const ARCHERS = { kind: 'unit', unit: 'archers-1' } as const;
 
@@ -113,12 +118,14 @@ export function contentWith(...effects: readonly Effect[]): ContentRegistry {
   return { ...CONTENT, effects: { ...CONTENT.effects, ...Object.fromEntries(effects.map((one) => [one.name, one])) } };
 }
 
-export function mark(variable: string, value: JsonValue = true): Op {
+export function markOp(variable: string, value: JsonValue = true): Op {
   return node('kernel:set-variable', { value, variable });
 }
 
 export function run(state: BattleState, content: ContentRegistry, ...steps: readonly StepDraft[]): ExecuteAccepted {
-  return accepted(KERNEL.execute(state, runSteps(steps), content));
+  const caches = { attributes: new AttributeCache(), fields: new FieldCache(), reactions: new ReactionIndex() };
+
+  return accepted(runDrafts(KERNEL.registries, caches, state, steps, content));
 }
 
 export function emit(events: readonly EventDraft[], then: readonly Op[] = []): StepDraft {

@@ -53,7 +53,8 @@ export function checkAbility(
 ): Rejection | undefined {
   checkContent(state, content);
 
-  const result = checkRequest({ cache: caches.attributes, content, fields: caches.fields, registries }, state, request);
+  const setup = { attributes: caches.attributes, content, fields: caches.fields, registries };
+  const result = checkRequest(setup, state, request);
 
   if (result === undefined) return undefined;
 

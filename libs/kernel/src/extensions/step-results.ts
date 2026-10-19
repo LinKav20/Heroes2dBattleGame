@@ -17,8 +17,9 @@ export interface StepDone {
   /**
    * The events of the step in order. The kernel gives them numbers and the cause of the step. A step cannot give the
    * events the kernel gives itself while it runs a command: `kernel:input-requested`, `kernel:input-closed`,
-   * `kernel:steps-saved`, `kernel:roll-made` and `kernel:command-aborted`. Numbers in the payloads are safe integers;
-   * the kernel does not check them, and a state with other numbers has no hash.
+   * `kernel:steps-saved`, `kernel:roll-made` and `kernel:command-aborted`; and a step of a package cannot give the
+   * events of the course of the battle, `COURSE_EVENTS`. Numbers in the payloads are safe integers; the kernel does
+   * not check them, and a state with other numbers has no hash.
    */
   readonly events: readonly EventDraft[];
   /** New steps in the order they run; the kernel puts them on top of the stack. */

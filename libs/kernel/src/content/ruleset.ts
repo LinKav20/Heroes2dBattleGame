@@ -10,8 +10,13 @@ export interface Ruleset {
   readonly name: ContentName;
   /** Who gets a turn: every unit in turn, or a whole side, which then acts with any of its units. */
   readonly turnOwner: 'side' | 'unit';
-  /** The variant of every mechanic, by the full name of the mechanic, for example `kernel:turn-order`. */
+  /**
+   * The variant of every mechanic, by the full name of the mechanic, for example `kernel:turn-order`. The ruleset must
+   * choose the order of turns.
+   */
   readonly mechanics: Readonly<Record<string, MechanicChoice>>;
+  /** What a side or a unit can do in its turn and when the turn ends. */
+  readonly turn: TurnRule;
   /**
    * Where every random value comes from, by the full name of the value, for example `core:attack-roll`. The generator
    * rolls a value the ruleset does not name.
@@ -21,6 +26,35 @@ export interface Ruleset {
   readonly rounding: Rounding;
   /** The full name of the attribute that bounds the health of one creature. */
   readonly healthAttribute: ContentName;
+}
+
+/**
+ * What a side or a unit can do in its turn.
+ */
+export interface TurnRule {
+  /**
+   * The kinds of actions of a turn by full name, for example `core:action`. The turn of a unit ends by itself when the
+   * unit has spent all of them, and the turn of a side when every unit of the side on the field has. With an empty
+   * list a turn ends by a command, which the rule must allow then, or when the unit dies or leaves the field.
+   */
+  readonly actions: readonly ContentName[];
+  /** Whether the side or the unit that has the turn may end it by the command `end-turn`. */
+  readonly endTurn: boolean;
+  /** How units move; without it they cannot move by the command `move`. */
+  readonly movement?: MovementRule;
+}
+
+/**
+ * How units move by the command `move`.
+ */
+export interface MovementRule {
+  /**
+   * The kind of action, by full name, that counts the cost of movement: a move spends as many of these actions as the
+   * path costs, for example `core:movement` with an attribute equal to the speed of the creature.
+   */
+  readonly points: ContentName;
+  /** The other actions of the turn that every move spends, by full name, for example `core:action`. */
+  readonly actions: Readonly<Record<ContentName, number>>;
 }
 
 /**

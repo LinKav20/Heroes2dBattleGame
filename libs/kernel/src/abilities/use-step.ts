@@ -4,7 +4,7 @@ import type { EventDraft, StepContext, StepKind, StepResult } from '../extension
 import { VISIBLE_TO_ALL, type VisibleTo } from '../ids/index.ts';
 import { battleSide, battleUnit, unitItem, type AbilityUse, type Unit } from '../model/index.ts';
 import { KERNEL_STEPS } from '../names/index.ts';
-import { itemChange } from '../operations/index.ts';
+import { itemChange, kernelStep } from '../operations/index.ts';
 import { sortedEntries } from '../shared/index.ts';
 import { abilityTargetsDraft } from './drafts.ts';
 import { afterUse } from './items.ts';
@@ -19,13 +19,7 @@ import type { AbilityRequest } from './params.ts';
  * @throws {ContentError} If the content has no such ability or item.
  * @throws {TypeError} If the unit, the side or the item is not in the battle.
  */
-export const ABILITY_USE_STEP: StepKind<AbilityRequest> = Object.freeze({
-  kind: 'step',
-  migrations: [],
-  name: KERNEL_STEPS.abilityUse,
-  run: useAbility,
-  version: 1,
-});
+export const ABILITY_USE_STEP: StepKind<AbilityRequest> = kernelStep(KERNEL_STEPS.abilityUse, useAbility);
 
 function useAbility({ content, params, state }: StepContext<AbilityRequest>): StepResult {
   const ability = abilityDefinition(content, params.ability);

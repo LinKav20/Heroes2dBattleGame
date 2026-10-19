@@ -1,5 +1,5 @@
 import { KERNEL_EXTENSION_KINDS, type KernelExtensionKind, type RegisteredExtension } from '../extensions/index.ts';
-import { isKernelName, KERNEL_PREFIX } from '../names/index.ts';
+import { BATTLE_MOMENTS, isExtensionName, isKernelName, KERNEL_MECHANICS, KERNEL_PREFIX } from '../names/index.ts';
 import { isRecord } from '../shared/index.ts';
 
 type Check = (label: string, extension: Readonly<Record<string, unknown>>) => string[];
@@ -19,23 +19,48 @@ export function extensionProblems(extension: RegisteredExtension): string[] {
     ...(isKernelName(extension.name)
       ? [`${label} uses the prefix "${KERNEL_PREFIX}", which belongs to the kernel`]
       : []),
+    ...mayHaveData(label, record),
     ...(kind === undefined ? [] : KIND_CHECKS[kind].flatMap((check) => check(label, record))),
   ];
 }
+
+const MECHANIC_CHECKS: Readonly<Record<string, readonly Check[]>> = {
+  [KERNEL_MECHANICS.defense]: [needsFunction('defend')],
+  [KERNEL_MECHANICS.turnOrder]: [
+    needsFunction('next'),
+    ...[...Object.keys(BATTLE_MOMENTS), 'wait'].map((name) => mayHaveFunction(name)),
+    mayHaveTurnOwner,
+  ],
+};
 
 const KIND_CHECKS: Readonly<Record<KernelExtensionKind, readonly Check[]>> = {
   command: [needsFunction('plan'), needsSchema],
   condition: [needsFunction('test'), needsSchema],
   event: [needsVersion, needsFunction('apply'), needsSchema, mayHaveFunction('target')],
   formula: [needsFunction('evaluate'), needsSchema],
-  mechanic: [],
+  mechanic: [needsSchema, needsMechanic],
   operation: [needsFunction('run'), needsSchema],
   step: [needsVersion, needsFunction('run'), mayHaveFunction('migrateEvents')],
   topology: [
     needsSchema,
     ...['area', 'cells', 'distance', 'footprint', 'moveCost', 'neighbors'].map((name) => needsFunction(name)),
+    mayHaveFunction('directions'),
   ],
 };
+
+function needsMechanic(label: string, extension: Readonly<Record<string, unknown>>): string[] {
+  const { mechanic } = extension;
+
+  if (typeof mechanic !== 'string' || !isExtensionName(mechanic)) {
+    return [`${label} needs the full name of its mechanic`];
+  }
+
+  if (isKernelName(mechanic) && !Object.values<string>(KERNEL_MECHANICS).includes(mechanic)) {
+    return [`${label} names the mechanic ${JSON.stringify(mechanic)}, which the kernel does not have`];
+  }
+
+  return (MECHANIC_CHECKS[mechanic] ?? []).flatMap((check) => check(label, extension));
+}
 
 function needsFunction(name: string): Check {
   return (label, extension) => (typeof extension[name] === 'function' ? [] : [`${label} needs a function ${name}`]);
@@ -45,6 +70,27 @@ function mayHaveFunction(name: string): Check {
   return (label, extension) => (extension[name] === undefined || typeof extension[name] === 'function'
     ? []
     : [`${label} needs a function ${name} or none`]);
+}
+
+function mayHaveTurnOwner(label: string, extension: Readonly<Record<string, unknown>>): string[] {
+  const { turnOwner } = extension;
+
+  return turnOwner === undefined || turnOwner === 'side' || turnOwner === 'unit'
+    ? []
+    : [`${label} needs a turn owner "side", "unit" or none`];
+}
+
+function mayHaveData(label: string, extension: Readonly<Record<string, unknown>>): string[] {
+  const { data } = extension;
+
+  if (data === undefined) return [];
+
+  const fits = isRecord(data)
+    && Number.isSafeInteger(data.version)
+    && Number(data.version) >= 1
+    && isRecord(data.schema);
+
+  return fits ? [] : [`${label} needs data with a version that is a whole number from 1 and a JSON Schema, or no data`];
 }
 
 function needsSchema(label: string, extension: Readonly<Record<string, unknown>>): string[] {

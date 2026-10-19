@@ -3,13 +3,18 @@ export {
   FULL_NAME_PATTERN,
   isExtensionName,
   isKernelName,
+  isPackageExtensionName,
   KERNEL_PREFIX,
   kernelName,
   prefixOf,
 } from './extension-names.ts';
-export type { Extension } from './extension.ts';
+export type { Extension, ExtensionData } from './extension.ts';
 export {
+  BATTLE_MOMENTS,
+  isFlowStep,
   isKernelOnlyStep,
+  FLOW_STEPS,
+  KERNEL_MECHANICS,
   KERNEL_ONLY_STEPS,
   KERNEL_OPERATIONS,
   KERNEL_STEPS,

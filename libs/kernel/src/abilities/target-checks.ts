@@ -14,8 +14,9 @@ import {
   type TargetProblem,
   type Unit,
   type UnitTarget,
+  forbidden,
 } from '../model/index.ts';
-import { forbidden, whenValue, type AbilityCheck } from './check-results.ts';
+import { whenValue, type AbilityCheck } from './check-results.ts';
 import { isDirected } from './definitions.ts';
 
 /**

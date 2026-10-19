@@ -19,9 +19,9 @@ export function abilityTargetsDraft(params: AbilityTargetsParams): StepDraft<Abi
 }
 
 /**
- * Returns the step of the start of the turn of a unit or a side, or of a round: counts of uses of abilities start
+ * Returns the step of the start of a round or of the turn of a unit or a side: counts of uses of abilities start
  * again, cooldowns go down, a unit gets back its actions of the turn, and resources that are restored at that moment
- * reach their bound. The flow of turns puts it on the stack at the start of every turn and every round.
+ * reach their bound.
  */
 export function abilityTickDraft(params: AbilityTickParams): StepDraft<AbilityTickParams> {
   return { params, type: KERNEL_STEPS.abilityTick };

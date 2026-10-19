@@ -2,6 +2,7 @@ import type { ContentRegistry } from '../content/index.ts';
 import type { BattleEvent, BattleState, StepInput } from '../model/index.ts';
 import type { Extension } from '../names/index.ts';
 import type { Expressions } from './expressions.ts';
+import type { ChosenMechanic } from './mechanics.ts';
 import type { Migration } from './migration.ts';
 import type { StepResult } from './step-results.ts';
 import type { FieldGeometry } from './topology.ts';
@@ -25,7 +26,9 @@ export interface StepKind<Params extends object = object> extends Extension {
    *
    * A step that breaks the contract of the kernel is an error of the point of assembly, and the kernel throws a
    * `TypeError` for it; see `StepDone`, `StepRejects` and `StepNeed`. A rejection means only that the rules
-   * forbid the command.
+   * forbid the command. A step of the course of the battle, such as a step of a hook of the order of turns and every
+   * step it adds, cannot reject the command: its rejection is an error of the content if a formula gave it, and of
+   * the package otherwise.
    */
   run(context: StepContext<Params>): StepResult;
   /**
@@ -58,4 +61,11 @@ export interface StepContext<Params extends object = object> {
   readonly expressions: Expressions;
   /** The field of the state with its units and obstacles, as `FieldGeometry` describes. */
   readonly field: FieldGeometry;
+  /**
+   * Returns the variant of a mechanic that the ruleset of the battle chose, with what it sees, or nothing if the
+   * ruleset chose none. A package asks the variants of its own mechanics this way, for example of morale.
+   *
+   * @throws {TypeError} If no package of the kernel declares the chosen variant for the mechanic.
+   */
+  readonly mechanic: (name: string) => ChosenMechanic | undefined;
 }

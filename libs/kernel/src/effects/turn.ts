@@ -1,7 +1,7 @@
 import { effectDefinition } from '../content/index.ts';
 import type { StepContext, StepKind, StepResult } from '../extensions/index.ts';
 import { KERNEL_STEPS } from '../names/index.ts';
-import { DONE, operationDrafts, stepsDone } from '../operations/index.ts';
+import { DONE, operationDrafts, stepsDone, kernelStep } from '../operations/index.ts';
 import { activity, unlessHolds } from './activity.ts';
 import { appliedSubjects, presentEffect } from './applied.ts';
 import type { TurnParams } from './params.ts';
@@ -10,13 +10,7 @@ import type { TurnParams } from './params.ts';
  * Runs the operations of every turn of one effect, if the effect is still on its holder, or still in the definition
  * of its holder, and its condition of activity holds.
  */
-export const TURN_STEP: StepKind<TurnParams> = Object.freeze({
-  kind: 'step',
-  migrations: [],
-  name: KERNEL_STEPS.effectTurn,
-  run: turn,
-  version: 1,
-});
+export const TURN_STEP: StepKind<TurnParams> = kernelStep(KERNEL_STEPS.effectTurn, turn);
 
 function turn({ content, expressions, params, state }: StepContext<TurnParams>): StepResult {
   const { holder } = params;

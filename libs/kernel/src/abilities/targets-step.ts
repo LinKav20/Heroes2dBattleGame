@@ -2,9 +2,9 @@ import { abilityDefinition, ContentError, type Ability, type AreaRule } from '..
 import { evaluated } from '../expressions/index.ts';
 import type { Evaluation, StepContext, StepDraft, StepKind, StepResult, Subjects } from '../extensions/index.ts';
 import type { UnitId } from '../ids/index.ts';
-import { findUnit, userTarget, type Target } from '../model/index.ts';
+import { findUnit, type Target } from '../model/index.ts';
 import { KERNEL_STEPS } from '../names/index.ts';
-import { DONE, operationDrafts } from '../operations/index.ts';
+import { DONE, operationDrafts, kernelStep } from '../operations/index.ts';
 import { isDirected } from './definitions.ts';
 import { abilityTargetsDraft } from './drafts.ts';
 import type { AbilityTargetsParams } from './params.ts';
@@ -21,18 +21,12 @@ import type { AbilityTargetsParams } from './params.ts';
  *
  * @throws {ContentError} If the content has no such ability, or the filter rolls dice.
  */
-export const ABILITY_TARGETS_STEP: StepKind<AbilityTargetsParams> = Object.freeze({
-  kind: 'step',
-  migrations: [],
-  name: KERNEL_STEPS.abilityTargets,
-  run: runTargets,
-  version: 1,
-});
+export const ABILITY_TARGETS_STEP: StepKind<AbilityTargetsParams> = kernelStep(KERNEL_STEPS.abilityTargets, runTargets);
 
 function runTargets(context: StepContext<AbilityTargetsParams>): StepResult {
   const { content, params } = context;
   const ability = abilityDefinition(content, params.ability);
-  const self = userTarget(params.user);
+  const self = params.user;
   const { kind } = ability.target;
 
   if (kind === 'none' || kind === 'self') {
@@ -59,7 +53,7 @@ function step(
   units?: readonly UnitId[],
 ): StepResult {
   const { params } = context;
-  const self = userTarget(params.user);
+  const self = params.user;
   const area = units === undefined ? undefined : new Set(areaCells(context, ability));
   const rest = { ...params, next: params.next + 1, ...(units === undefined ? {} : { units }) };
   const next = params.next + 1 < targets.length ? [abilityTargetsDraft(rest)] : [];
@@ -81,7 +75,7 @@ function runFor(ability: Ability, subjects: Subjects, next: readonly StepDraft[]
 function areaUnits(context: StepContext<AbilityTargetsParams>, ability: Ability): Evaluation<readonly UnitId[]> {
   const { expressions, field } = context;
   const { filter } = ability.target;
-  const self = userTarget(context.params.user);
+  const self = context.params.user;
   const settled = expressions.within({ rolls: false });
   const chosen: UnitId[] = [];
 

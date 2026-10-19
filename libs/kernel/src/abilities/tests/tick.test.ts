@@ -86,7 +86,10 @@ describe('kernel:ability-tick', () => {
     const unset = withArchers(READY, { resources: {} });
 
     expect(types(run(above, ABILITY_CONTENT, abilityTickDraft({ moment: 'round-start' })))).toStrictEqual([]);
-    expect(types(run(dead, ABILITY_CONTENT, abilityTickDraft({ moment: 'round-start' })))).toStrictEqual([]);
+
+    expect(types(run(dead, ABILITY_CONTENT, abilityTickDraft({ moment: 'round-start' })))).not.toContain(
+      'kernel:resource-changed',
+    );
 
     const filled = run(unset, ABILITY_CONTENT, abilityTickDraft({ moment: 'round-start' }));
 

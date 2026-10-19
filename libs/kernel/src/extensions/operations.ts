@@ -3,6 +3,7 @@ import type { JsonObject } from '../json/index.ts';
 import type { AppliedEffect, BattleEvent, BattleState, StepInput } from '../model/index.ts';
 import type { Extension } from '../names/index.ts';
 import type { Expressions, Subjects } from './expressions.ts';
+import type { ChosenMechanic } from './mechanics.ts';
 import type { StepResult } from './step-results.ts';
 import type { FieldGeometry } from './topology.ts';
 
@@ -31,6 +32,12 @@ export interface OperationContext {
   readonly effect?: AppliedEffect;
   /** The event a trigger of an effect reacts to, if the operation is one of the trigger. */
   readonly event?: BattleEvent;
+  /**
+   * Returns the variant of a mechanic that the ruleset of the battle chose, as `StepContext.mechanic` does.
+   *
+   * @throws {TypeError} If no package of the kernel declares the chosen variant for the mechanic.
+   */
+  readonly mechanic: (name: string) => ChosenMechanic | undefined;
 }
 
 /**

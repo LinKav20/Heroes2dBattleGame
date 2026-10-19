@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ContentError, type Ability, type ContentRegistry, type Creature } from '../../content/index.ts';
 import type { BattleState } from '../../model/index.ts';
 import { ABILITY_CONTENT, ability, execute, READY, reason, used, useAbility } from '../../tests/abilities.ts';
-import { mark, PIKEMEN, types } from '../../tests/battle.ts';
+import { markOp, PIKEMEN, types } from '../../tests/battle.ts';
 import { node, unitOf } from '../../tests/fixtures.ts';
 
 describe('the range and the area of an ability', () => {
@@ -124,7 +124,7 @@ const CONTENT: ContentRegistry = withAbility(
   }),
   ability('demo:touch', { target: { filter: ADJACENT, kind: 'unit' } }),
   ability('demo:census', {
-    ops: [mark('counted')],
+    ops: [markOp('counted')],
     target: { area: { shape: 'radius', size: 1 }, kind: 'area', range: 10 },
   }),
   ability('demo:breath', {

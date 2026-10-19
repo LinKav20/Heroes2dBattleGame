@@ -1,12 +1,21 @@
 import type { AbilityRequest } from '../abilities/index.ts';
+import type { BattleOptions } from '../battle/index.ts';
 import type { ContentRegistry } from '../content/index.ts';
 import { ReactionIndex } from '../effects/index.ts';
 import { applyEvent, migrateEvent, type MigrationResult } from '../events/index.ts';
-import { battleField, checkAbility, execute, type ExecuteResult } from '../execution/index.ts';
+import { battleField, checkAbility, createState, execute, type ExecuteResult } from '../execution/index.ts';
 import { AttributeCache } from '../expressions/index.ts';
 import type { FieldGeometry, KernelExtension } from '../extensions/index.ts';
 import { FieldCache } from '../geometry/index.ts';
-import type { BattleEvent, BattleState, Command, Rejection } from '../model/index.ts';
+import {
+  KERNEL_STATE_VERSION,
+  type BattleEvent,
+  type BattleState,
+  type Command,
+  type Rejection,
+  type StateFormatVersion,
+} from '../model/index.ts';
+import type { Extension } from '../names/index.ts';
 import { createKernelRegistries, type KernelRegistries } from './registries.ts';
 
 /**
@@ -27,6 +36,24 @@ export interface KernelOptions {
 export interface Kernel {
   /** The registries the kernel was created with, its own extensions included. They never change. */
   readonly registries: KernelRegistries;
+  /**
+   * The version of the state format of the battles the kernel creates: the version of the part of the kernel, of the
+   * data of every extension that declares data, and of every kind of step. A saved state of another format must be
+   * rebuilt from the journal.
+   */
+  readonly stateFormat: StateFormatVersion;
+  /**
+   * Creates the state of a new battle from a scenario of the content and the options of the consumer, with the effects
+   * of the scenario applied and every unit at the values it starts with. The battle starts with deployment; when no
+   * side has units to deploy, the phase has an empty list of deploying sides, and the arbiter sends `start-battle` as
+   * the first command, which the access policy treats as a command of the system.
+   *
+   * @throws {ContentError} If the scenario, its ruleset or a definition they refer to is wrong, for example the
+   * ruleset chooses no order of turns or a variant that no package declares.
+   * @throws {TypeError} If the options are wrong, for example change a unit the scenario does not have, no package
+   * declares the topology of the field, or the effects of the scenario ask for a value from outside.
+   */
+  readonly createState: (options: BattleOptions, content: ContentRegistry) => BattleState;
   /**
    * Applies an event in the current version of its format and returns the new state; the input does not change.
    *
@@ -88,22 +115,44 @@ export interface Kernel {
  * and a node of conditions, formulas or operations needs a schema of the node and its function: `test`, `evaluate` or
  * `run`. A kind of event may have a function `target`, and a kind of step a function `migrateEvents`. A topology
  * needs a schema of the parameters of the field and the functions `cells`, `neighbors`, `moveCost`, `distance`, `area`
- * and `footprint`.
+ * and `footprint`, and may have a function `directions`. A variant of a mechanic needs a schema of its parameters and
+ * the full name of its mechanic; a mechanic with the prefix `kernel` must be one the kernel has, a variant of the order
+ * of turns needs a function `next`, may have the hooks of the moments of the battle and `wait`, and gives turns to a
+ * `side` or a `unit` if it says so, and a variant of the defense needs a function `defend`. An extension may declare
+ * the data it keeps in the state with a version from 1 and a schema.
  *
  * @throws {TypeError} If any extension is invalid or clashes with another one. The message lists every problem found.
  */
 export function createKernel(options: KernelOptions): Kernel {
   const registries = createKernelRegistries(options.extensions);
   const caches = { attributes: new AttributeCache(), fields: new FieldCache(), reactions: new ReactionIndex() };
+  const stateFormat = formatOf(registries);
 
   return Object.freeze({
     applyEvent: (state: BattleState, event: BattleEvent) => applyEvent(registries.events, state, event),
     checkAbility: (state: BattleState, request: AbilityRequest, content: ContentRegistry) =>
       checkAbility(registries, caches, state, request, content),
+    createState: (options: BattleOptions, content: ContentRegistry) =>
+      createState(registries, caches, stateFormat, options, content),
     execute: (state: BattleState, command: Command, content: ContentRegistry) =>
       execute(registries, caches, state, command, content),
     field: (state: BattleState, content: ContentRegistry) => battleField(registries, caches, state, content),
     migrateEvent: (event: BattleEvent) => migrateEvent(registries.events, registries.steps, event),
     registries,
+    stateFormat,
+  });
+}
+
+function formatOf(registries: KernelRegistries): StateFormatVersion {
+  const all = Object.values(registries).flatMap((registry: KernelRegistries[keyof KernelRegistries]) =>
+    registry.extensions.map((extension: Extension) => extension));
+  const extensions = Object.fromEntries(all.flatMap(({ data, name }) =>
+    (data === undefined ? [] : [[name, data.version]])));
+  const steps = Object.fromEntries(registries.steps.extensions.map(({ name, version }) => [name, version]));
+
+  return Object.freeze({
+    extensions: Object.freeze(extensions),
+    kernel: KERNEL_STATE_VERSION,
+    steps: Object.freeze(steps),
   });
 }

@@ -6,7 +6,7 @@ import { operationDrafts } from '../../operations/index.ts';
 import {
   ARCHERS,
   contentWith,
-  mark,
+  markOp,
   PIKEMEN,
   run,
   BARE_STATE,
@@ -60,8 +60,8 @@ describe('operations of the kernel', () => {
 
   it('set a variable to a value, a formula or a condition', () => {
     const result = run(BARE_STATE, content, ...operationDrafts([
-      mark('flag', 'on'),
-      mark('sum', node('kernel:add', { values: [2, 3] })),
+      markOp('flag', 'on'),
+      markOp('sum', node('kernel:add', { values: [2, 3] })),
       node('kernel:set-variable', { condition: node('kernel:same', { left: 'self', right: 'self' }), variable: 'it' }),
     ], { subjects }));
 

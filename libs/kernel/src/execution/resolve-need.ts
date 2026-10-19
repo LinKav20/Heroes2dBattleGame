@@ -2,7 +2,7 @@ import { RANDOM_SOURCES } from '../content/index.ts';
 import { KERNEL_EVENTS } from '../events/index.ts';
 import type { RollNeed, StepNeed } from '../extensions/index.ts';
 import { VISIBLE_TO_ALL, VISIBLE_TO_NONE } from '../ids/index.ts';
-import { REJECTION_REASONS, type Step } from '../model/index.ts';
+import { REJECTION_REASONS, type BattleState, type Step } from '../model/index.ts';
 import { RNG_FAILURES, rngRangeSeries } from '../rng/index.ts';
 import type { ExecutionContext } from './context.ts';
 import type { EventRecorder } from './event-recorder.ts';
@@ -16,6 +16,14 @@ import { requestAudience, requestFor } from './values/requests.ts';
  * input request and stops, or the rules forbid the command.
  */
 export type NeedOutcome = 'continue' | 'paused' | ExecuteRejected;
+
+/**
+ * Tells whether a value a step needs makes the kernel stop on an input request: every value but a roll from the
+ * generator does.
+ */
+export function pauses(state: BattleState, need: StepNeed): boolean {
+  return need.kind !== 'roll' || state.ruleset.randomSources[need.name] === RANDOM_SOURCES.external;
+}
 
 /**
  * Gets the value a step needs. A roll from the generator comes at once; any other value makes the kernel open an input
@@ -34,7 +42,7 @@ export function resolveNeed(
 ): NeedOutcome {
   checkNeed(step.type, need);
 
-  if (need.kind === 'roll' && recorder.state.ruleset.randomSources[need.name] !== RANDOM_SOURCES.external) {
+  if (need.kind === 'roll' && !pauses(recorder.state, need)) {
     const before = recorder.state;
     const outcome = rollWithGenerator(recorder, stack, step, need);
 

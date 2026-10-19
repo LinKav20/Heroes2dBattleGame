@@ -1,17 +1,18 @@
 import { contentError, type ExpressionNode, type ValueExpr } from '../../content/index.ts';
-import type { FormulaExtension } from '../../extensions/index.ts';
+import type { ExpressionContext, FormulaExtension } from '../../extensions/index.ts';
 import { REJECTION_REASONS } from '../../model/index.ts';
 import { isRecord, ownValue } from '../../shared/index.ts';
 import { formulaParam, isFormula, roleParam, stringParam } from '../params.ts';
 import { evaluated } from '../results.ts';
-import { subjectCells, subjectHolder } from '../subjects.ts';
+import { subjectCells, subjectHolder, subjectSide } from '../subjects.ts';
 import { defineFormula } from './define.ts';
 import { KERNEL_FORMULAS } from './names.ts';
 import { FORMULA_SCHEMA, listSchema, NAME_SCHEMA, referenceSchema, ROLE_SCHEMA, TABLE_ROW_SCHEMA } from './schema.ts';
 
 /**
  * The nodes of formulas that the kernel registers itself for values of the battle: an attribute of a participant, the
- * least distance between the cells of two participants, the round, a scenario variable and a table of values.
+ * least distance between the cells of two participants, the round, a scenario variable, a table of values and the
+ * number of units with creatures left of a side, named or the side of a participant.
  */
 export const VALUE_KINDS: readonly FormulaExtension[] = [
   defineFormula(
@@ -45,6 +46,14 @@ export const VALUE_KINDS: readonly FormulaExtension[] = [
     return evaluated(value);
   }),
   defineFormula(
+    { name: KERNEL_FORMULAS.unitsAlive, optional: ['of', 'side'], params: { of: ROLE_SCHEMA, side: NAME_SCHEMA } },
+    (node, context) => {
+      const side = sideParam(node, context);
+
+      return evaluated(context.state.units.filter((unit) => unit.side === side && unit.count > 0).length);
+    },
+  ),
+  defineFormula(
     { name: KERNEL_FORMULAS.table, params: { key: FORMULA_SCHEMA, rows: listSchema(TABLE_ROW_SCHEMA) } },
     (node, context) => {
       const key = context.value(formulaParam(node, 'key'));
@@ -53,6 +62,20 @@ export const VALUE_KINDS: readonly FormulaExtension[] = [
     },
   ),
 ];
+
+function sideParam(node: ExpressionNode, context: ExpressionContext): string {
+  if ((node.of === undefined) === (node.side === undefined)) {
+    throw contentError(node, 'needs either a participant in "of" or the name of a side in "side"');
+  }
+
+  if (node.side !== undefined) return stringParam(node, 'side');
+
+  const role = roleParam(node, 'of');
+
+  subjectHolder(node, context, role);
+
+  return subjectSide(context, role) ?? '';
+}
 
 function rowFor(node: ExpressionNode, key: number): ValueExpr {
   const rows = node.rows;

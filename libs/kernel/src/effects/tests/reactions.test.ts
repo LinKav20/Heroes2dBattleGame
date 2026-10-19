@@ -8,7 +8,7 @@ import {
   contentWith,
   emit,
   KERNEL,
-  mark,
+  markOp,
   MARK,
   PIKEMEN,
   run,
@@ -25,16 +25,16 @@ describe('reactions of effects', () => {
   const content = contentWith(
     effect('acme:thorns', {
       duration: { kind: 'battle' },
-      triggers: [{ condition: SELF_IS_TARGET, on: 'kernel:health-changed', ops: [mark('thorns')], priority: 0 }],
+      triggers: [{ condition: SELF_IS_TARGET, on: 'kernel:health-changed', ops: [markOp('thorns')], priority: 0 }],
     }),
-    effect('acme:first', { triggers: [{ on: 'kernel:flags-changed', ops: [mark('order', 1)], priority: 1 }] }),
-    effect('acme:second', { triggers: [{ on: 'kernel:flags-changed', ops: [mark('order', 2)], priority: 5 }] }),
+    effect('acme:first', { triggers: [{ on: 'kernel:flags-changed', ops: [markOp('order', 1)], priority: 1 }] }),
+    effect('acme:second', { triggers: [{ on: 'kernel:flags-changed', ops: [markOp('order', 2)], priority: 5 }] }),
     effect('acme:fragile', { endsOn: [{ condition: SELF_IS_TARGET, on: 'kernel:health-changed' }] }),
   );
 
   it('fire triggers whose condition holds, linked to the event, before the steps of the step', () => {
     const state = withUnitEffects(BARE_STATE, 'pikemen-1', [applied(5, 'acme:thorns'), applied(6, 'acme:fragile')]);
-    const result = run(state, content, emit([HEALTH], [mark('after')]));
+    const result = run(state, content, emit([HEALTH], [markOp('after')]));
 
     expect(result.events.map(({ cause, payload, type }) => [type, cause, type === MARK ? payload : null]))
       .toStrictEqual([
@@ -78,7 +78,7 @@ describe('reactions of effects', () => {
   it('pass over reactions that do nothing in one step, however many events the step gives', () => {
     const deaf = contentWith(effect('acme:deaf', {
       duration: { kind: 'battle' },
-      triggers: [{ condition: false, on: 'kernel:flags-changed', ops: [mark('heard')], priority: 0 }],
+      triggers: [{ condition: false, on: 'kernel:flags-changed', ops: [markOp('heard')], priority: 0 }],
     }));
     const many = Array.from({ length: 38 }, (unused, index) => troop(`pikemen-${String(index + 2)}`));
     const state: BattleState = {
@@ -109,10 +109,10 @@ describe('reactions of effects', () => {
     const named = {
       ...contentWith(
         effect('acme:born', {
-          triggers: [{ on: 'kernel:flags-changed', ops: [mark('order', 'born')], priority: 0 }],
+          triggers: [{ on: 'kernel:flags-changed', ops: [markOp('order', 'born')], priority: 0 }],
         }),
         effect('acme:given', {
-          triggers: [{ on: 'kernel:flags-changed', ops: [mark('order', 'given')], priority: 0 }],
+          triggers: [{ on: 'kernel:flags-changed', ops: [markOp('order', 'given')], priority: 0 }],
         }),
       ),
       creatures: {
@@ -134,10 +134,10 @@ describe('reactions of effects', () => {
     });
     const named = contentWith(
       effect('acme:first', {
-        triggers: [{ condition: lucky, on: 'kernel:flags-changed', ops: [mark('first')], priority: 2 }],
+        triggers: [{ condition: lucky, on: 'kernel:flags-changed', ops: [markOp('first')], priority: 2 }],
       }),
       effect('acme:second', {
-        triggers: [{ condition: lucky, on: 'kernel:flags-changed', ops: [mark('second')], priority: 1 }],
+        triggers: [{ condition: lucky, on: 'kernel:flags-changed', ops: [markOp('second')], priority: 1 }],
       }),
     );
     const state = withUnitEffects(BARE_STATE, 'pikemen-1', [applied(5, 'acme:first'), applied(6, 'acme:second')]);
@@ -161,7 +161,7 @@ describe('reactions of effects', () => {
       duration: { kind: 'battle' },
       triggers: [
         { on: 'acme:hit', ops: [CURSE_TARGET], priority: 0 },
-        { on: 'acme:poke', ops: [mark('poked')], priority: 0 },
+        { on: 'acme:poke', ops: [markOp('poked')], priority: 0 },
       ],
     }), effect('acme:curse'));
     const state = withUnitEffects(BARE_STATE, 'archers-1', [applied(5, 'acme:watch')]);
@@ -199,7 +199,7 @@ describe('reactions of effects', () => {
     const welcoming = withUnitEffects(BARE_STATE, 'pikemen-1', [applied(5, 'acme:welcome')]);
     const summon = kernelEventDraft(KERNEL_EVENTS.unitSummoned, { unit: summonedUnit }, 'all');
 
-    expect(() => run(hexed, named, emit([], [mark('any')]))).toThrow(ContentError);
+    expect(() => run(hexed, named, emit([], [markOp('any')]))).toThrow(ContentError);
 
     expect(unitOf(run(welcoming, named, emit([summon])).state, '#8').effects.map(({ effect: name }) => name))
       .toStrictEqual(['acme:curse']);
@@ -208,7 +208,7 @@ describe('reactions of effects', () => {
   it('let an effect ignore the events about itself', () => {
     const named = contentWith(effect('acme:shield', {
       endsOn: [{ on: 'kernel:effect-applied' }],
-      triggers: [{ on: 'kernel:effect-applied', ops: [mark('noticed')], priority: 0 }],
+      triggers: [{ on: 'kernel:effect-applied', ops: [markOp('noticed')], priority: 0 }],
     }), effect('acme:other'));
     const shielded = run(BARE_STATE, named, applicationDraft({ effect: 'acme:shield', holder: PIKEMEN }));
     const other = run(shielded.state, named, applicationDraft({ effect: 'acme:other', holder: PIKEMEN }));
@@ -225,7 +225,7 @@ describe('reactions of effects', () => {
       triggers: [{
         condition: node('kernel:compare', { left: COUNT, operator: '<', right: 20 }),
         on: 'kernel:health-changed',
-        ops: [mark('drained', node('kernel:add', {
+        ops: [markOp('drained', node('kernel:add', {
           values: [COUNT, node('kernel:effect-param', { param: 'bonus' })],
         }))],
         priority: 0,
@@ -241,7 +241,7 @@ describe('reactions of effects', () => {
       activeWhile: node('kernel:not', { condition: node('kernel:has-tag', { of: 'target', tag: 'Debuff' }) }),
       duration: { kind: 'battle' },
       endsOn: [{ on: 'kernel:resource-changed' }],
-      triggers: [{ on: 'kernel:flags-changed', ops: [mark('calm')], priority: 0 }],
+      triggers: [{ on: 'kernel:flags-changed', ops: [markOp('calm')], priority: 0 }],
     }), effect('acme:poison', { duration: { kind: 'battle' }, grantsTags: ['Debuff.Poison'] }));
     const calm = withUnitEffects(
       withUnitEffects(BARE_STATE, 'archers-1', [applied(4, 'acme:poison')]),
@@ -264,7 +264,7 @@ describe('reactions of effects', () => {
       ...contentWith(
         effect('acme:watch', {
           duration: { kind: 'battle' },
-          triggers: [{ on: 'kernel:flags-changed', ops: [mark('watched')], priority: 0 }],
+          triggers: [{ on: 'kernel:flags-changed', ops: [markOp('watched')], priority: 0 }],
         }),
         effect('acme:drop', {
           duration: { kind: 'battle' },

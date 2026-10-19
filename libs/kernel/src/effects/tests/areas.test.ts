@@ -4,8 +4,8 @@ import { KERNEL_EVENTS, kernelEventDraft } from '../../events/index.ts';
 import { createExpressions } from '../../expressions/index.ts';
 import type { EventDraft } from '../../extensions/index.ts';
 import type { BattleState, Unit } from '../../model/index.ts';
-import { BARE_STATE, contentWith, emit, HIT, KERNEL, mark, run, tagsOf, types } from '../../tests/battle.ts';
-import { applied, effect, node, unitOf } from '../../tests/fixtures.ts';
+import { BARE_STATE, contentWith, emit, HIT, KERNEL, markOp, run, tagsOf, types } from '../../tests/battle.ts';
+import { applied, asRecord, effect, node, unitOf } from '../../tests/fixtures.ts';
 import { areaRefreshDraft, tickDraft } from '../index.ts';
 
 describe('kernel:area-refresh', () => {
@@ -72,13 +72,15 @@ describe('kernel:area-refresh', () => {
     expect(speedOf(covered, 'wolves-1', owned)).toBe(6);
   });
 
-  it('judges the activity of an aura by the auras from before the refresh', () => {
+  it('judges the activity of an aura by the auras from before the refresh, so the next refresh catches up', () => {
     const relay = changed(onGrid(), 'wolves-1', { effects: [applied(12, 'demo:relay')] });
-    const once = run(relay, CONTENT, areaRefreshDraft()).state;
-    const twice = run(once, CONTENT, areaRefreshDraft()).state;
+    const result = run(relay, CONTENT, areaRefreshDraft(), areaRefreshDraft());
+    const covered = result.events
+      .filter(({ type }) => type === 'kernel:auras-changed')
+      .map(({ payload }) => asRecord(payload).unit);
 
-    expect(unitOf(once, 'archers-1').auras).toStrictEqual([]);
-    expect(unitOf(twice, 'archers-1').auras).toStrictEqual(['demo:relayed']);
+    expect(covered).toStrictEqual(['wolves-1', 'archers-1']);
+    expect(unitOf(result.state, 'archers-1').auras).toStrictEqual(['demo:relayed']);
   });
 
   it('gives events about what the same sides see together and hides a zone that is gone', () => {
@@ -146,6 +148,18 @@ describe('the reactions of the effects of a hazard zone', () => {
     expect(stuck(placed, big, movedAlong('archers-1', ['1,1', '2,1']))).toBe(true);
   });
 
+  it('follow a turn by the cells the unit takes after it, on the field before it', () => {
+    const big = withCreature('demo:archer', { size: 2 });
+    const state = changed({ ...onGrid(), field: { ...onGrid().field, topology: 'acme:hex' } }, 'archers-1', {
+      cell: '4,1',
+      effects: [],
+    });
+    const placed = run(state, big, areaRefreshDraft()).state;
+
+    expect(turned(placed, big, 'west')).toBe(true);
+    expect(turned(placed, big, 'east')).toBeUndefined();
+  });
+
   it('fire on other events only for units in the zone and never for events about nobody', () => {
     const placed = run(onGrid(), CONTENT, areaRefreshDraft()).state;
     const nobody = kernelEventDraft(KERNEL_EVENTS.variableSet, { value: 1, variable: 'waves' }, 'all');
@@ -174,8 +188,8 @@ const EFFECTS: readonly Effect[] = [
     duration: { kind: 'battle' },
     grantsTags: ['Buff.Inspired'],
     modifiers: [{ attribute: 'core:speed', operation: 'add', value: 2 }],
-    onTurn: [mark('rallied')],
-    triggers: [{ on: HIT.name, ops: [mark('cheered')], priority: 0 }],
+    onTurn: [markOp('rallied')],
+    triggers: [{ on: HIT.name, ops: [markOp('cheered')], priority: 0 }],
   }),
   effect('demo:relay', {
     activeWhile: node('kernel:has-tag', { of: 'self', tag: 'Buff.Inspired' }),
@@ -194,9 +208,10 @@ const EFFECTS: readonly Effect[] = [
     grantsTags: ['Terrain.Mud'],
     modifiers: [{ attribute: 'core:speed', operation: 'add', value: -1 }],
     triggers: [
-      { on: KERNEL_EVENTS.unitMoved, ops: [mark('stuck')], priority: 0 },
-      { on: HIT.name, ops: [mark('burned')], priority: 0 },
-      { on: KERNEL_EVENTS.variableSet, ops: [mark('wet')], priority: 0 },
+      { on: KERNEL_EVENTS.unitMoved, ops: [markOp('stuck')], priority: 0 },
+      { on: KERNEL_EVENTS.unitTurned, ops: [markOp('turned')], priority: 0 },
+      { on: HIT.name, ops: [markOp('burned')], priority: 0 },
+      { on: KERNEL_EVENTS.variableSet, ops: [markOp('wet')], priority: 0 },
     ],
   }),
 ];
@@ -280,6 +295,12 @@ function withCreatureEffect(name: string, effectName: string): ContentRegistry {
 
 function stuck(state: BattleState, content: ContentRegistry, move: EventDraft): unknown {
   return run(state, content, emit([move])).state.variables.stuck;
+}
+
+function turned(state: BattleState, content: ContentRegistry, facing: string): unknown {
+  const turn = kernelEventDraft(KERNEL_EVENTS.unitTurned, { facing, unit: 'archers-1' }, 'all');
+
+  return run(state, content, emit([turn])).state.variables.turned;
 }
 
 function speedOf(state: BattleState, unit: string, content: ContentRegistry = CONTENT): unknown {

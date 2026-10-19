@@ -1,3 +1,4 @@
+import { afterAbort } from '../battle/index.ts';
 import { RANDOM_SOURCES } from '../content/index.ts';
 import { KERNEL_EVENTS } from '../events/index.ts';
 import { VISIBLE_TO_ALL } from '../ids/index.ts';
@@ -11,8 +12,8 @@ import {
 } from '../model/index.ts';
 import type { ExecutionContext } from './context.ts';
 import { EventRecorder } from './event-recorder.ts';
-import { accepted, nothingToAnswer, ruleViolation, type ExecuteResult } from './result.ts';
-import { runSteps, settle } from './step-runner.ts';
+import { nothingToAnswer, ruleViolation, type ExecuteResult } from './result.ts';
+import { runSteps } from './step-runner.ts';
 import { StepStack } from './step-stack.ts';
 import { readAnswer } from './values/answers.ts';
 import { requestAudience } from './values/requests.ts';
@@ -22,8 +23,9 @@ import { requestAudience } from './values/requests.ts';
  * from it.
  *
  * If the rules forbid the rest of the command, the kernel still accepts the answer: it closes the request and aborts
- * the command with `kernel:command-aborted`, and the events of the rest of the command are dropped. Then it brings the
- * marks of activity of effects up to date once, without reactions to that, unless the rules forbid that as well.
+ * the command with `kernel:command-aborted`, and the events of the rest of the command are dropped. The steps of the
+ * course of the battle that were waiting still run, so the action ends, the turn passes and the round goes on; a wait
+ * that was aborted does not put the turn off.
  *
  * @throws {TypeError} If an input request is open, but the state has no step that waits for it.
  */
@@ -44,13 +46,12 @@ export function answerRequest(context: ExecutionContext, state: BattleState, com
 
   if (result.ok) return result;
 
-  const settled = settle(context, abort(context, state, request, input, result.rejection));
+  const flow = new StepStack(context.registries.steps, state.steps);
 
-  if (settled.ok) return settled;
+  flow.keepFlow();
+  afterAbort(flow);
 
-  const aborted = abort(context, state, request, input, result.rejection);
-
-  return accepted(aborted.events, aborted.state);
+  return runSteps(context, abort(context, state, request, input, result.rejection), flow, { marksStale: true });
 }
 
 function abort(

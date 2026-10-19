@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   contentWith,
-  mark,
+  markOp,
   PIKEMEN,
   run,
   BARE_STATE,
@@ -12,21 +12,21 @@ import { tickDraft } from '../index.ts';
 
 describe('ticks of effects', () => {
   const content = contentWith(
-    effect('acme:bleed', { onTurn: [mark('bled')] }),
-    effect('acme:glow', { duration: { kind: 'battle' }, onTurn: [mark('glowed')] }),
+    effect('acme:bleed', { onTurn: [markOp('bled')] }),
+    effect('acme:glow', { duration: { kind: 'battle' }, onTurn: [markOp('glowed')] }),
     effect('acme:slow', { duration: { count: 1, kind: 'rounds', tick: 'round-end' } }),
     effect('acme:sleep', {
       activeWhile: false,
       duration: { count: 3, kind: 'turns', tick: 'holder-turn-start' },
-      onTurn: [mark('snored')],
+      onTurn: [markOp('snored')],
     }),
     effect('acme:cure', {
       duration: { kind: 'battle' },
       onTurn: [node('kernel:remove-effects', { from: 'self', tags: ['Debuff'] })],
     }),
-    effect('acme:poison', { duration: { kind: 'battle' }, onTurn: [mark('poisoned')], tags: ['Debuff.Poison'] }),
-    effect('acme:regen', { duration: { kind: 'battle' }, onTurn: [mark('regenerated')] }),
-    effect('acme:rain', { duration: { kind: 'battle' }, onTurn: [mark('rained')] }),
+    effect('acme:poison', { duration: { kind: 'battle' }, onTurn: [markOp('poisoned')], tags: ['Debuff.Poison'] }),
+    effect('acme:regen', { duration: { kind: 'battle' }, onTurn: [markOp('regenerated')] }),
+    effect('acme:rain', { duration: { kind: 'battle' }, onTurn: [markOp('rained')] }),
   );
 
   it('count down at the start of the turn, run the operations of every turn and end at 0', () => {

@@ -4,6 +4,7 @@ import type {
   ConditionExtension,
   FormulaExtension,
   OperationExtension,
+  TurnOrderVariant,
   KERNEL_EXTENSION_KINDS,
   KernelExtension,
   KernelExtensionKind,
@@ -123,6 +124,22 @@ describe('createKernel', () => {
     { kind: { ...STRIKE_STEP, migrateEvents: 'yes' }, problem: 'needs a function migrateEvents or none' },
     { kind: { ...GRID, footprint: undefined }, problem: 'needs a function footprint' },
     { kind: { ...GRID, schema: undefined }, problem: 'needs a JSON Schema as an object' },
+    { kind: { ...SPEED, schema: undefined }, problem: 'needs a JSON Schema as an object' },
+    { kind: { ...SPEED, mechanic: 'turn-order' }, problem: 'needs the full name of its mechanic' },
+    { kind: { ...SPEED, next: undefined }, problem: 'needs a function next' },
+    { kind: { ...SPEED, wait: 'yes' }, problem: 'needs a function wait or none' },
+    { kind: { ...SPEED, mechanic: 'kernel:defense' }, problem: 'needs a function defend' },
+    {
+      kind: { ...SPEED, mechanic: 'kernel:morale' },
+      problem: 'names the mechanic "kernel:morale", which the kernel does not have',
+    },
+    { kind: { ...SPEED, turnOwner: 'army' }, problem: 'needs a turn owner "side", "unit" or none' },
+    { kind: { ...GRID, directions: 'east' }, problem: 'needs a function directions or none' },
+    {
+      kind: { ...STRIKE_STEP, data: { schema: { type: 'object' }, version: 0 } },
+      problem: 'needs data with a version that is a whole number from 1 and a JSON Schema, or no data',
+    },
+    { kind: { ...SPEED, data: { version: 2 } }, problem: 'needs data with a version that is a whole number from 1' },
     {
       kind: { ...STRIKE_STEP, version: Number.MAX_SAFE_INTEGER },
       problem: `needs exactly one migration from every version below ${String(Number.MAX_SAFE_INTEGER)}`,
@@ -170,6 +187,14 @@ const ADJACENT: ConditionExtension = {
   test: () => ({ kind: 'value', value: true }),
 };
 
+const SPEED: TurnOrderVariant = {
+  kind: 'mechanic',
+  mechanic: 'kernel:turn-order',
+  name: 'rules-stdlib:speed-with-waiting',
+  next: () => ({ kind: 'value', value: undefined }),
+  schema: { type: 'object' },
+};
+
 const DOUBLE: FormulaExtension = {
   evaluate: () => ({ kind: 'value', value: 2 }),
   kind: 'formula',
@@ -180,7 +205,7 @@ const DOUBLE: FormulaExtension = {
 const EXTENSIONS: readonly [KernelExtension, KernelExtension, ...KernelExtension[]] = [
   DAMAGE,
   ADJACENT,
-  { kind: 'mechanic', name: 'rules-stdlib:speed-with-waiting' },
+  SPEED,
   { ...GRID, name: 'rules-stdlib:hex', shortName: 'hex' },
   FROST_EVENT,
   STRIKE_STEP,

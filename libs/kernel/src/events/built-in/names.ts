@@ -34,12 +34,25 @@ export const KERNEL_EVENTS = Object.freeze({
   stepsSaved: kernelName('steps-saved'),
   tagsChanged: kernelName('tags-changed'),
   triggerFired: kernelName('trigger-fired'),
+  turnEnded: kernelName('turn-ended'),
   unitMoved: kernelName('unit-moved'),
   unitPlaced: kernelName('unit-placed'),
   unitSummoned: kernelName('unit-summoned'),
+  unitTurned: kernelName('unit-turned'),
   variableSet: kernelName('variable-set'),
   zonesChanged: kernelName('zones-changed'),
 });
+
+/**
+ * The events of the course of the battle: only steps of the kernel give them, and a step of a package that gives them
+ * breaks the contract.
+ */
+export const COURSE_EVENTS: readonly KernelEventType[] = Object.freeze([
+  KERNEL_EVENTS.battleEnded,
+  KERNEL_EVENTS.phaseChanged,
+  KERNEL_EVENTS.turnEnded,
+  KERNEL_EVENTS.unitPlaced,
+]);
 
 /**
  * The events that only the kernel gives while it runs a command; steps cannot give them.

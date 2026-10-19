@@ -29,6 +29,16 @@ export interface UnitMovedPayload {
 }
 
 /**
+ * The payload of `kernel:unit-turned`.
+ */
+export interface UnitTurnedPayload {
+  /** The unit. */
+  readonly unit: UnitId;
+  /** The direction the unit faces after the change. */
+  readonly facing: string;
+}
+
+/**
  * The payload of `kernel:health-changed`.
  */
 export interface HealthChangedPayload {
@@ -111,10 +121,16 @@ export interface UnitSummonedPayload {
  * The payloads of the events of the kernel about units.
  */
 export interface UnitEventPayloads {
-  /** A unit was placed on the field during deployment. */
+  /**
+   * A unit was placed on the field during deployment, seen by its own side. At the start of the battle the kernel gives
+   * it again for every unit a side placed, seen by the sides that see the unit, so the others learn where it stands;
+   * for its own side the event changes nothing.
+   */
   readonly [KERNEL_EVENTS.unitPlaced]: UnitPlacedPayload;
   /** A unit moved along a path. */
   readonly [KERNEL_EVENTS.unitMoved]: UnitMovedPayload;
+  /** A unit turned where it stands. */
+  readonly [KERNEL_EVENTS.unitTurned]: UnitTurnedPayload;
   /** The number of creatures of a unit or the health of the first one changed. */
   readonly [KERNEL_EVENTS.healthChanged]: HealthChangedPayload;
   /** A resource of a unit changed. */
@@ -144,6 +160,8 @@ export const UNIT_EVENTS: KernelEventAppliers<UnitEventPayloads> = {
 
     return changeUnit(state, unit, (current) => placed(current, cell, facing));
   },
+  [KERNEL_EVENTS.unitTurned]: (state, { facing, unit }) =>
+    changeUnit(state, unit, (current) => ({ ...current, facing })),
   [KERNEL_EVENTS.healthChanged]: (state, { count, health, unit }) =>
     changeUnit(state, unit, (current) => ({ ...current, count, health })),
   [KERNEL_EVENTS.resourceChanged]: (state, { resource, unit, value }) =>

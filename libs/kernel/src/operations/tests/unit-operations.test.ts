@@ -20,8 +20,8 @@ describe('kernel:damage and kernel:heal', () => {
     const dead = operate(READY, node('kernel:damage', { amount: 1000, to: 'target' })).state;
 
     expect(unitOf(dead, 'pikemen-1')).toMatchObject({ count: 0, health: 0 });
-    expect(operate(dead, node('kernel:damage', { amount: 5, to: 'target' })).events).toStrictEqual([]);
-    expect(operate(dead, node('kernel:heal', { amount: 5, to: 'target' })).events).toStrictEqual([]);
+    expect(health(operate(DEAD, node('kernel:damage', { amount: 5, to: 'target' })))).toStrictEqual([]);
+    expect(health(operate(DEAD, node('kernel:heal', { amount: 5, to: 'target' })))).toStrictEqual([]);
     expect(operate(READY, node('kernel:damage', { amount: 0, to: 'target' })).events).toStrictEqual([]);
   });
 
@@ -36,10 +36,11 @@ describe('kernel:damage and kernel:heal', () => {
   });
 
   it('roll nothing for a unit with no creatures left', () => {
-    const dead = operate(READY, node('kernel:damage', { amount: 1000, to: 'target' })).state;
     const dice = node('kernel:dice', { count: 1, name: 'core:damage-roll', sides: 6 });
+    const events = operate(DEAD, node('kernel:damage', { amount: dice, to: 'target' })).events;
 
-    expect(operate(dead, node('kernel:damage', { amount: dice, to: 'target' })).events).toStrictEqual([]);
+    expect(events.filter(({ type }) => type === 'kernel:roll-made')).toStrictEqual([]);
+    expect(events.filter(({ type }) => type === 'kernel:health-changed')).toStrictEqual([]);
   });
 
   it('treat a health attribute below 1 as an error of content', () => {
@@ -160,6 +161,15 @@ describe('kernel:add-item and kernel:remove-item', () => {
       .toThrow(ContentError);
   });
 });
+
+const DEAD: BattleState = {
+  ...READY,
+  units: READY.units.map((unit) => (unit.id === 'pikemen-1' ? { ...unit, count: 0, health: 0 } : unit)),
+};
+
+function health(result: ExecuteAccepted): readonly unknown[] {
+  return result.events.filter(({ type }) => type === 'kernel:health-changed');
+}
 
 function operate(state: BattleState, op: Op): ExecuteAccepted {
   return run(state, ABILITY_CONTENT, ...operationDrafts([op], { subjects: { self: ARCHERS, target: PIKEMEN } }));

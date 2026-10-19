@@ -1,14 +1,15 @@
 import type { SideId, UnitId } from '../ids/index.ts';
 
 /**
- * Where a battle is by the rules: deployment, the start of a round, whose turn it is, or the end of the battle.
+ * Where a battle is by the rules: deployment, the start of a round, whose turn it is, the time between turns, or the
+ * end of the battle.
  */
 export type BattlePhase = ActivePhase | EndedPhase;
 
 /**
- * A phase of a battle that goes on: deployment, the start of a round or a turn.
+ * A phase of a battle that goes on: deployment, the start of a round, a turn or the time between turns.
  */
-export type ActivePhase = DeploymentPhase | RoundStartPhase | TurnPhase;
+export type ActivePhase = BetweenTurnsPhase | DeploymentPhase | RoundStartPhase | TurnPhase;
 
 /**
  * Sides deploy their units before the first round.
@@ -16,7 +17,10 @@ export type ActivePhase = DeploymentPhase | RoundStartPhase | TurnPhase;
 export interface DeploymentPhase {
   /** The kind of phase. */
   readonly kind: 'deployment';
-  /** The sides that have not finished deployment, in the order the ruleset gives; the first one deploys now. */
+  /**
+   * The sides that have not finished deployment, in the order of the scenario; the first one deploys now. An empty
+   * list means that nobody deploys and the battle waits for the command `start-battle`.
+   */
   readonly pending: readonly SideId[];
 }
 
@@ -38,6 +42,15 @@ export interface TurnPhase {
   readonly side: SideId;
   /** The unit that has the turn, if the turn belongs to a unit. */
   readonly unit?: UnitId;
+}
+
+/**
+ * Nobody has the turn: the battle has started and the first round has not, or a turn has ended and the kernel ends
+ * the round or gives the next turn.
+ */
+export interface BetweenTurnsPhase {
+  /** The kind of phase. */
+  readonly kind: 'between-turns';
 }
 
 /**

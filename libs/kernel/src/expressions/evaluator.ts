@@ -48,7 +48,7 @@ export interface ExpressionSetup {
   /** The values the step has received; rolls among them go to dice rolls in order. */
   readonly inputs: readonly StepInput[];
   /** The values of attributes and tags calculated before, if the kernel keeps them. */
-  readonly cache?: AttributeCache;
+  readonly attributes?: AttributeCache;
   /** The cells of fields the kernel has asked topologies for, if the kernel keeps them. */
   readonly fields?: FieldCache;
   /** The field of the state, if the caller has built it; otherwise the evaluation builds it when a node needs it. */
@@ -158,7 +158,7 @@ class Evaluator implements ExpressionEngine, AttributeInput {
   }
 
   attribute(of: SideTarget | UnitTarget, attribute: ContentName): Evaluation<number> {
-    const { cache, content, state } = this.setup;
+    const { attributes: cache, content, state } = this.setup;
     const cached = cache?.attribute(content, state, of, attribute);
 
     if (cached !== undefined) return evaluated(cached);
@@ -173,7 +173,7 @@ class Evaluator implements ExpressionEngine, AttributeInput {
   }
 
   tags(unit: UnitId): Evaluation<Readonly<Record<Tag, number>>> {
-    const { cache, content, state } = this.setup;
+    const { attributes: cache, content, state } = this.setup;
     const cached = cache?.tags(content, state, unit);
 
     if (cached !== undefined) return evaluated(cached);

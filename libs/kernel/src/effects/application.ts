@@ -4,7 +4,7 @@ import { evaluated, isBlocked } from '../expressions/index.ts';
 import type { Evaluation, Expressions, StepContext, StepKind, StepResult } from '../extensions/index.ts';
 import { battleUnit } from '../model/index.ts';
 import { KERNEL_STEPS } from '../names/index.ts';
-import { operationDrafts } from '../operations/index.ts';
+import { operationDrafts, kernelStep } from '../operations/index.ts';
 import { appliedSubjects } from './applied.ts';
 import { checkEffect } from './effect-checks.ts';
 import { effectsOf } from './holders.ts';
@@ -20,13 +20,7 @@ import { applyAgain } from './stacking.ts';
  * condition of application, the formula of strength and the operations see the effect with the parameters of the
  * application as their applied effect.
  */
-export const APPLICATION_STEP: StepKind<ApplicationParams> = Object.freeze({
-  kind: 'step',
-  migrations: [],
-  name: KERNEL_STEPS.effectApplication,
-  run: applyEffect,
-  version: 1,
-});
+export const APPLICATION_STEP: StepKind<ApplicationParams> = kernelStep(KERNEL_STEPS.effectApplication, applyEffect);
 
 function applyEffect(context: StepContext<ApplicationParams>): StepResult {
   const { content, expressions, params } = context;

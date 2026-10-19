@@ -38,7 +38,10 @@ export interface ResourceRule {
   readonly limit: ContentName;
   /** The value at the start of the battle. */
   readonly initial: 'empty' | 'full';
-  /** When the resource is restored to its bound, if ever: at the start of the turn of the unit, or of a round. */
+  /**
+   * When the resource is restored to its bound, if ever: once at the start of the battle, at the start of every turn
+   * of the unit, or at the start of every round.
+   */
   readonly restore?: 'battle' | 'round' | 'turn';
 }
 

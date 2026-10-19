@@ -60,6 +60,13 @@ export function isExtensionName(name: string): boolean {
   return FULL_NAME.test(name);
 }
 
+/**
+ * Tells whether a full name of an extension belongs to a package with extensions and not to the kernel.
+ */
+export function isPackageExtensionName(name: string): boolean {
+  return isExtensionName(name) && !isKernelName(name);
+}
+
 const OWN_SCOPE = 'heroes2dgame';
 const MAX_NPM_NAME_LENGTH = 214;
 const NPM_NAME = /^(?:@([a-z0-9~-][a-z0-9._~-]*)\/)?([a-z0-9~-][a-z0-9._~-]*)$/;

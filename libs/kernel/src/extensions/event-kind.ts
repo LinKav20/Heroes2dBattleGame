@@ -32,9 +32,10 @@ export interface EventKind<Payload = unknown> extends Extension {
    */
   apply(state: BattleState, payload: Payload): BattleState;
   /**
-   * Returns the unit or the side the event is about, if any. Reactions of effects to the event get it as the
-   * participant `target`; without the function, or if it returns nothing, they have no `target`. The kernel calls it
-   * only when an effect of the battle reacts to the kind of event. The payload has the current version.
+   * Returns the unit or the side the event is about, if any. Reactions of effects and scenario triggers to the event
+   * get it as the participant `target`; without the function, or if it returns nothing, they have no `target`. The
+   * kernel calls it only when an effect or a scenario trigger waits for the kind of event. The payload has the current
+   * version.
    */
   target?(payload: Payload): SideTarget | UnitTarget | undefined;
 }

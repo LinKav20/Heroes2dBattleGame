@@ -1,8 +1,8 @@
 import type { CommandKind } from './command-kind.ts';
 import type { EventKind, ExtensionEventKind } from './event-kind.ts';
 import type { ConditionExtension, FormulaExtension } from './expressions.ts';
+import type { MechanicExtension } from './mechanics.ts';
 import type { OperationExtension } from './operations.ts';
-import type { MechanicExtension } from './other-extensions.ts';
 import type { StepKind } from './step-kind.ts';
 import type { TopologyExtension } from './topology.ts';
 

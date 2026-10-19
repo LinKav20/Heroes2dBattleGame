@@ -13,7 +13,7 @@ import type {
 import type { JsonValue } from '../../json/index.ts';
 import { createKernel, type Kernel } from '../../kernel/index.ts';
 import type { BattleEvent, BattleState, Command, Unit } from '../../model/index.ts';
-import { asRecord, STATE, unitOf } from '../../tests/fixtures.ts';
+import { asRecord, HEX, SPEED_ORDER, STATE, unitOf } from '../../tests/fixtures.ts';
 
 export const DAMAGE = 'acme-duel:damage';
 
@@ -152,11 +152,6 @@ export const DUEL_EXTENSIONS: readonly KernelExtension[] = [
   step('acme-duel:trap', ({ inputs }) => (inputs.length === 0
     ? { kind: 'need', need: { count: 1, kind: 'roll', name: TRAP, sides: 20, visibleTo: [] } }
     : { events: [], kind: 'done' })),
-  step('acme-duel:end', () => ({
-    events: [kernelEventDraft(KERNEL_EVENTS.battleEnded, { outcome: { kind: 'draw', winners: [] } }, 'all')],
-    kind: 'done',
-    steps: [{ params: {}, type: 'acme-duel:choose' }],
-  })),
   step<{ readonly need: StepNeed }>('acme-duel:ask', ({ inputs, params }) => (inputs.length === 0
     ? { kind: 'need', need: params.need }
     : { events: [], kind: 'done' })),
@@ -181,6 +176,10 @@ export const DUEL_EXTENSIONS: readonly KernelExtension[] = [
     events: [{ payload: {}, type: 'acme-duel:unknown', visibleTo: 'all' }],
     kind: 'done',
   })),
+  step('acme-duel:usurp', () => ({
+    events: [{ payload: { outcome: { kind: 'draw', winners: [] } }, type: 'kernel:battle-ended', visibleTo: 'all' }],
+    kind: 'done',
+  })),
   step('acme-duel:summon', () => ({ events: [], kind: 'done', steps: [{ params: {}, type: 'acme-duel:unknown' }] })),
   {
     apply: (state, payload) => ({
@@ -195,7 +194,7 @@ export const DUEL_EXTENSIONS: readonly KernelExtension[] = [
   } satisfies ExtensionEventKind,
 ];
 
-export const KERNEL: Kernel = createKernel({ extensions: DUEL_EXTENSIONS });
+export const KERNEL: Kernel = createKernel({ extensions: [...DUEL_EXTENSIONS, HEX, SPEED_ORDER] });
 
 export function duelState(source: RandomSource): BattleState {
   const { inputRequest: open, ...rest } = STATE;

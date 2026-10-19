@@ -4,6 +4,7 @@ import type { OperationExtension, StepContext, StepKind, StepResult } from '../e
 import type { BattleEvent } from '../model/index.ts';
 import { isKernelName, KERNEL_STEPS, type Registry } from '../names/index.ts';
 import { checkOwnSteps } from './kernel-only.ts';
+import { kernelStep } from './kernel-step.ts';
 import type { OperationParams } from './params.ts';
 
 /**
@@ -14,18 +15,9 @@ import type { OperationParams } from './params.ts';
  * @throws {ContentError} If the operation is not a node or no package declares it.
  */
 export function operationStep(operations: () => Registry<OperationExtension>): StepKind<OperationParams> {
-  return Object.freeze({
-    kind: 'step',
-    migrateEvents: (params: OperationParams, migrate: (event: BattleEvent) => BattleEvent): OperationParams => {
-      if (params.event === undefined) return params;
-
-      const event = migrate(params.event);
-
-      return event === params.event ? params : { ...params, event };
-    },
-    migrations: [],
-    name: KERNEL_STEPS.operation,
-    run: ({ content, expressions, field, inputs, params, state }: StepContext<OperationParams>): StepResult => {
+  return kernelStep(
+    KERNEL_STEPS.operation,
+    ({ content, expressions, field, inputs, mechanic, params, state }: StepContext<OperationParams>): StepResult => {
       const { effect, event, op, subjects } = params;
 
       if (!isNode(op)) throw new ContentError(`${JSON.stringify(op)} is not an operation.`);
@@ -41,12 +33,26 @@ export function operationStep(operations: () => Registry<OperationExtension>): S
         ...(effect === undefined ? {} : { effect }),
         ...(event === undefined ? {} : { event }),
       };
-      const result = kind.run(op, { ...scope, content, expressions: expressions.within(scope), field, inputs, state });
+      const result = kind.run(op, {
+        ...scope,
+        content,
+        expressions: expressions.within(scope),
+        field,
+        inputs,
+        mechanic,
+        state,
+      });
 
       if (!isKernelName(kind.name)) checkOwnSteps(kind.name, result);
 
       return result;
     },
-    version: 1,
-  });
+    (params: OperationParams, migrate: (event: BattleEvent) => BattleEvent): OperationParams => {
+      if (params.event === undefined) return params;
+
+      const event = migrate(params.event);
+
+      return event === params.event ? params : { ...params, event };
+    },
+  );
 }

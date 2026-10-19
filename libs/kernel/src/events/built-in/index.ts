@@ -8,6 +8,7 @@ export type {
   BattleEndedPayload,
   BattleEventPayloads,
   PhaseChangedPayload,
+  TurnEndedPayload,
 } from './battle.ts';
 export {
   EFFECT_NOT_APPLIED_REASONS,
@@ -43,7 +44,7 @@ export {
   kernelEventDraft,
   type KernelEvent,
 } from './kernel-events.ts';
-export { KERNEL_EVENTS, RUNNER_EVENTS, type KernelEventType } from './names.ts';
+export { COURSE_EVENTS, KERNEL_EVENTS, RUNNER_EVENTS, type KernelEventType } from './names.ts';
 export type { KernelEventPayloads } from './payloads.ts';
 export type {
   ScenarioEventPayloads,
@@ -60,5 +61,6 @@ export type {
   UnitMovedPayload,
   UnitPlacedPayload,
   UnitSummonedPayload,
+  UnitTurnedPayload,
   ZonesChangedPayload,
 } from './units.ts';

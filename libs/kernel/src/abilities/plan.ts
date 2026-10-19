@@ -6,13 +6,15 @@ import {
   copyTarget,
   findUnit,
   REJECTION_REASONS,
+  turnRejection,
   unitItem,
   type BattleState,
   type UseAbilityCommand,
   type UseItemCommand,
+  forbidden,
+  type Forbidden,
 } from '../model/index.ts';
-import { abilityCheck, turnRejection } from './availability.ts';
-import { forbidden, type AbilityForbidden } from './check-results.ts';
+import { abilityCheck } from './availability.ts';
 import { abilityUseDraft } from './drafts.ts';
 import type { AbilityRequest } from './params.ts';
 
@@ -20,7 +22,7 @@ import type { AbilityRequest } from './params.ts';
  * What the kernel does with a command to use an ability or an item: forbids it with a reason of the kernel, rejects it
  * with the reason a node of a formula or a condition gave, or runs the step that uses the ability.
  */
-export type AbilityPlan = AbilityForbidden | CommandSteps | StepRejects;
+export type AbilityPlan = Forbidden | CommandSteps | StepRejects;
 
 /**
  * What checking an ability needs besides the state: the content, the registries of nodes and topologies, and what the
@@ -64,7 +66,7 @@ export function checkRequest(
   setup: AbilitySetup,
   state: BattleState,
   request: AbilityRequest,
-): AbilityForbidden | StepRejects | undefined {
+): Forbidden | StepRejects | undefined {
   const field = createFieldGeometry(state, setup.content, setup.registries.topologies, setup.fields);
   const expressions = createExpressions({ ...setup, field, inputs: [], state });
 
@@ -75,7 +77,7 @@ function requestOf(
   content: ContentRegistry,
   state: BattleState,
   command: UseAbilityCommand | UseItemCommand,
-): AbilityForbidden | Requested {
+): Forbidden | Requested {
   const targets = command.targets.map(copyTarget);
 
   if (command.type === 'use-ability') {
@@ -102,7 +104,7 @@ function requestOf(
 
   const definition = itemDefinition(content, item.item);
   const turn = command.ability === undefined && definition.abilities.length !== 1
-    ? turnRejection(state, content, { kind: 'unit', unit })
+    ? turnRejection(state, { kind: 'unit', unit })
     : undefined;
 
   if (turn !== undefined) return turn;
@@ -126,6 +128,6 @@ function requested(request: AbilityRequest): Requested {
   return { kind: 'request', request };
 }
 
-function invalid(field: string): AbilityForbidden {
+function invalid(field: string): Forbidden {
   return forbidden(REJECTION_REASONS.invalidCommand, { field });
 }

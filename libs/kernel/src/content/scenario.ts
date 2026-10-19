@@ -130,7 +130,13 @@ export interface ScenarioItem {
 export interface ScenarioTrigger {
   /** The local name of the trigger. */
   readonly id: string;
-  /** The full name of the kind of event, or of the round or turn boundary, that the trigger waits for. */
+  /**
+   * The full name of the kind of event, or of a moment of the battle from `BATTLE_MOMENTS`, that the trigger waits for:
+   * the start of the battle, or the start or the end of a round or a turn. The moment `kernel:turn-end` comes after the
+   * event `kernel:turn-ended`, which carries `waited` and `skipped`, and after the counts of the end of the turn.
+   * A trigger that waits for `kernel:unit-placed`, `kernel:battle-ended` or an event of running a command, such as
+   * `kernel:roll-made`, would never fire, so it is an error of the content.
+   */
   readonly on: string;
   /** The trigger fires only if this condition holds. */
   readonly condition?: Predicate;

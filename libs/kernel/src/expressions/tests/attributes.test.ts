@@ -258,7 +258,7 @@ describe('attributes of units', () => {
     function run(current: BattleState): unknown {
       const { registries } = kernel;
 
-      return createExpressions({ cache, content: TEST_CONTENT, inputs: [], registries, state: current })
+      return createExpressions({ attributes: cache, content: TEST_CONTENT, inputs: [], registries, state: current })
         .value(SPEED, PIKEMEN);
     }
 

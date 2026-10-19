@@ -1,7 +1,7 @@
 import type { Ability, ContentRegistry, Item } from '../content/index.ts';
 import type { ExecuteAccepted, ExecuteResult } from '../execution/index.ts';
 import type { BattleState, Target, Unit, UseAbilityCommand, UseItemCommand } from '../model/index.ts';
-import { BARE_STATE, KERNEL, mark } from './battle.ts';
+import { BARE_STATE, KERNEL, markOp } from './battle.ts';
 import { accepted, CONTENT, node } from './fixtures.ts';
 
 export const FIRE_ARROW: Ability = ability('demo:fire-arrow', {
@@ -32,14 +32,14 @@ export const VOLLEY: Ability = ability('demo:volley', {
   target: { count: 2, kind: 'unit' },
 });
 
-export const HEX: Ability = ability('demo:hex', {
+export const HEX_SPELL: Ability = ability('demo:hex', {
   target: {
     filter: node('kernel:not', { condition: node('kernel:same', { left: 'self', right: 'target' }) }),
     kind: 'unit',
   },
 });
 
-export const SHOUT: Ability = ability('demo:shout', { ops: [mark('shouted')] });
+export const SHOUT: Ability = ability('demo:shout', { ops: [markOp('shouted')] });
 
 export const ITEMS: Readonly<Record<string, Item>> = {
   'demo:bow': item('demo:bow', { abilities: ['demo:volley'], slot: 'hands' }),
@@ -54,7 +54,7 @@ export const ABILITY_CONTENT: ContentRegistry = (() => {
 
   if (archer === undefined) throw new Error('No archer');
 
-  const abilities = [FIRE_ARROW, DRINK, RALLY, VOLLEY, HEX, SHOUT];
+  const abilities = [FIRE_ARROW, DRINK, RALLY, VOLLEY, HEX_SPELL, SHOUT];
 
   return {
     ...CONTENT,

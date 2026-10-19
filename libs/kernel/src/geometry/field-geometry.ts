@@ -61,6 +61,12 @@ class StateGeometry implements FieldGeometry, Ground {
     return this.fieldCells.list;
   }
 
+  get directions(): readonly string[] {
+    const { topology } = this;
+
+    return topology.directions?.(this.state.field.params) ?? [];
+  }
+
   hasCell(cell: CellId): boolean {
     return this.fieldCells.set.has(cell);
   }
@@ -132,6 +138,13 @@ class StateGeometry implements FieldGeometry, Ground {
 
   cellsAt(unit: UnitId, cell: CellId, facing?: string): readonly CellId[] | undefined {
     return this.footprint(cell, bodyOf(this.content, battleUnit(this.state, unit), facing));
+  }
+
+  canStand(unit: UnitId, cell: CellId, facing?: string): boolean {
+    const found = battleUnit(this.state, unit);
+    const blocked = this.blockedFor(found);
+
+    return this.cellsAt(unit, cell, facing)?.every((taken) => !blocked.has(taken)) === true;
   }
 
   cellsAlong(unit: UnitId, way: readonly CellId[], facing?: string): readonly CellId[] {

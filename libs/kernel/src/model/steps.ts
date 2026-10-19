@@ -3,8 +3,8 @@ import type { JsonObject } from '../json/index.ts';
 import type { ChoiceValue, TargetValue } from './commands.ts';
 
 /**
- * A part of a command that the kernel has not done yet: pay the cost, walk the path, strike, check the dead.
- * A step holds only data, so the stack of steps is saved with the state.
+ * A part of a command that the kernel has not done yet: pay the cost, walk the path, strike, end the turn. A step
+ * holds only data, so the stack of steps is saved with the state.
  */
 export interface Step {
   /** The full name of the kind of step in a kernel registry. */
@@ -23,6 +23,11 @@ export interface Step {
    * input request is saved without it, because the answer starts a new batch.
    */
   readonly cause?: number;
+  /**
+   * Marks a step of the course of the battle that the kernel runs on its own after the action of the command, such as
+   * the end of the action, the start of the next turn and everything they add. Such a step cannot reject the command.
+   */
+  readonly flow?: true;
 }
 
 /**

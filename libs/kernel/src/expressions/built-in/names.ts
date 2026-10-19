@@ -58,6 +58,7 @@ export const KERNEL_FORMULAS = Object.freeze({
   round: kernelName('round'),
   subtract: kernelName('subtract'),
   table: kernelName('table'),
+  unitsAlive: kernelName('units-alive'),
   variable: kernelName('variable'),
 });
 

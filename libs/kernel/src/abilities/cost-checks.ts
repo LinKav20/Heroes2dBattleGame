@@ -1,8 +1,8 @@
 import { ContentError, creatureDefinition, type Ability, type ContentRegistry } from '../content/index.ts';
 import type { Expressions } from '../extensions/index.ts';
-import { REJECTION_REASONS, type AbilityUse, type Unit } from '../model/index.ts';
+import { REJECTION_REASONS, type AbilityUse, type Unit, forbidden } from '../model/index.ts';
 import { sortedEntries } from '../shared/index.ts';
-import { forbidden, whenValue, type AbilityCheck } from './check-results.ts';
+import { whenValue, type AbilityCheck } from './check-results.ts';
 
 /**
  * Checks that an ability is not cooling down and is not used up for the turn, the round or the battle.

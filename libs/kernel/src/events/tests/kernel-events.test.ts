@@ -40,6 +40,22 @@ describe('events of the kernel', () => {
     expect(next.round).toBe(2);
     expect(next.phase).toStrictEqual({ kind: 'round-start' });
 
+    const holder = { kind: 'unit', unit: 'archers-1' } as const;
+    const ended = apply(KERNEL_EVENTS.turnEnded, { holder, skipped: false, waited: true });
+    const sameRound = kernelEvent(KERNEL_EVENTS.phaseChanged, { phase: { kind: 'turn', side: 'defender' }, round: 1 });
+
+    expect(ended.turns).toStrictEqual([{ holder, skipped: false, waited: true }]);
+    expect(ended.phase).toStrictEqual({ kind: 'between-turns' });
+    expect(KERNEL.applyEvent(ended, sameRound).turns).toStrictEqual([{ holder, skipped: false, waited: true }]);
+
+    const nextRound = kernelEvent(KERNEL_EVENTS.phaseChanged, { phase: { kind: 'round-start' }, round: 2 });
+
+    expect(KERNEL.applyEvent(ended, nextRound).turns)
+      .toStrictEqual([]);
+
+    expect(unitOf(apply(KERNEL_EVENTS.unitTurned, { facing: 'west', unit: 'archers-1' }), 'archers-1').facing)
+      .toBe('west');
+
     const restart = kernelEvent(KERNEL_EVENTS.phaseChanged, { phase: { kind: 'round-start' }, round: 2 });
 
     expect(() => KERNEL.applyEvent(ENDED, restart)).toThrow('The battle is over.');
@@ -394,6 +410,7 @@ const PAYLOADS: { readonly [Type in KernelEventType]: KernelEventPayloads[Type] 
   'kernel:steps-saved': { steps: [] },
   'kernel:tags-changed': { added: [], removed: [], unit: 'archers-1' },
   'kernel:trigger-fired': { fired: 1, trigger: 'reinforcements' },
+  'kernel:turn-ended': { holder: { kind: 'unit', unit: 'archers-1' }, skipped: false, waited: false },
   'kernel:unit-moved': { path: ['2,5'], unit: 'archers-1' },
   'kernel:unit-placed': { cell: '0,0', unit: 'archers-1' },
   'kernel:unit-summoned': {
@@ -416,6 +433,7 @@ const PAYLOADS: { readonly [Type in KernelEventType]: KernelEventPayloads[Type] 
       zones: [],
     },
   },
+  'kernel:unit-turned': { facing: 'west', unit: 'archers-1' },
   'kernel:variable-set': { value: 3, variable: 'waves' },
   'kernel:zones-changed': { added: ['swamp'], removed: [], unit: 'pikemen-1' },
 };

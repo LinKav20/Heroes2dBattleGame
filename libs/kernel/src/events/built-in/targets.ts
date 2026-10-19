@@ -11,7 +11,8 @@ export type KernelEventTargets = {
 
 /**
  * The unit or the side every event of the kernel is about: the unit of an event about a unit or its items, the holder
- * of an event about an effect or an ability if it is a unit or a side, and the unit or the side that gets the turn.
+ * of an event about an effect or an ability if it is a unit or a side, and the unit or the side that gets the turn or
+ * whose turn ended.
  * Other events are about nobody.
  */
 export const KERNEL_EVENT_TARGETS: KernelEventTargets = {
@@ -35,8 +36,10 @@ export const KERNEL_EVENT_TARGETS: KernelEventTargets = {
   },
   [KERNEL_EVENTS.resourceChanged]: ({ unit }) => ({ kind: 'unit', unit }),
   [KERNEL_EVENTS.tagsChanged]: ({ unit }) => ({ kind: 'unit', unit }),
+  [KERNEL_EVENTS.turnEnded]: ({ holder }) => holderTarget(holder),
   [KERNEL_EVENTS.unitMoved]: ({ unit }) => ({ kind: 'unit', unit }),
   [KERNEL_EVENTS.unitPlaced]: ({ unit }) => ({ kind: 'unit', unit }),
   [KERNEL_EVENTS.unitSummoned]: ({ unit }) => ({ kind: 'unit', unit: unit.id }),
+  [KERNEL_EVENTS.unitTurned]: ({ unit }) => ({ kind: 'unit', unit }),
   [KERNEL_EVENTS.zonesChanged]: ({ unit }) => ({ kind: 'unit', unit }),
 };

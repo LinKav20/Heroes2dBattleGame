@@ -27,7 +27,13 @@ export {
 } from './kernel-extension.ts';
 export type { Migration } from './migration.ts';
 export type { OperationContext, OperationExtension } from './operations.ts';
-export type { MechanicExtension } from './other-extensions.ts';
+export type {
+  ChosenMechanic,
+  DefenseVariant,
+  MechanicContext,
+  MechanicExtension,
+  TurnOrderVariant,
+} from './mechanics.ts';
 export type { StepContext, StepKind } from './step-kind.ts';
 export type {
   ChoiceNeed,

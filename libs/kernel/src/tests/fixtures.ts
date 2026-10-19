@@ -1,8 +1,16 @@
 import type { ContentRegistry, Effect, ExpressionNode, Ruleset } from '../content/index.ts';
 import type { ExecuteAccepted, ExecuteResult } from '../execution/index.ts';
-import type { ExtensionEventKind, StepKind, TopologyExtension } from '../extensions/index.ts';
+import type { ExtensionEventKind, StepKind, TopologyExtension, TurnOrderVariant } from '../extensions/index.ts';
 import type { JsonObject } from '../json/index.ts';
-import type { AppliedEffect, BattleEvent, BattleState, Unit } from '../model/index.ts';
+import {
+  standsOnField,
+  type AppliedEffect,
+  type BattleEvent,
+  type BattleState,
+  type TurnHolder,
+  type TurnRecord,
+  type Unit,
+} from '../model/index.ts';
 
 export interface GridParams extends JsonObject {
   readonly width: number;
@@ -13,11 +21,12 @@ export interface GridParams extends JsonObject {
 export const RULESET: Ruleset = {
   healthAttribute: 'core:health',
   mechanics: {
-    'kernel:turn-order': { params: { waiting: true }, variant: 'rules-stdlib:speed-with-waiting' },
+    'kernel:turn-order': { params: { waiting: true }, variant: 'acme:scenario-order' },
   },
   name: 'core:stacks-speed',
   randomSources: { 'core:damage-roll': 'generator', 'core:morale': 'external' },
   rounding: 'down',
+  turn: { actions: [], endTurn: true },
   turnOwner: 'unit',
 };
 
@@ -119,12 +128,17 @@ export const CONTENT: ContentRegistry = {
         hazards: [{ cells: ['5,5'], effects: ['core:poison'], id: 'swamp', visibleTo: ['defender'] }],
         obstacles: [{ cells: ['7,3'], id: 'rock-1', obstacle: 'demo:rock' }],
         params: { height: 11, width: 15 },
-        topology: 'rules-stdlib:hex',
+        topology: 'acme:hex',
       },
       name: 'demo:bridge',
       outcomes: [
         {
-          condition: { side: 'defender', type: 'rules-stdlib:side-destroyed' },
+          condition: {
+            left: { side: 'defender', type: 'kernel:units-alive' },
+            operator: '=',
+            right: 0,
+            type: 'kernel:compare',
+          },
           id: 'rout',
           outcome: 'victory',
           side: 'attacker',
@@ -197,7 +211,7 @@ export const STATE: BattleState = {
     ],
     obstacles: [{ cells: ['7,3'], id: 'rock-1', obstacle: 'demo:rock' }],
     params: { height: 11, width: 15 },
-    topology: 'rules-stdlib:hex',
+    topology: 'acme:hex',
   },
   format: { extensions: { 'rules-stdlib:siege': 1 }, kernel: 1, steps: { 'kernel:end-turn': 1 } },
   inputRequest: {
@@ -223,6 +237,7 @@ export const STATE: BattleState = {
   ],
   steps: [{ params: { unit: 'archers-1' }, type: 'kernel:end-turn', version: 1 }],
   triggers: { reinforcements: { fired: 0 } },
+  turns: [],
   units: [
     {
       abilityUses: [{ ability: 'demo:fire-arrow', battle: 1, cooldown: 1, round: 1, turn: 1 }],
@@ -348,6 +363,27 @@ export const GRID: TopologyExtension<GridParams> = {
   schema: { type: 'object' },
 };
 
+export const HEX: TopologyExtension<GridParams> = {
+  ...GRID,
+  footprint: (params, cell, { facing, size }) => {
+    const [x, y] = gridPoint(cell);
+    const step = facing === 'west' ? -1 : 1;
+    const cells = counting(size).map((index) => gridCell(x + step * index, y));
+
+    return cells.every((taken) => gridCells(params).includes(taken)) ? cells : undefined;
+  },
+  name: 'acme:hex',
+};
+
+export const SPEED_ORDER: TurnOrderVariant = {
+  kind: 'mechanic',
+  mechanic: 'kernel:turn-order',
+  name: 'acme:scenario-order',
+  next: ({ state }) => ({ kind: 'value', value: nextUnit(state) }),
+  schema: { type: 'object' },
+  wait: () => ({ kind: 'steps', steps: [] }),
+};
+
 export function deepFreeze<Value>(value: Value): Value {
   if (typeof value === 'object' && value !== null) {
     Object.values(value).forEach((member: unknown) => deepFreeze(member));
@@ -433,4 +469,21 @@ export function gridDistance(from: string, to: string): number {
 
 export function asRecord(value: unknown): Readonly<Record<string, unknown>> {
   return typeof value === 'object' && value !== null ? (value as Readonly<Record<string, unknown>>) : {};
+}
+
+function nextUnit(state: BattleState): TurnHolder | undefined {
+  const ready = state.units.filter((unit) => standsOnField(unit));
+  const fresh = ready.find((unit) => recordsOf(state, unit).length === 0);
+  const waited = ready.find((unit) => {
+    const records = recordsOf(state, unit);
+
+    return records.length === 1 && records[0]?.waited === true;
+  });
+  const next = fresh ?? waited;
+
+  return next === undefined ? undefined : { kind: 'unit', unit: next.id };
+}
+
+function recordsOf(state: BattleState, unit: Unit): readonly TurnRecord[] {
+  return state.turns.filter(({ holder }) => holder.kind === 'unit' && holder.unit === unit.id);
 }

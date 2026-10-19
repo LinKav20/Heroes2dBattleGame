@@ -1,5 +1,21 @@
-import { planAbility, type AbilityForbidden, type AbilitySetup } from '../abilities/index.ts';
-import type { CommandSteps, StepDraft, StepRejects } from '../extensions/index.ts';
+import { planAbility } from '../abilities/index.ts';
+import {
+  asGameAction,
+  packagePlan,
+  planContext,
+  planDefend,
+  planEndTurn,
+  planFinishDeployment,
+  planGiveUp,
+  planMove,
+  planPlaceUnit,
+  planStartBattle,
+  planWait,
+  type BattlePlan,
+  type CommandSetup,
+  type PlanContext,
+} from '../battle/index.ts';
+import type { StepDraft } from '../extensions/index.ts';
 import {
   REJECTION_REASONS,
   type BattleState,
@@ -7,7 +23,6 @@ import {
   type GameCommand,
   type StateEditCommand,
 } from '../model/index.ts';
-import { checkOwnDrafts } from '../operations/index.ts';
 import type { ExecutionContext } from './context.ts';
 import { EventRecorder } from './event-recorder.ts';
 import { extensionViolation, ruleViolation, type ExecuteResult } from './result.ts';
@@ -16,23 +31,22 @@ import { StepStack } from './step-stack.ts';
 
 type KernelCommand = Exclude<GameCommand, ExtensionCommand>;
 
-type KernelCommandPlan = AbilityForbidden | CommandSteps | StepRejects;
-
-type Planner<Command extends KernelCommand> = (
-  context: ExecutionContext,
-  state: BattleState,
-  command: Command,
-) => KernelCommandPlan;
+interface Planner<Command extends GameCommand> {
+  readonly plan: (context: PlanContext, command: Command) => BattlePlan;
+  readonly action: boolean;
+}
 
 type Planners = { readonly [Type in KernelCommand['type']]?: Planner<Extract<KernelCommand, { type: Type }>> };
 
 /**
  * Starts a game command or a state edit: checks that the battle goes on and nothing waits for an answer, turns the
  * command into steps and runs them. A game command of the kernel goes to its planner, and a command of an extension to
- * its kind; the kernel game commands without a planner yet are not available.
+ * its kind; the kernel game commands without a planner yet are not available. A game action in a turn, such as a
+ * move, the use of an ability or a command of an extension, ends with the step that brings auras and zones up to date,
+ * checks scenario triggers and outcomes and ends the turn of its holder as the plan says or if it is over.
  *
  * @throws {TypeError} If the state has saved steps without an open input request, a plan is unknown, or a command of
- * an extension plans a step that only the kernel adds.
+ * an extension plans a step that only the kernel adds or rejects with a reason it may not give.
  */
 export function startCommand(
   context: ExecutionContext,
@@ -47,11 +61,13 @@ export function startCommand(
 
   if (state.phase.kind === 'ended') return ruleViolation(REJECTION_REASONS.battleOver);
 
-  if (command.type === 'extension') return startExtension(context, state, command);
-
   const plan = planOf(context, state, command);
 
-  if (plan === undefined) return ruleViolation(REJECTION_REASONS.notAvailable);
+  if (plan === undefined) {
+    return command.type === 'extension'
+      ? ruleViolation(REJECTION_REASONS.unknownCommand, { name: command.name })
+      : ruleViolation(REJECTION_REASONS.notAvailable);
+  }
 
   switch (plan.kind) {
     case 'forbidden': {
@@ -73,48 +89,62 @@ export function startCommand(
 }
 
 const PLANNERS: Planners = {
-  'use-ability': (context, state, command) => planAbility(setupOf(context), state, command),
-  'use-item': (context, state, command) => planAbility(setupOf(context), state, command),
+  defend: { action: true, plan: planDefend },
+  'end-turn': { action: true, plan: planEndTurn },
+  'finish-deployment': { action: false, plan: planFinishDeployment },
+  move: { action: true, plan: planMove },
+  'place-unit': { action: false, plan: planPlaceUnit },
+  retreat: { action: false, plan: planGiveUp },
+  'start-battle': { action: false, plan: planStartBattle },
+  surrender: { action: false, plan: planGiveUp },
+  'use-ability': { action: true, plan: (context, command) => planAbility(context.setup, context.state, command) },
+  'use-item': { action: true, plan: (context, command) => planAbility(context.setup, context.state, command) },
+  wait: { action: true, plan: planWait },
 };
 
-function planOf(context: ExecutionContext, state: BattleState, command: KernelCommand): KernelCommandPlan | undefined {
+function planOf(context: ExecutionContext, state: BattleState, command: GameCommand): BattlePlan | undefined {
+  const plan = planContext(setupOf(context), state);
+
+  if (command.type === 'extension') return extensionPlan(context, plan, command);
+
   const planner = PLANNERS[command.type] as Planner<KernelCommand> | undefined;
 
-  return planner?.(context, state, command);
+  if (planner === undefined) return undefined;
+
+  const planned = planner.plan(plan, command);
+
+  return planner.action ? asGameAction(state, planned) : planned;
 }
 
-function setupOf({ attributes: cache, content, fields, registries }: ExecutionContext): AbilitySetup {
-  return { cache, content, fields, registries };
-}
-
-function startExtension(context: ExecutionContext, state: BattleState, command: ExtensionCommand): ExecuteResult {
+function extensionPlan(
+  context: ExecutionContext,
+  plan: PlanContext,
+  command: ExtensionCommand,
+): BattlePlan | undefined {
   const kind = context.registries.commands.get(command.name);
 
-  if (kind === undefined) return ruleViolation(REJECTION_REASONS.unknownCommand, { name: command.name });
+  if (kind === undefined) return undefined;
 
-  const plan = kind.plan({ content: context.content, payload: command.payload, state });
+  const { content, expressions, field, state } = plan;
+  const planned = kind.plan({ content, expressions, field, payload: command.payload, state });
 
-  switch (plan.kind) {
-    case 'reject': {
-      return extensionViolation(command.name, plan, false);
-    }
+  const shape: unknown = planned.kind;
 
-    case 'steps': {
-      checkOwnDrafts(command.name, plan.steps);
-
-      return runPlanned(context, state, plan.steps);
-    }
-
-    default: {
-      throw new TypeError(`The command ${JSON.stringify(command.name)} returned an unknown plan.`);
-    }
+  if (shape !== 'reject' && shape !== 'steps') {
+    throw new TypeError(`The command ${JSON.stringify(command.name)} returned an unknown plan.`);
   }
+
+  return asGameAction(state, packagePlan(command.name, planned));
+}
+
+function setupOf({ attributes, content, fields, registries }: ExecutionContext): CommandSetup {
+  return { attributes, content, fields, registries };
 }
 
 function runPlanned(context: ExecutionContext, state: BattleState, steps: readonly StepDraft[]): ExecuteResult {
   const stack = new StepStack(context.registries.steps, []);
 
-  if (!stack.pushDrafts(steps, undefined)) return ruleViolation(REJECTION_REASONS.stepLimit);
+  if (!stack.pushDrafts(steps)) return ruleViolation(REJECTION_REASONS.stepLimit);
 
   return runSteps(context, new EventRecorder(context.registries.events, state), stack);
 }

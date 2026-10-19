@@ -6,6 +6,7 @@ import type {
   ConditionExtension,
   EventKind,
   FormulaExtension,
+  MechanicExtension,
   StepKind,
   TopologyExtension,
 } from '../extensions/index.ts';
@@ -24,6 +25,8 @@ export interface ExecutionRegistries {
   readonly events: Registry<EventKind>;
   /** Nodes of formulas. */
   readonly formulas: Registry<FormulaExtension>;
+  /** Variants of mechanics. */
+  readonly mechanics: Registry<MechanicExtension>;
   /** Kinds of steps. */
   readonly steps: Registry<StepKind>;
   /** Field topologies. */

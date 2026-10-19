@@ -15,6 +15,7 @@ export type GameCommand
     | PlaceUnitCommand
     | RetreatCommand
     | ShootCommand
+    | StartBattleCommand
     | SurrenderCommand
     | UseAbilityCommand
     | UseItemCommand
@@ -46,6 +47,16 @@ export interface FinishDeploymentCommand {
   readonly type: 'finish-deployment';
   /** The side. */
   readonly side: SideId;
+}
+
+/**
+ * Start a battle in which no side has units to deploy.
+ */
+export interface StartBattleCommand {
+  /** The kind of command. */
+  readonly kind: 'game';
+  /** The game action. */
+  readonly type: 'start-battle';
 }
 
 /**
@@ -145,7 +156,7 @@ export interface WaitCommand {
 }
 
 /**
- * Make a unit defend until its next turn.
+ * Make a unit defend as the defense of the ruleset says.
  */
 export interface DefendCommand {
   /** The kind of command. */

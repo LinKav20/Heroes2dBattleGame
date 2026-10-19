@@ -46,6 +46,8 @@ export interface AbilityTurnTick {
   readonly moment: 'holder-turn-start';
   /** The unit or the side whose turn starts. */
   readonly holder: SideHolder | UnitHolder;
+  /** Only give the unit back its actions of the turn, for another turn of the same round. */
+  readonly actionsOnly?: true;
 }
 
 /**

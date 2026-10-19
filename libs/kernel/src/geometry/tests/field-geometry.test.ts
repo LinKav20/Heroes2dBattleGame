@@ -40,6 +40,12 @@ describe('the field of a state', () => {
     expect(big.cellsOf('pikemen-1')).toStrictEqual(['2,2', '3,2']);
     expect(big.cellsAt('pikemen-1', '4,0')).toBeUndefined();
     expect(big.cellsAt('archers-1', '4,0')).toStrictEqual(['4,0']);
+    expect(big.canStand('archers-1', '4,0')).toBe(true);
+    expect(big.canStand('archers-1', '2,0')).toBe(false);
+    expect(big.canStand('archers-1', '3,2')).toBe(false);
+    expect(big.canStand('pikemen-1', '0,0')).toBe(false);
+    expect(big.canStand('pikemen-1', '3,1')).toBe(true);
+    expect(big.canStand('pikemen-1', '9,9')).toBe(false);
     expect(unplaced.cellsOf('archers-1')).toStrictEqual([]);
     expect(unplaced.reachable('archers-1', 5)).toStrictEqual([]);
     expect(unplaced.path('archers-1', '1,0')).toBeUndefined();
@@ -106,7 +112,7 @@ describe('the field of a state', () => {
       createKernel({ extensions: [flat] }).registries.topologies,
     );
 
-    expect(() => unknown.cells).toThrow('No package declares the topology "rules-stdlib:hex".');
+    expect(() => unknown.cells).toThrow('No package declares the topology "acme:hex".');
     expect(() => broken.reachable('archers-1', 3)).toThrow('gives a cost of a step below 1');
   });
 
@@ -150,6 +156,13 @@ describe('the field of a state', () => {
     expect(field.cellsAt('archers-1', '4,1', 'west')).toStrictEqual(['4,1', '3,1']);
     expect(field.cellsAlong('archers-1', ['1,1', '2,1', '3,1'], 'west')).toStrictEqual(['1,1', '2,1', '3,1']);
     expect(field.cellsAlong('archers-1', ['1,1', '2,1', '3,1'])).toContain('4,1');
+    expect(field.canStand('archers-1', '4,1')).toBe(false);
+    expect(field.canStand('archers-1', '4,1', 'west')).toBe(true);
+  });
+
+  it('lists the directions of the topology, or none when it has no directions', () => {
+    expect(facingField().directions).toStrictEqual(['east', 'west']);
+    expect(geometry().directions).toStrictEqual([]);
   });
 
   it('gives the cells a unit touches on its way, only where it stops for a flying one', () => {
@@ -213,6 +226,7 @@ describe('the field of a state', () => {
 
 const FACING: TopologyExtension<GridParams> = {
   ...GRID,
+  directions: () => ['east', 'west'],
   footprint: (params, cell, { facing, size }) => {
     const [x, y] = gridPoint(cell);
     const step = facing === 'west' ? -1 : 1;

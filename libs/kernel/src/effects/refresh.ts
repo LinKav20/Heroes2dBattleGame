@@ -3,6 +3,7 @@ import { KERNEL_EVENTS, kernelEventDraft } from '../events/index.ts';
 import type { EventDraft, StepContext, StepKind, StepResult } from '../extensions/index.ts';
 import type { EffectHolder } from '../model/index.ts';
 import { KERNEL_STEPS } from '../names/index.ts';
+import { kernelStep } from '../operations/index.ts';
 import { activity } from './activity.ts';
 
 /**
@@ -12,13 +13,7 @@ import { activity } from './activity.ts';
  *
  * @throws {ContentError} If a condition of activity rolls dice or is described wrongly.
  */
-export const REFRESH_STEP: StepKind = Object.freeze({
-  kind: 'step',
-  migrations: [],
-  name: KERNEL_STEPS.effectRefresh,
-  run: refresh,
-  version: 1,
-});
+export const REFRESH_STEP: StepKind = kernelStep(KERNEL_STEPS.effectRefresh, refresh);
 
 function refresh({ content, expressions, state }: StepContext): StepResult {
   const events: EventDraft[] = [];

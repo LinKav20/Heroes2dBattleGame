@@ -1,4 +1,5 @@
 import { ABILITY_STEP_KINDS } from '../abilities/index.ts';
+import { battleStepKinds } from '../battle/index.ts';
 import { EFFECT_STEP_KINDS, KERNEL_OPERATION_KINDS } from '../effects/index.ts';
 import { KERNEL_EVENT_KINDS } from '../events/index.ts';
 import { KERNEL_CONDITION_KINDS, KERNEL_FORMULA_KINDS } from '../expressions/index.ts';
@@ -48,7 +49,7 @@ export interface KernelRegistries {
  * @throws {TypeError} If any extension is invalid or clashes with another one. The message lists every problem found.
  */
 export function createKernelRegistries(extensions: readonly RegisteredExtension[]): KernelRegistries {
-  const ready: { operations?: Registry<OperationExtension> } = {};
+  const ready: { mechanics?: Registry<MechanicExtension>; operations?: Registry<OperationExtension> } = {};
   const kernelExtensions = [
     ...KERNEL_CONDITION_KINDS,
     ...KERNEL_EVENT_KINDS,
@@ -57,11 +58,8 @@ export function createKernelRegistries(extensions: readonly RegisteredExtension[
     ...UNIT_OPERATION_KINDS,
     ...ABILITY_STEP_KINDS,
     ...EFFECT_STEP_KINDS,
-    operationStep(() => {
-      if (ready.operations === undefined) throw new TypeError('The registries of the kernel are not ready yet.');
-
-      return ready.operations;
-    }),
+    operationStep(() => readyRegistry(ready.operations)),
+    ...battleStepKinds(() => readyRegistry(ready.mechanics)),
   ];
   const builtIn = new Set<RegisteredExtension>(kernelExtensions);
   const all = createRegistry<RegisteredExtension>('kernel', [...extensions, ...kernelExtensions], {
@@ -84,6 +82,7 @@ export function createKernelRegistries(extensions: readonly RegisteredExtension[
 
   if (registered !== all.extensions.length) throw new TypeError('A kind of extension has no registry.');
 
+  ready.mechanics = registries.mechanics;
   ready.operations = registries.operations;
 
   return Object.freeze(registries);
@@ -99,6 +98,14 @@ const REGISTRY_NAMES: Readonly<Record<KernelExtensionKind, keyof KernelRegistrie
   step: 'steps',
   topology: 'topologies',
 };
+
+function readyRegistry<Extension extends RegisteredExtension>(
+  registry: Registry<Extension> | undefined,
+): Registry<Extension> {
+  if (registry === undefined) throw new TypeError('The registries of the kernel are not ready yet.');
+
+  return registry;
+}
 
 function registryOf<Kind extends KernelExtensionKind>(
   all: Registry<RegisteredExtension>,
