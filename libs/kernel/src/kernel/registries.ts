@@ -18,6 +18,7 @@ import {
 } from '../extensions/index.ts';
 import { createRegistry, indexRegistry, type Registry } from '../names/index.ts';
 import { operationStep, UNIT_OPERATION_KINDS } from '../operations/index.ts';
+import { freezeDeep, isRecord } from '../shared/index.ts';
 import { extensionProblems } from './extension-checks.ts';
 
 /**
@@ -62,7 +63,7 @@ export function createKernelRegistries(extensions: readonly RegisteredExtension[
     ...battleStepKinds(() => readyRegistry(ready.mechanics)),
   ];
   const builtIn = new Set<RegisteredExtension>(kernelExtensions);
-  const all = createRegistry<RegisteredExtension>('kernel', [...extensions, ...kernelExtensions], {
+  const all = createRegistry<RegisteredExtension>('kernel', [...extensions.map(frozenExtension), ...kernelExtensions], {
     check: (extension) => (builtIn.has(extension) ? [] : extensionProblems(extension)),
   });
   const registries: KernelRegistries = {
@@ -116,4 +117,16 @@ function registryOf<Kind extends KernelExtensionKind>(
   );
 
   return indexRegistry(kind, extensions);
+}
+
+function frozenExtension(extension: RegisteredExtension): RegisteredExtension {
+  const value: unknown = extension;
+
+  if (!isRecord(value)) return extension;
+
+  freezeDeep(value.migrations);
+  freezeDeep(value.data);
+  freezeDeep(value.schema);
+
+  return Object.freeze(extension);
 }

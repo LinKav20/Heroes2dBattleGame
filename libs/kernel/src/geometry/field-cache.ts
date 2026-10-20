@@ -46,7 +46,7 @@ export class FieldCache {
    */
   neighborsOf(topology: TopologyExtension, params: JsonObject, cell: CellId, body?: TopologyBody): readonly CellId[] {
     const field = this.known(topology, params);
-    const key = body === undefined ? cell : [cell, String(body.size), body.movement, body.facing ?? ''].join('\u0000');
+    const key = JSON.stringify(body === undefined ? [cell] : [cell, body.size, body.movement, body.facing ?? null]);
     const found = field.neighbors.get(key);
 
     if (found !== undefined) return found;

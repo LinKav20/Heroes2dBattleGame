@@ -63,12 +63,12 @@ export class StepStack {
   /**
    * Puts new steps of the course of the battle right above the step of the course of the battle nearest to the top, or
    * at the bottom if there is none, so they run in the order of the list before it. Puts nothing and returns `false` if
-   * the stack would grow deeper than {@link MAX_STACK_DEPTH}.
+   * the stack with `reserve` more steps would grow deeper than {@link MAX_STACK_DEPTH}.
    *
    * @throws {TypeError} If the kernel has no kind of one of the steps.
    */
-  insertAboveFlow(drafts: readonly StepDraft[]): boolean {
-    if (this.steps.length + drafts.length > MAX_STACK_DEPTH) return false;
+  insertAboveFlow(drafts: readonly StepDraft[], reserve = 0): boolean {
+    if (this.steps.length + drafts.length + reserve > MAX_STACK_DEPTH) return false;
 
     const index = this.steps.findLastIndex((step) => step.flow === true) + 1;
 

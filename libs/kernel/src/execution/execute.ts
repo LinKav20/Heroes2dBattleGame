@@ -6,7 +6,7 @@ import type { BattleState, Command, Rejection } from '../model/index.ts';
 import { answerRequest } from './answer-request.ts';
 import type { ExecutionCaches, ExecutionRegistries } from './context.ts';
 import { extensionViolation, type ExecuteResult } from './result.ts';
-import { startCommand } from './start-command.ts';
+import { battleRejection, startCommand } from './start-command.ts';
 
 /**
  * Checks a command and runs it step by step from the stack.
@@ -38,7 +38,8 @@ export function execute(
 
 /**
  * Checks whether a unit or a side can use an ability now, as the command to use it would check it, and returns why
- * the rules forbid it, or nothing if they allow it. The check has no side effects and rolls no dice.
+ * the rules forbid it, or nothing if they allow it: an open input request and the end of the battle forbid it too.
+ * The check has no side effects and rolls no dice.
  *
  * @throws {ContentError} If a definition is wrong, or the requirement or the filter of targets rolls dice.
  * @throws {TypeError} If the content is not the content of the battle, or the unit, the side or the item of the
@@ -52,6 +53,10 @@ export function checkAbility(
   content: ContentRegistry,
 ): Rejection | undefined {
   checkContent(state, content);
+
+  const blocked = battleRejection(state);
+
+  if (blocked !== undefined) return blocked.rejection;
 
   const setup = { attributes: caches.attributes, content, fields: caches.fields, registries };
   const result = checkRequest(setup, state, request);

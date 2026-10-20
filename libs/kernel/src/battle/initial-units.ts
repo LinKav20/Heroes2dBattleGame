@@ -11,7 +11,7 @@ import {
 import type { Evaluation, Expressions } from '../extensions/index.ts';
 import type { ContentName, SideId, UnitId } from '../ids/index.ts';
 import type { InventoryItem, Side, Unit } from '../model/index.ts';
-import { checkItem } from '../operations/index.ts';
+import { checkItem, MAX_ITEMS_PER_OPERATION } from '../operations/index.ts';
 import { sortedEntries } from '../shared/index.ts';
 import type { UnitChanges } from './options.ts';
 
@@ -66,8 +66,8 @@ export function unitOf(side: SideId, unit: ScenarioUnit, inventory: readonly Inv
  * and slot and the others full and not equipped, with identifiers from `firstId`.
  *
  * @throws {ContentError} If the content has no such item, the item is described wrongly, the count is not a whole
- * number from 1, the charges are given for an item without charges or are not from 1 to the charges of a new item, or
- * the slot is not the slot of the item.
+ * number from 1 to `MAX_ITEMS_PER_OPERATION`, the charges are given for an item without charges or are not from 1 to
+ * the charges of a new item, or the slot is not the slot of the item.
  */
 export function stacksOf(content: ContentRegistry, item: ScenarioItem, firstId: number): readonly InventoryItem[] {
   const definition = itemDefinition(content, item.item);
@@ -76,8 +76,12 @@ export function stacksOf(content: ContentRegistry, item: ScenarioItem, firstId: 
 
   checkItem(definition);
 
-  if (!Number.isSafeInteger(count) || count < 1) {
-    throw new ContentError(`An item ${JSON.stringify(item.item)} of the scenario needs a count from 1.`, place);
+  if (!Number.isSafeInteger(count) || count < 1 || count > MAX_ITEMS_PER_OPERATION) {
+    throw new ContentError(
+      `An item ${JSON.stringify(item.item)} of the scenario needs a count `
+      + `from 1 to ${String(MAX_ITEMS_PER_OPERATION)}.`,
+      place,
+    );
   }
 
   const full = definition.charges;

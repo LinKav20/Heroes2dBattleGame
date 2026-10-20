@@ -121,7 +121,9 @@ function migrateStep(events: Registry<EventKind>, steps: Registry<StepKind>, ste
 
   if ('reason' in held) return held;
 
-  return held.params === step.params ? step : { ...step, params: held.params, version: kind.version };
+  return held.params === step.params && step.version === kind.version
+    ? step
+    : { ...step, params: held.params, version: kind.version };
 }
 
 function migrateHeldEvents(

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import type { BattleEvent, ExtensionCommand, FinishDeploymentCommand } from '../../model/index.ts';
+import { createKernel } from '../../kernel/index.ts';
+import type { BattleEvent, BattleState, ExtensionCommand, FinishDeploymentCommand } from '../../model/index.ts';
 import { asRecord, node } from '../../tests/fixtures.ts';
-import { KERNEL, place, play, withScenario } from './helpers.ts';
+import { ASK_STEP, BRACE, CONTENT, EXTENSIONS, KERNEL, ORDER, place, play, SIDES, withScenario } from './helpers.ts';
 
 describe('scenario triggers', () => {
   it('checks the triggers of events before an input request right above the end of the action', () => {
@@ -54,6 +55,40 @@ describe('the check of scenario triggers', () => {
     });
 
     expect(kind.migrateEvents(params, (event) => event)).toBe(params);
+  });
+});
+
+describe('a battle saved by an older kernel', () => {
+  it('goes on from a step whose migration keeps its parameters, after the journal is rebuilt', () => {
+    const asking = { ...ASK_STEP, migrations: [{ from: 1, migrate: (params: unknown) => params }], version: 2 };
+    const newer = createKernel({
+      extensions: [...EXTENSIONS.filter((one) => one !== ASK_STEP), asking, ORDER, SIDES, BRACE],
+    });
+    const randomSources = { 'core:morale': 'external' } as const;
+    const options = { ruleset: { randomSources }, scenario: 'demo:duel' };
+    const commands = [place('archers-1', '0,1'), finish(), act()];
+    const journal = commands.reduce<{ readonly events: readonly BattleEvent[]; readonly state: BattleState }>(
+      (current, command) => {
+        const result = play(current.state, command);
+
+        return { events: [...current.events, ...result.events], state: result.state };
+      },
+      { events: [], state: KERNEL.createState(options, CONTENT) },
+    );
+    const rebuilt = journal.events.reduce((state, event) => {
+      const migrated = newer.migrateEvent(event);
+
+      if (!migrated.ok) throw new Error(`Not migrated: ${migrated.name}`);
+
+      return newer.applyEvent(state, migrated.event);
+    }, newer.createState(options, CONTENT));
+    const answer = { kind: 'answer', request: 1, value: { dice: [3], kind: 'roll' } } as const;
+    const answered = play(rebuilt, answer, CONTENT, newer);
+
+    expect(journal.state.steps.find(({ type }) => type === 'acme:ask')?.version).toBe(1);
+    expect(rebuilt.steps.find(({ type }) => type === 'acme:ask')?.version).toBe(2);
+    expect(answered.state.variables).toMatchObject({ acted: true, after: true, asked: true });
+    expect(answered.state.steps).toStrictEqual([]);
   });
 });
 

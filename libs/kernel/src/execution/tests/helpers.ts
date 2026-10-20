@@ -13,7 +13,7 @@ import type {
 import type { JsonValue } from '../../json/index.ts';
 import { createKernel, type Kernel } from '../../kernel/index.ts';
 import type { BattleEvent, BattleState, Command, Unit } from '../../model/index.ts';
-import { asRecord, HEX, SPEED_ORDER, STATE, unitOf } from '../../tests/fixtures.ts';
+import { asRecord, FACING_GRID, SPEED_ORDER, STATE, unitOf } from '../../tests/fixtures.ts';
 
 export const DAMAGE = 'acme-duel:damage';
 
@@ -194,7 +194,7 @@ export const DUEL_EXTENSIONS: readonly KernelExtension[] = [
   } satisfies ExtensionEventKind,
 ];
 
-export const KERNEL: Kernel = createKernel({ extensions: [...DUEL_EXTENSIONS, HEX, SPEED_ORDER] });
+export const KERNEL: Kernel = createKernel({ extensions: [...DUEL_EXTENSIONS, FACING_GRID, SPEED_ORDER] });
 
 export function duelState(source: RandomSource): BattleState {
   const { inputRequest: open, ...rest } = STATE;

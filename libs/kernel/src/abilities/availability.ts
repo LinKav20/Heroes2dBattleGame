@@ -5,7 +5,7 @@ import {
   type Ability,
   type ContentRegistry,
 } from '../content/index.ts';
-import { hasTag } from '../expressions/index.ts';
+import { hasTag, tagMatches } from '../expressions/index.ts';
 import type { Expressions, FieldGeometry } from '../extensions/index.ts';
 import type { ContentName, SideId } from '../ids/index.ts';
 import {
@@ -119,14 +119,22 @@ function ownCheck(content: ContentRegistry, user: AbilityUser, request: AbilityR
 }
 
 function tagsCheck(ability: Ability, user: AbilityUser, expressions: Expressions): AbilityCheck | undefined {
-  if (user.unit === undefined || ability.forbiddenBy.length === 0) return undefined;
+  return whenValue(expressions.forbiddenTags(user.target), (forbids) => {
+    const forbidding = forbids.find((pattern) => ability.tags.some((tag) => tagMatches(tag, pattern)));
 
-  return whenValue(expressions.tags(user.unit.id), (tags) => {
-    const tag = ability.forbiddenBy.find((pattern) => hasTag(tags, pattern));
+    if (forbidding !== undefined) {
+      return forbidden(REJECTION_REASONS.abilityForbidden, { ability: ability.name, tag: forbidding });
+    }
 
-    if (tag === undefined) return undefined;
+    if (user.unit === undefined || ability.forbiddenBy.length === 0) return undefined;
 
-    return forbidden(REJECTION_REASONS.abilityForbidden, { ability: ability.name, tag });
+    return whenValue(expressions.tags(user.unit.id), (tags) => {
+      const tag = ability.forbiddenBy.find((pattern) => hasTag(tags, pattern));
+
+      if (tag === undefined) return undefined;
+
+      return forbidden(REJECTION_REASONS.abilityForbidden, { ability: ability.name, tag });
+    });
   });
 }
 

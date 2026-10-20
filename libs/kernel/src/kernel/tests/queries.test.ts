@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { AbilityRequest } from '../../abilities/index.ts';
 import type { ContentRegistry } from '../../content/index.ts';
-import type { BattleState } from '../../model/index.ts';
+import type { BattleState, InputRequest } from '../../model/index.ts';
 import { ABILITY_CONTENT, ability, execute, READY, useAbility, withArchers } from '../../tests/abilities.ts';
 import { ARCHERS, KERNEL, PIKEMEN } from '../../tests/battle.ts';
 import { node, unitOf } from '../../tests/fixtures.ts';
@@ -15,6 +15,23 @@ describe('the queries of a kernel', () => {
     expect(KERNEL.checkAbility(READY, ARROW, ABILITY_CONTENT)).toBeUndefined();
     expect(result.ok ? undefined : result.rejection).toStrictEqual(checked);
     expect(checked?.reason).toBe('kernel:not-enough-resource');
+  });
+
+  it.each<{ readonly asked: string; readonly inputRequest: InputRequest }>([
+    { asked: 'a roll', inputRequest: { count: 1, id: 1, kind: 'roll', name: 'demo:damage', sides: 6 } },
+    { asked: 'a choice', inputRequest: { id: 1, kind: 'choice', name: 'demo:path', options: ['left', 'right'] } },
+    { asked: 'a target', inputRequest: { count: 1, id: 1, kind: 'target', name: 'demo:aim', targets: [PIKEMEN] } },
+  ])('forbids using an ability while $asked is asked for, as the command does', ({ inputRequest }) => {
+    const steps = [{ params: {}, type: 'kernel:outcome-check', version: 1 }];
+    const waiting: BattleState = { ...READY, inputRequest, steps };
+
+    expect(answers(waiting)).toStrictEqual(['kernel:input-pending', 'kernel:input-pending']);
+  });
+
+  it('forbids using an ability after the end of the battle, as the command does', () => {
+    const ended: BattleState = { ...READY, phase: { kind: 'ended', outcome: { kind: 'draw', winners: [] } } };
+
+    expect(answers(ended)).toStrictEqual(['kernel:battle-over', 'kernel:battle-over']);
   });
 
   it('gives a rejection of a formula, such as a distance from a unit that is not on the field', () => {
@@ -77,3 +94,9 @@ const TOUCHING: ContentRegistry = (() => {
     creatures: { ...ABILITY_CONTENT.creatures, 'demo:archer': { ...archer, abilities: [touch.name] } },
   };
 })();
+
+function answers(state: BattleState): readonly unknown[] {
+  const result = execute(state, useAbility('demo:fire-arrow', [PIKEMEN]));
+
+  return [KERNEL.checkAbility(state, ARROW, ABILITY_CONTENT)?.reason, result.ok ? undefined : result.rejection.reason];
+}

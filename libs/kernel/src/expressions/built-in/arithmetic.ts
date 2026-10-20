@@ -1,6 +1,6 @@
 import { contentError, type ExpressionNode } from '../../content/index.ts';
 import type { ExpressionContext, FormulaExtension } from '../../extensions/index.ts';
-import { difference, percentOf, product, quotient, sum } from '../arithmetic.ts';
+import { difference, largest, percentOf, product, quotient, smallest, sum } from '../arithmetic.ts';
 import { formulaParam, isFormula, listParam } from '../params.ts';
 import { defineFormula, inSafeRange, valuesOf } from './define.ts';
 import { KERNEL_FORMULAS } from './names.ts';
@@ -14,8 +14,8 @@ import { FORMULA_SCHEMA, listSchema } from './schema.ts';
 export const ARITHMETIC_KINDS: readonly FormulaExtension[] = [
   ofList(KERNEL_FORMULAS.add, (values) => sum(values)),
   ofList(KERNEL_FORMULAS.multiply, (values) => product(values)),
-  ofList(KERNEL_FORMULAS.min, (values) => Math.min(...values)),
-  ofList(KERNEL_FORMULAS.max, (values) => Math.max(...values)),
+  ofList(KERNEL_FORMULAS.min, (values) => smallest(values)),
+  ofList(KERNEL_FORMULAS.max, (values) => largest(values)),
   ofPair(KERNEL_FORMULAS.subtract, ['left', 'right'], (left, right) => difference(left, right)),
   ofPair(KERNEL_FORMULAS.divide, ['left', 'right'], (left, right, node, context) => {
     if (right === 0) throw contentError(node, 'divides by 0');

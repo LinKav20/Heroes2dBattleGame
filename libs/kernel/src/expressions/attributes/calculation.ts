@@ -1,5 +1,5 @@
 import type { ModifierOperation, Rounding } from '../../content/index.ts';
-import { percentOf, sum } from '../arithmetic.ts';
+import { largest, percentOf, smallest, sum } from '../arithmetic.ts';
 
 /**
  * A modifier with its value already evaluated.
@@ -72,8 +72,8 @@ export function applyModifiers(
   const override = ofOperation(acting, 'override')
     .toSorted((left, right) => left.priority - right.priority || left.order - right.order)
     .at(-1);
-  const lowest = Math.max(...ofOperation(acting, 'min').map((modifier) => modifier.value));
-  const highest = Math.min(...ofOperation(acting, 'max').map((modifier) => modifier.value));
+  const lowest = largest(ofOperation(acting, 'min').map((modifier) => modifier.value));
+  const highest = smallest(ofOperation(acting, 'max').map((modifier) => modifier.value));
 
   return bound(bound(override?.value ?? value, lowest, highest), bounds.min ?? -Infinity, bounds.max ?? Infinity);
 }

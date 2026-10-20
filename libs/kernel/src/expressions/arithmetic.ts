@@ -10,6 +10,32 @@ export function sum(values: readonly number[]): number | undefined {
 }
 
 /**
+ * Returns the smallest of numbers, or `Infinity` for none, going through them one by one, so a list of any length fits.
+ */
+export function smallest(values: readonly number[]): number {
+  let found = Infinity;
+
+  for (const value of values) {
+    if (value < found) found = value;
+  }
+
+  return found;
+}
+
+/**
+ * Returns the largest of numbers, or `-Infinity` for none, going through them one by one, so a list of any length fits.
+ */
+export function largest(values: readonly number[]): number {
+  let found = -Infinity;
+
+  for (const value of values) {
+    if (value > found) found = value;
+  }
+
+  return found;
+}
+
+/**
  * Returns the difference of two safe integers, or nothing if it is not a safe integer.
  *
  * @throws {RangeError} If a value is not an integer.

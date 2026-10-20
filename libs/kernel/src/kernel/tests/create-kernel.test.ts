@@ -9,6 +9,7 @@ import type {
   KernelExtension,
   KernelExtensionKind,
 } from '../../extensions/index.ts';
+import { DONE } from '../../operations/index.ts';
 import { FROST_EVENT, GRID, STRIKE_STEP } from '../../tests/fixtures.ts';
 import { createKernel } from '../index.ts';
 
@@ -62,6 +63,29 @@ describe('createKernel', () => {
 
     expect(Object.isFrozen(kernel)).toBe(true);
     expect(Object.isFrozen(kernel.registries)).toBe(true);
+  });
+
+  it('freezes the extensions it accepts, so the format of its states cannot drift from them', () => {
+    const store = {
+      data: { schema: { properties: { level: { type: 'number' } }, type: 'object' }, version: 3 },
+      kind: 'step',
+      migrations: [{ from: 1, migrate: (params: unknown) => params }],
+      name: 'acme:store',
+      run: () => DONE,
+      version: 2,
+    } as const;
+    const kernel = createKernel({ extensions: [store] });
+    const format = structuredClone(kernel.stateFormat);
+
+    expect(Object.isFrozen(store)).toBe(true);
+    expect(Object.isFrozen(store.data.schema.properties.level)).toBe(true);
+    expect(Object.isFrozen(store.migrations[0])).toBe(true);
+    expect(Reflect.set(store, 'version', 5)).toBe(false);
+    expect(Reflect.set(store.data, 'version', 4)).toBe(false);
+    expect(Reflect.set(store.data.schema, 'type', 'array')).toBe(false);
+    expect(kernel.stateFormat).toStrictEqual(format);
+    expect(kernel.stateFormat.extensions).toStrictEqual({ 'acme:store': 3 });
+    expect(kernel.registries.steps.get('acme:store')).toBe(store);
   });
 
   it('rejects one name in two registries', () => {

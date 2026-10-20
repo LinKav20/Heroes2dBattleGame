@@ -38,7 +38,11 @@ export interface BoardParams extends JsonObject {
 }
 
 export const BOARD: TopologyExtension<BoardParams> = {
-  area: (params, rule, center) => cellsOf(params).filter((cell) => distanceOf(cell, center) <= rule.size),
+  area: (params, rule, center) => {
+    if (rule.shape !== 'radius') throw new TypeError(`The board has no ${rule.shape} areas.`);
+
+    return cellsOf(params).filter((cell) => distanceOf(cell, center) <= rule.size);
+  },
   cells: cellsOf,
   directions: () => ['east', 'west'],
   distance: (params, from, to) => distanceOf(from, to),
@@ -131,6 +135,16 @@ export const SIDES_IN_TURN: TurnOrderVariant = {
   turnOwner: 'side',
 };
 
+export const SIDES_TWICE: TurnOrderVariant = {
+  ...SIDES_IN_TURN,
+  name: 'acme:sides-twice',
+  next: ({ state }) => {
+    const side = ['attacker', 'defender', 'attacker'][state.turns.length];
+
+    return { kind: 'value', value: side === undefined ? undefined : { kind: 'side', side } };
+  },
+};
+
 export const GUARD: DefenseVariant = {
   defend: (context, unit) => ({
     kind: 'steps',
@@ -150,6 +164,7 @@ export const WORLD_EXTENSIONS: readonly KernelExtension[] = [
   SPEED,
   TIDE,
   SIDES_IN_TURN,
+  SIDES_TWICE,
   GUARD,
   GAMBLE,
   GAMBLE_ROLL,

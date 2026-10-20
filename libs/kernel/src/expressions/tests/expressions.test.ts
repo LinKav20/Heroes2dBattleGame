@@ -104,6 +104,13 @@ describe('formulas', () => {
     expect(value(node(KERNEL_FORMULAS.percent, { percent: 150, value: 7 }))).toBe(10);
   });
 
+  it('find the smallest and the largest of a list of any length', () => {
+    const values = Array.from({ length: 200_000 }, (unused, index) => (index % 2 === 0 ? index : -index));
+
+    expect(value(node(KERNEL_FORMULAS.min, { values }))).toBe(-199_999);
+    expect(value(node(KERNEL_FORMULAS.max, { values }))).toBe(199_998);
+  });
+
   it('round a quotient and a percent as the ruleset says', () => {
     const up = { ...FROZEN_STATE, ruleset: { ...FROZEN_STATE.ruleset, rounding: 'up' } } as const;
 

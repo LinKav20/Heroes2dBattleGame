@@ -22,6 +22,8 @@ export interface ExpressionEngine {
   attribute(of: SideTarget | UnitTarget, attribute: ContentName): Evaluation<number>;
   /** Returns the tags of a unit with the number of their sources. */
   tags(unit: UnitId): Evaluation<Readonly<Record<Tag, number>>>;
+  /** Returns the tags of abilities that the effects acting on a unit or a side forbid now. */
+  forbiddenTags(of: SideTarget | UnitTarget): Evaluation<readonly Tag[]>;
   /** Takes the next roll, or returns the need of the roll; `allowed` is `false` where rolls are forbidden. */
   roll(need: RollNeed, allowed: boolean): Evaluation<number>;
 }

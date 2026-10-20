@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { BattleState } from '../../index.ts';
+import { createKernel, type BattleEvent, type BattleState } from '../../index.ts';
 import {
   act,
   acted,
@@ -20,7 +20,7 @@ import {
   use,
   wait,
 } from './driver.ts';
-import { arena, created, PASS, WORLD_KERNEL, worldWith } from './world.ts';
+import { arena, created, PASS, WORLD_EXTENSIONS, WORLD_KERNEL, worldWith } from './world.ts';
 
 describe('turns in a battle', () => {
   it('bring back the units that waited, slowest first, with what they spent before waiting', () => {
@@ -150,6 +150,33 @@ describe('rolls from outside', () => {
   });
 });
 
+describe('a battle taken up by a new kernel at every request', () => {
+  it('pays for a fireball once and ends the same as a battle that never left memory', () => {
+    const external = { ruleset: { randomSources: { 'demo:damage': 'external' as const } } };
+    const content = arena({ 'ghosts-1': '3,2', 'golem-1': '6,2', 'griffins-1': '3,3', 'mage-1': '1,2' });
+    const { drive, state } = begin(content, external);
+    const ready = act(state, endTurn('griffins-1'), drive).state;
+    const asked = act(ready, use('mage-1', 'demo:fireball', cell('3,2')), drive);
+    const kept = answered(asked.state, (current) => act(current, answerRoll(current.inputRequest?.id ?? 0, 3), drive));
+    const moved = answered(asked.state, (current) => {
+      const saved = JSON.parse(JSON.stringify(current)) as BattleState;
+      const kernel = createKernel({ extensions: WORLD_EXTENSIONS });
+
+      return act(saved, answerRoll(saved.inputRequest?.id ?? 0, 3), { content, kernel });
+    });
+    const paid = [...asked.events, ...moved.events].filter(({ type, payload }) =>
+      type === 'kernel:resource-changed' && JSON.stringify(payload).includes('mage-1'));
+
+    expect(moved.requests).toBe(2);
+    expect(JSON.stringify(moved.state)).toBe(JSON.stringify(kept.state));
+    const mana = unitOf(ready, 'mage-1').resources['demo:mana'] ?? 0;
+
+    expect(unitOf(moved.state, 'mage-1').resources['demo:mana']).toBe(mana - 4);
+    expect(unitOf(moved.state, 'mage-1').spentActions).toStrictEqual(unitOf(asked.state, 'mage-1').spentActions);
+    expect(paid).toHaveLength(1);
+  });
+});
+
 describe('deployment', () => {
   it('places big units only where all their cells fit the zone, and refuses the units of the other side', () => {
     const state = created();
@@ -214,3 +241,20 @@ describe('deployment', () => {
 });
 
 const GHOSTS = { kind: 'unit', unit: 'ghosts-1' } as const;
+
+function answered(
+  state: BattleState,
+  answer: (current: BattleState) => { readonly events: readonly BattleEvent[]; readonly state: BattleState },
+): { readonly events: readonly BattleEvent[]; readonly requests: number; readonly state: BattleState } {
+  let current = state;
+  const events: BattleEvent[] = [];
+
+  while (current.inputRequest !== undefined) {
+    const result = answer(current);
+
+    events.push(...result.events);
+    current = result.state;
+  }
+
+  return { events, requests: events.filter(({ type }) => type === 'kernel:input-closed').length, state: current };
+}

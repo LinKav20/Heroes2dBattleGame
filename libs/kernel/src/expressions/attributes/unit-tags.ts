@@ -1,7 +1,7 @@
 import { creatureDefinition } from '../../content/index.ts';
 import type { Evaluation } from '../../extensions/index.ts';
 import type { Tag, UnitId } from '../../ids/index.ts';
-import { battleUnit } from '../../model/index.ts';
+import { battleUnit, type SideTarget, type UnitTarget } from '../../model/index.ts';
 import { evaluated } from '../results.ts';
 import type { AttributeInput } from './attribute-value.ts';
 
@@ -32,4 +32,28 @@ export function unitTags(input: AttributeInput, unitId: UnitId): Evaluation<Read
   }
 
   return evaluated(Object.fromEntries(tags));
+}
+
+/**
+ * Returns the tags of abilities that the effects acting on a unit or a side forbid while their condition of activity
+ * holds.
+ *
+ * @throws {TypeError} If the unit or the side is not in the battle.
+ * @throws {ContentError} If the content has no definition the unit or the side refers to, or a condition of activity
+ * rolls dice.
+ */
+export function forbiddenTags(input: AttributeInput, of: SideTarget | UnitTarget): Evaluation<readonly Tag[]> {
+  const forbidden: Tag[] = [];
+
+  for (const source of input.sources(of)) {
+    if (source.effect.forbids.length === 0) continue;
+
+    const active = input.active(source);
+
+    if (active.kind !== 'value') return active;
+
+    if (active.value) forbidden.push(...source.effect.forbids);
+  }
+
+  return evaluated(forbidden);
 }

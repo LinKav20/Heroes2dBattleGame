@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ContentError, type ScenarioSide, type ScenarioUnit, type TurnRule } from '../../content/index.ts';
 import { createKernel } from '../../kernel/index.ts';
-import { DONE } from '../../operations/index.ts';
+import { DONE, MAX_ITEMS_PER_OPERATION } from '../../operations/index.ts';
 import { effect, node, unitOf } from '../../tests/fixtures.ts';
 import { CONTENT, CREATED, EXTENSIONS, KERNEL, ORDER, RULESET, SCENARIO, withScenario } from './helpers.ts';
 
@@ -211,6 +211,32 @@ describe('the starting values of a new battle', () => {
     expect(archers).toMatchObject({ count: 9, health: 10, resources: { 'demo:fury': 10, 'demo:mana': 8 } });
   });
 
+  it.each([254, 255, 256, 600])('apply all %i effects of the scenario, more than the stack of steps holds', (count) => {
+    const names = Array.from({ length: count }, (unused, index) => `demo:gift-${String(index)}`);
+    const gifts = names.map((name) => effect(name, {
+      duration: { kind: 'battle' },
+      modifiers: [{ attribute: 'demo:mana', operation: 'add', value: 1 }],
+    }));
+    const half = Math.floor(count / 2);
+    const sides = SCENARIO.sides.map((side, index) => (index === 0
+      ? {
+          ...side,
+          effects: [...side.effects, ...names.slice(half)],
+          units: side.units.map((unit) => ({ ...unit, effects: names.slice(0, half) })),
+        }
+      : side));
+    const content = {
+      ...withScenario({ sides }),
+      effects: { ...CONTENT.effects, ...Object.fromEntries(gifts.map((gift) => [gift.name, gift])) },
+    };
+    const state = KERNEL.createState({ scenario: 'demo:duel' }, content);
+    const archers = unitOf(state, 'archers-1');
+
+    expect(archers.effects).toHaveLength(half);
+    expect(state.sides[0]?.effects).toHaveLength(count - half + 1);
+    expect(archers.resources['demo:mana']).toBe(5 + count);
+  });
+
   it('take the version of the format from the kernel, with the data the extensions declare', () => {
     const data = {
       data: { schema: { type: 'object' }, version: 3 },
@@ -250,6 +276,13 @@ describe('the checks of a new battle', () => {
 
     expect(() => KERNEL.createState({ scenario: 'demo:duel' }, withScenario({ triggers: [echo] })))
       .toThrow('The trigger "echo" fires itself again without end');
+
+    expect(() => created(withArchers({ items: [{ count: MAX_ITEMS_PER_OPERATION + 1, item: 'demo:arrow' }] })))
+      .toThrow(`An item "demo:arrow" of the scenario needs a count from 1 to ${String(MAX_ITEMS_PER_OPERATION)}.`);
+
+    expect(unitOf(KERNEL.createState({ scenario: 'demo:duel' }, withScenario({
+      sides: withArchers({ items: [{ count: MAX_ITEMS_PER_OPERATION, item: 'demo:arrow' }] }),
+    })), 'archers-1').inventory).toHaveLength(MAX_ITEMS_PER_OPERATION / 5);
 
     const limited = withScenario({ triggers: [{ ...loop, limit: 3 }] });
 

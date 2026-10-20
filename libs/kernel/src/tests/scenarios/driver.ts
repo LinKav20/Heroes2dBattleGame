@@ -30,7 +30,7 @@ export interface Begun {
 export const DRIVE: Drive = { content: WORLD, kernel: WORLD_KERNEL };
 
 export function act(state: BattleState, command: Command, drive: Drive = DRIVE): ExecuteAccepted {
-  const result = drive.kernel.execute(state, command, drive.content);
+  const result = drive.kernel.execute(frozen(state), frozen(command), frozen(drive.content));
 
   if (!result.ok) throw new Error(`${JSON.stringify(command)} rejected: ${JSON.stringify(result.rejection)}`);
 
@@ -44,7 +44,7 @@ export function acted(state: BattleState, commands: readonly Command[], drive: D
 }
 
 export function refusal(state: BattleState, command: Command, drive: Drive = DRIVE): unknown {
-  const result = drive.kernel.execute(state, command, drive.content);
+  const result = drive.kernel.execute(frozen(state), frozen(command), frozen(drive.content));
 
   if (result.ok) throw new Error(`${JSON.stringify(command)} was accepted`);
 
@@ -75,6 +75,15 @@ export function checkInvariants(before: BattleState, command: Command, result: E
   expect(state.nextRequestId).toBeGreaterThanOrEqual(before.nextRequestId);
   checkUnits(state, drive);
   checkPhase(state);
+}
+
+export function frozen<Value>(value: Value): Value {
+  if (typeof value !== 'object' || value === null || Object.isFrozen(value)) return value;
+
+  Object.freeze(value);
+  Object.values(value).forEach((inner: unknown) => frozen(inner));
+
+  return value;
 }
 
 export function types(events: readonly BattleEvent[]): readonly string[] {
@@ -222,7 +231,9 @@ function checkPhase(state: BattleState): void {
 
   const holder = turnHolderOf(phase);
 
-  if (holder !== undefined) expect(turnRecordsOf(state, holder).every(({ waited }) => waited)).toBe(true);
+  if (holder !== undefined && state.ruleset.mechanics['kernel:turn-order']?.variant !== 'acme:sides-twice') {
+    expect(turnRecordsOf(state, holder).every(({ waited }) => waited)).toBe(true);
+  }
 
   if (phase.unit === undefined) return;
 

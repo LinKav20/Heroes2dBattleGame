@@ -86,6 +86,14 @@ describe('applyModifiers', () => {
     expect(applyModifiers(-5, [], { min: 0 }, 'down')).toBe(0);
   });
 
+  it('bounds the value by any number of bounding modifiers', () => {
+    const lows = Array.from({ length: 200_000 }, (unused, order) => modifier('min', order % 1000, { order }));
+    const highs = Array.from({ length: 200_000 }, (unused, order) => modifier('max', 5000 - (order % 1000), { order }));
+
+    expect(applyModifiers(10, lows, {}, 'down')).toBe(999);
+    expect(applyModifiers(10_000, highs, {}, 'down')).toBe(4001);
+  });
+
   it('brings the value to 0, not below, when percents add up to less than -100', () => {
     const weak = [modifier('percent', -60), modifier('percent', -60), modifier('final-add', 5)];
 

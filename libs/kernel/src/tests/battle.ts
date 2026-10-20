@@ -17,7 +17,7 @@ import { createKernel, type Kernel } from '../kernel/index.ts';
 import type { AppliedEffect, BattleState, Command } from '../model/index.ts';
 import { KERNEL_STEPS } from '../names/index.ts';
 import { operationDrafts } from '../operations/index.ts';
-import { accepted, CONTENT, FROZEN_STATE, GRID, HEX, node, SPEED_ORDER } from './fixtures.ts';
+import { accepted, CONTENT, FROZEN_STATE, GRID, FACING_GRID, node, SPEED_ORDER } from './fixtures.ts';
 import { runDrafts } from './run-drafts.ts';
 
 export const RUN: CommandKind = {
@@ -93,7 +93,7 @@ export const SNEAKY: OperationExtension = {
 };
 
 export const KERNEL: Kernel = createKernel({
-  extensions: [RUN, EMIT, ASK, DROP, HIT, POKE, SNEAK, SNEAKY, GRID, HEX, SPEED_ORDER],
+  extensions: [RUN, EMIT, ASK, DROP, HIT, POKE, SNEAK, SNEAKY, GRID, FACING_GRID, SPEED_ORDER],
 });
 
 export const ARCHERS = { kind: 'unit', unit: 'archers-1' } as const;

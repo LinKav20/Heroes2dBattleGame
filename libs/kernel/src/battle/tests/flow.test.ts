@@ -1,17 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { ContentError } from '../../content/index.ts';
-import type { TurnOrderVariant } from '../../extensions/index.ts';
+import { ContentError, type ContentRegistry } from '../../content/index.ts';
+import { MAX_STACK_DEPTH, type ExecuteResult } from '../../execution/index.ts';
+import type { CommandKind, TurnOrderVariant } from '../../extensions/index.ts';
 import type { BattleState, GameCommand, UnitHolder } from '../../model/index.ts';
-import { asRecord, node, unitOf } from '../../tests/fixtures.ts';
+import { accepted, asRecord, effect, node, unitOf } from '../../tests/fixtures.ts';
 import { spendActionsDraft, turnCheckDraft } from '../index.ts';
 import {
+  ASK_STEP,
   battleWith,
+  BRACE,
   CONTENT,
   CREATED,
   endTurn,
   finish,
   KERNEL,
   kernelWith,
+  mark,
   move,
   ORDER,
   place,
@@ -22,6 +26,7 @@ import {
   RULESET,
   runOn,
   SCENARIO,
+  SIDES,
   startWith,
   value,
   variant,
@@ -278,6 +283,72 @@ describe('the course of a battle', () => {
     expect(stuck.turns.every(({ skipped }) => skipped)).toBe(true);
   });
 
+  it('ends the battle in a draw though a side without units on the field keeps an effect that counts turns', () => {
+    const content = tired([[], ['demo:steady']]);
+    const created = KERNEL.createState({ scenario: 'demo:duel' }, content);
+    const units = created.units.map((unit) => (unit.id === 'pikemen-1' ? { ...unit, count: 0 } : unit));
+    const placed = play({ ...created, units }, place('archers-1', '0,1'), content).state;
+    const stuck = play(placed, finish(), content).state;
+
+    expect(asRecord(stuck.phase).outcome).toStrictEqual({ kind: 'draw', winners: [] });
+    expect(stuck.sides[1]?.effects.map(({ remaining }) => remaining)).toStrictEqual([3]);
+  });
+
+  it('puts off the draw while an effect of a unit or of its side still counts down', () => {
+    const ofUnit = startWith(KERNEL, tired([[], []], [['demo:steady'], []]));
+    const ofSide = startWith(KERNEL, tired([['demo:steady'], []]));
+
+    expect([ofUnit.round, asRecord(ofUnit.phase).outcome]).toStrictEqual([3, { kind: 'draw', winners: [] }]);
+    expect([ofSide.round, asRecord(ofSide.phase).outcome]).toStrictEqual([3, { kind: 'draw', winners: [] }]);
+  });
+
+  it('declares the draw only after the end of the round, whose triggers and outcomes come first', () => {
+    const thaw = {
+      id: 'thaw',
+      on: 'kernel:round-end',
+      ops: [node('kernel:set-variable', { value: false, variable: 'cold' })],
+      priority: 0,
+    };
+    const frost = effect('demo:frost', {
+      activeWhile: node('kernel:variable-is', { value: true, variable: 'cold' }),
+      duration: { kind: 'battle' },
+      modifiers: [{ attribute: 'core:action', operation: 'add', value: -1 }],
+    });
+    const base = tired([[], []], [['demo:frost'], []]);
+    const scenario = base.scenarios['demo:duel'];
+
+    if (scenario === undefined) throw new Error('No scenario');
+
+    const archer = CONTENT.creatures['demo:archer'];
+    const frozen = {
+      ...base,
+      creatures: { ...base.creatures, ...(archer === undefined ? {} : { 'demo:archer': archer }) },
+      effects: { ...base.effects, 'demo:frost': frost },
+      scenarios: { 'demo:duel': { ...scenario, triggers: [thaw], variables: { cold: true } } },
+    };
+    const won = {
+      ...frozen,
+      scenarios: {
+        'demo:duel': {
+          ...scenario,
+          outcomes: [{
+            condition: node('kernel:variable-is', { value: false, variable: 'cold' }),
+            id: 'thawed',
+            outcome: 'victory' as const,
+            side: 'attacker',
+          }],
+          triggers: [thaw],
+          variables: { cold: true },
+        },
+      },
+    };
+    const thawed = startWith(KERNEL, frozen);
+
+    expect(thawed.round).toBe(2);
+    expect(thawed.phase).toStrictEqual({ kind: 'turn', side: 'attacker', unit: 'archers-1' });
+    expect(asRecord(startWith(KERNEL, won).phase).outcome).toMatchObject({ condition: 'thawed', kind: 'victory' });
+  });
+
   it('checks outcomes and the turn again when the last reactions of a command change the battle', () => {
     const sides = SCENARIO.sides.map((side, index) => (index === 1
       ? { ...side, units: side.units.map((unit) => ({ ...unit, effects: ['demo:fragile', 'demo:trap'] })) }
@@ -326,12 +397,77 @@ describe('the course of a battle', () => {
 
     expect(answered.state.phase).toStrictEqual({ kind: 'turn', side: 'defender', unit: 'pikemen-1' });
   });
+
+  it('saves at most the full stack of steps when it waits for a value, and goes on from it', () => {
+    const full = accepted(piled(MAX_STACK_DEPTH - 4));
+    const saved = JSON.parse(JSON.stringify(full.state)) as BattleState;
+    const answer = { kind: 'answer', request: 1, value: { dice: [3], kind: 'roll' } } as const;
+    const answered = accepted(PILING.execute(saved, answer, WATCHED));
+
+    expect(accepted(piled(MAX_STACK_DEPTH - 5)).state.steps).toHaveLength(MAX_STACK_DEPTH - 1);
+    expect(full.state.steps).toHaveLength(MAX_STACK_DEPTH);
+    expect(reason(piled(MAX_STACK_DEPTH - 3))).toStrictEqual(['kernel:step-limit', {}]);
+    expect(answered.state.steps).toStrictEqual([]);
+    expect(answered.state.variables).toMatchObject({ asked: true, piled: true });
+    expect(answered.state.phase).toStrictEqual({ kind: 'turn', side: 'attacker', unit: 'archers-1' });
+  });
+});
+
+const PILE: CommandKind<{ readonly depth: number }> = {
+  kind: 'command',
+  name: 'acme:pile',
+  plan: ({ payload }) => ({
+    kind: 'steps',
+    steps: [
+      mark('piling'),
+      { params: {}, type: ASK_STEP.name },
+      ...Array.from({ length: payload.depth }, () => mark('piled')),
+    ],
+  }),
+  schema: { type: 'object' },
+};
+
+const PILING = kernelWith(ORDER, SIDES, BRACE, PILE);
+
+const WATCHED = withScenario({
+  triggers: [...SCENARIO.triggers, { id: 'watch', on: 'kernel:variable-set', ops: [], priority: 0 }],
 });
 
 const ARCHERS: UnitHolder = { kind: 'unit', unit: 'archers-1' };
 
 const PIKEMEN: UnitHolder = { kind: 'unit', unit: 'pikemen-1' };
 
+function piled(depth: number): ExecuteResult {
+  const randomSources = { 'core:morale': 'external' } as const;
+  const external = { ...PLACED, ruleset: { ...PLACED.ruleset, randomSources } };
+
+  return PILING.execute(external, { kind: 'game', name: 'acme:pile', payload: { depth }, type: 'extension' }, WATCHED);
+}
+
 function spend(spent: Readonly<Record<string, number>>): unknown {
   return runOn(PLACED, CONTENT, spendActionsDraft({ spent, unit: 'archers-1' })).events.map(({ payload }) => payload);
+}
+
+function tired(
+  sideEffects: ReadonlyArray<readonly string[]>,
+  unitEffects: ReadonlyArray<readonly string[]> = [[], []],
+): ContentRegistry {
+  const archer = CONTENT.creatures['demo:archer'];
+  const pikeman = CONTENT.creatures['demo:pikeman'];
+
+  if (archer === undefined || pikeman === undefined) throw new Error('No creatures');
+
+  const sides = SCENARIO.sides.map((side, index) => ({
+    ...side,
+    effects: sideEffects[index] ?? [],
+    units: side.units.map((unit) => ({ ...unit, effects: unitEffects[index] ?? [] })),
+  }));
+
+  return {
+    ...withScenario({ outcomes: [], sides }),
+    creatures: {
+      'demo:archer': { ...archer, attributes: { ...archer.attributes, 'core:action': 0 } },
+      'demo:pikeman': { ...pikeman, attributes: { ...pikeman.attributes, 'core:action': 0 } },
+    },
+  };
 }

@@ -150,7 +150,10 @@ describe('the course of the battle and packages', () => {
     expect(thrown).toBeInstanceOf(TypeError);
     expect(asRecord(thrown).name).toBe('TypeError');
     expect(() => play(PLACED, turnEnd(), looping, kernelWith(ORDER))).toThrow(ContentError);
-    expect(() => play(PLACED, turnEnd(), looping, kernelWith(ORDER))).toThrow('goes beyond');
+
+    expect(() => play(PLACED, turnEnd(), looping, kernelWith(ORDER)))
+      .toThrow(/goes beyond .* at "kernel:scenario-check" in round 1, phase "turn", for example/u);
+
     expect(unitOf(PLACED, 'archers-1').count).toBe(10);
   });
 });

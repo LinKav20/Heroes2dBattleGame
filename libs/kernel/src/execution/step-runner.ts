@@ -79,7 +79,7 @@ export function runSteps(
 
     runs += 1;
 
-    if (runs > MAX_STEPS_PER_COMMAND) return beyondLimits(step);
+    if (runs > MAX_STEPS_PER_COMMAND) return beyondLimits(step, recorder.state);
 
     const before = recorder.nextEventId;
     const outcome = runStep(context, recorder, stack, step, { course, reactions: course.reacts(recorder.state) });
@@ -152,14 +152,14 @@ function runStep(
 
       options.course?.afterStep(state, recorder.state, recorded, stack);
 
-      return pushed ? 'continue' : beyondLimits(step);
+      return pushed ? 'continue' : beyondLimits(step, recorder.state);
     }
 
     case 'need': {
       if (stack === undefined) throw new TypeError(`The step ${JSON.stringify(step.type)} asks for a value alone.`);
 
       if (pauses(recorder.state, result.need) && options.course?.beforePause(stack) === false) {
-        return beyondLimits(step);
+        return beyondLimits(step, recorder.state);
       }
 
       return resolveNeed(context, recorder, stack, step, result.need);
@@ -192,12 +192,13 @@ function stepContext(context: ExecutionContext, state: BattleState, step: Step):
   };
 }
 
-function beyondLimits(step: Step): ExecuteRejected {
+function beyondLimits(step: Step, state: BattleState): ExecuteRejected {
   if (step.flow !== true) return ruleViolation(REJECTION_REASONS.stepLimit);
 
   throw new ContentError(
     `The course of the battle goes beyond ${String(MAX_STEPS_PER_COMMAND)} steps or ${String(MAX_STACK_DEPTH)} steps `
-    + `on the stack at ${JSON.stringify(step.type)}, for example because triggers fire each other without end.`,
+    + `on the stack at ${JSON.stringify(step.type)} in round ${String(state.round)}, `
+    + `phase ${JSON.stringify(state.phase.kind)}, for example because triggers fire each other without end.`,
   );
 }
 

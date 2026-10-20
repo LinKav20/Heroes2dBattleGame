@@ -47,6 +47,10 @@ export class ScopedExpressions implements Expressions {
     return this.engine.tags(unit);
   }
 
+  forbiddenTags(of: SideTarget | UnitTarget): Evaluation<readonly Tag[]> {
+    return this.engine.forbiddenTags(of);
+  }
+
   roll(need: RollNeed): Evaluation<number> {
     const owner = rollOwner(this.engine.state, this.scope.subjects ?? {});
 

@@ -128,7 +128,7 @@ export const CONTENT: ContentRegistry = {
         hazards: [{ cells: ['5,5'], effects: ['core:poison'], id: 'swamp', visibleTo: ['defender'] }],
         obstacles: [{ cells: ['7,3'], id: 'rock-1', obstacle: 'demo:rock' }],
         params: { height: 11, width: 15 },
-        topology: 'acme:hex',
+        topology: 'acme:facing-grid',
       },
       name: 'demo:bridge',
       outcomes: [
@@ -211,7 +211,7 @@ export const STATE: BattleState = {
     ],
     obstacles: [{ cells: ['7,3'], id: 'rock-1', obstacle: 'demo:rock' }],
     params: { height: 11, width: 15 },
-    topology: 'acme:hex',
+    topology: 'acme:facing-grid',
   },
   format: { extensions: { 'rules-stdlib:siege': 1 }, kernel: 1, steps: { 'kernel:end-turn': 1 } },
   inputRequest: {
@@ -363,7 +363,7 @@ export const GRID: TopologyExtension<GridParams> = {
   schema: { type: 'object' },
 };
 
-export const HEX: TopologyExtension<GridParams> = {
+export const FACING_GRID: TopologyExtension<GridParams> = {
   ...GRID,
   footprint: (params, cell, { facing, size }) => {
     const [x, y] = gridPoint(cell);
@@ -372,7 +372,7 @@ export const HEX: TopologyExtension<GridParams> = {
 
     return cells.every((taken) => gridCells(params).includes(taken)) ? cells : undefined;
   },
-  name: 'acme:hex',
+  name: 'acme:facing-grid',
 };
 
 export const SPEED_ORDER: TurnOrderVariant = {

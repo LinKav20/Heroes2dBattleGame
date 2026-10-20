@@ -150,7 +150,7 @@ describe('the reactions of the effects of a hazard zone', () => {
 
   it('follow a turn by the cells the unit takes after it, on the field before it', () => {
     const big = withCreature('demo:archer', { size: 2 });
-    const state = changed({ ...onGrid(), field: { ...onGrid().field, topology: 'acme:hex' } }, 'archers-1', {
+    const state = changed({ ...onGrid(), field: { ...onGrid().field, topology: 'acme:facing-grid' } }, 'archers-1', {
       cell: '4,1',
       effects: [],
     });
@@ -167,6 +167,36 @@ describe('the reactions of the effects of a hazard zone', () => {
     expect(run(placed, CONTENT, emit([about('pikemen-1')])).state.variables.burned).toBe(true);
     expect(run(placed, CONTENT, emit([about('wolves-1')])).state.variables.burned).toBeUndefined();
     expect(run(placed, CONTENT, emit([nobody])).state.variables.wet).toBeUndefined();
+  });
+
+  it('know a unit that came in only after the refresh: the move fires at once, a hit before the refresh not', () => {
+    const placed = run(onGrid(), CONTENT, areaRefreshDraft()).state;
+    const entered = run(moved(placed, 'archers-1', '3,1'), CONTENT, emit([
+      movedAlong('archers-1', ['1,1', '2,1', '3,1']),
+      about('archers-1'),
+    ]));
+    const inside = run(entered.state, CONTENT, areaRefreshDraft()).state;
+
+    expect(entered.state.variables).toMatchObject({ stuck: true });
+    expect(entered.state.variables.burned).toBeUndefined();
+    expect(unitOf(entered.state, 'archers-1').zones).toStrictEqual([]);
+    expect(unitOf(inside, 'archers-1').zones).toStrictEqual(['swamp']);
+    expect(run(inside, CONTENT, emit([about('archers-1')])).state.variables.burned).toBe(true);
+  });
+
+  it('still know a unit that went out until the refresh, so a hit before the refresh fires', () => {
+    const placed = run(onGrid(), CONTENT, areaRefreshDraft()).state;
+    const left = run(moved(placed, 'pikemen-1', '1,0'), CONTENT, emit([
+      movedAlong('pikemen-1', ['1,0']),
+      about('pikemen-1'),
+    ]));
+    const outside = { ...run(left.state, CONTENT, areaRefreshDraft()).state, variables: {} };
+
+    expect(unitOf(placed, 'pikemen-1').zones).toStrictEqual(['swamp']);
+    expect(left.state.variables).toMatchObject({ burned: true });
+    expect(left.state.variables.stuck).toBeUndefined();
+    expect(unitOf(outside, 'pikemen-1').zones).toStrictEqual([]);
+    expect(run(outside, CONTENT, emit([about('pikemen-1')])).state.variables.burned).toBeUndefined();
   });
 
   it('end the effect on an event about anybody, as for other applied effects', () => {

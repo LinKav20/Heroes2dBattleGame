@@ -14,7 +14,7 @@ import type {
 import { FieldCache } from '../../geometry/index.ts';
 import { createKernel, type Kernel } from '../../kernel/index.ts';
 import type { BattleState, Command, GameCommand } from '../../model/index.ts';
-import { accepted, effect, HEX, node, SPEED_ORDER, type GridParams } from '../../tests/fixtures.ts';
+import { accepted, effect, FACING_GRID, node, SPEED_ORDER, type GridParams } from '../../tests/fixtures.ts';
 import { runDrafts } from '../../tests/run-drafts.ts';
 import { spendActionsDraft } from '../index.ts';
 
@@ -40,7 +40,11 @@ export const SIDES: TurnOrderVariant = {
   turnOwner: 'side',
 };
 
-export const COMPASS: TopologyExtension<GridParams> = { ...HEX, directions: () => ['east', 'west'], name: 'acme:grid' };
+export const COMPASS: TopologyExtension<GridParams> = {
+  ...FACING_GRID,
+  directions: () => ['east', 'west'],
+  name: 'acme:grid',
+};
 
 export const BRACE: DefenseVariant = {
   defend: (context, unit) => (unit === 'pikemen-1'

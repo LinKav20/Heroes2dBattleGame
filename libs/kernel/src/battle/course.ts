@@ -17,9 +17,9 @@ export interface CourseStack {
   changeNearest(type: string, change: (params: JsonObject) => JsonObject): boolean;
   /**
    * Puts steps right above the step of the course of the battle that is nearest to the top, or at the bottom if there
-   * is none, and tells whether they fit.
+   * is none, and tells whether they fit with room for `reserve` more steps.
    */
-  insertAboveFlow(drafts: readonly StepDraft[]): boolean;
+  insertAboveFlow(drafts: readonly StepDraft[], reserve?: number): boolean;
 }
 
 /**
@@ -99,12 +99,13 @@ export class BattleCourse {
 
   /**
    * Puts the waiting triggers into a check above the next step of the course of the battle before the command stops
-   * on an input request, and tells whether it fits into the stack.
+   * on an input request, and tells whether it fits into the stack together with the step that waits for the answer,
+   * which goes back on top.
    */
   beforePause(stack: CourseStack): boolean {
     if (this.loose.length === 0) return true;
 
-    return stack.insertAboveFlow([scenarioCheckDraft(this.loose.splice(0)), outcomeCheckDraft()]);
+    return stack.insertAboveFlow([scenarioCheckDraft(this.loose.splice(0)), outcomeCheckDraft()], 1);
   }
 }
 

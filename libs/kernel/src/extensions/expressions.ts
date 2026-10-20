@@ -110,6 +110,15 @@ export interface ExpressionReader {
    */
   tags(unit: UnitId): Evaluation<Readonly<Record<Tag, number>>>;
   /**
+   * Returns the tags of abilities that the effects acting on a unit or a side forbid while their condition of activity
+   * holds, as `Effect.forbids` lists them; an ability with any of these tags or a tag below them cannot be used.
+   *
+   * @throws {ContentError} If a definition the unit or the side refers to does not exist, or a condition of activity
+   * rolls dice.
+   * @throws {TypeError} If the unit or the side is not in the battle.
+   */
+  forbiddenTags(of: SideTarget | UnitTarget): Evaluation<readonly Tag[]>;
+  /**
    * Returns the sum of a dice roll: the next roll the step has received, or the need of the roll if there is none yet.
    * The roll belongs to the side and the unit of the current `self` unless the need names them, so an input request
    * goes to them.

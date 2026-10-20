@@ -6,6 +6,7 @@ import {
   hashJson,
   itemDefinition,
   standsOnField,
+  type AbilityRequest,
   type BattleEvent,
   type BattleState,
   type Command,
@@ -23,6 +24,7 @@ import {
   deployed,
   DRIVE,
   endTurn,
+  frozen,
   move,
   use,
   useItem,
@@ -56,6 +58,27 @@ describe('random battles', () => {
       expect(first.events.reduce((state, event) => DRIVE.kernel.applyEvent(state, event), start(arena, external)))
         .toStrictEqual(first.state);
     }), { numRuns: 6, seed: seedOf(2) });
+  });
+
+  it.each(ARENAS)('at the %s accept what the rules allow and refuse the rest for the right reason', (arena) => {
+    fc.assert(fc.property(CHOICES, fc.boolean(), (choices, external) => {
+      const current = drive(arena);
+      let state = start(arena, external);
+      let allowed = 0;
+
+      for (const choice of choices) {
+        if (state.phase.kind === 'ended') break;
+
+        allowed += checkLegality(state, choice, current);
+
+        const result = current.kernel.execute(state, commandFor(state, choice, current), current.content);
+
+        if (result.ok) state = result.state;
+      }
+
+      checkLegality(state, 0, current);
+      expect(allowed).toBeGreaterThan(0);
+    }), { numRuns: 15, seed: seedOf(5) });
   });
 
   it('end in the end by an outcome of the scenario, when the players only end their turns', () => {
@@ -182,7 +205,7 @@ function play(first: BattleState, choices: readonly number[], current: Drive, ch
     if (state.phase.kind === 'ended') break;
 
     const command = commandFor(state, choice, current);
-    const result = current.kernel.execute(state, command, current.content);
+    const result = current.kernel.execute(frozen(state), frozen(command), frozen(current.content));
 
     if (!result.ok) {
       expect(result.rejection.reason, JSON.stringify(command)).toMatch(/^(?:kernel|acme):/u);
@@ -196,6 +219,95 @@ function play(first: BattleState, choices: readonly number[], current: Drive, ch
   }
 
   return { events, state };
+}
+
+function checkLegality(state: BattleState, choice: number, current: Drive): number {
+  for (const [command, reason] of illegalCommands(state, choice)) {
+    const result = current.kernel.execute(state, command, current.content);
+
+    expect(result.ok ? undefined : result.rejection.reason, JSON.stringify(command)).toBe(reason);
+  }
+
+  const legal = legalCommands(state, choice, current);
+
+  for (const command of legal) {
+    const result = current.kernel.execute(state, command, current.content);
+
+    expect(result.ok ? undefined : result.rejection, JSON.stringify(command)).toBeUndefined();
+  }
+
+  return legal.length;
+}
+
+function legalCommands(state: BattleState, choice: number, current: Drive): readonly Command[] {
+  const { inputRequest: request, phase } = state;
+
+  if (phase.kind === 'ended') return [];
+
+  if (request !== undefined) {
+    return request.kind === 'roll' ? [answerRoll(request.id, ...Array.from({ length: request.count }, () => 1))] : [];
+  }
+
+  const actor = actorOf(state, choice);
+
+  if (actor === undefined) return [];
+
+  const field = current.kernel.field(state, current.content);
+  const allowed = aimedUses(state, actor, field, current.content).filter((command) => allows(state, command, current));
+  const budget = (creatureDefinition(current.content, actor.creature).attributes['core:move'] ?? 0)
+    - (actor.spentActions['core:move'] ?? 0);
+  const steps = phase.kind !== 'turn' || phase.unit === undefined ? [] : field.reachable(actor.id, Math.max(0, budget));
+  const walk = pick(steps, choice);
+
+  return [
+    endTurnOf(state),
+    ...[pick(allowed, choice)].filter((command) => command !== undefined),
+    ...(walk === undefined ? [] : [move(actor.id, walk.cell)]),
+  ];
+}
+
+function allows(state: BattleState, command: Command, current: Drive): boolean {
+  if (command.kind !== 'game' || command.type !== 'use-ability' || command.unit === undefined) return false;
+
+  const request: AbilityRequest = {
+    ability: command.ability,
+    targets: command.targets,
+    user: { kind: 'unit', unit: command.unit },
+  };
+
+  return current.kernel.checkAbility(state, request, current.content) === undefined;
+}
+
+function illegalCommands(state: BattleState, choice: number): ReadonlyArray<readonly [Command, string]> {
+  const { phase } = state;
+  const anyone = pick(state.units, choice)?.id ?? 'nobody-1';
+  const dead = state.units.filter(({ count }) => count === 0);
+
+  if (phase.kind === 'ended') {
+    return [[endTurn(anyone), 'kernel:battle-over'], [answerRoll(1, 1), 'kernel:no-open-request']];
+  }
+
+  if (state.inputRequest !== undefined) {
+    return [
+      [endTurn(anyone), 'kernel:input-pending'],
+      [answerRoll(state.inputRequest.id + 1, 1), 'kernel:no-open-request'],
+    ];
+  }
+
+  const refused: Array<readonly [Command, string]> = [
+    [answerRoll(state.nextRequestId, 1), 'kernel:no-open-request'],
+    [endTurn('nobody-1'), 'kernel:invalid-command'],
+    ...dead.slice(0, 1).map((one) => [move(one.id, '0,0'), 'kernel:unit-dead'] as const),
+  ];
+
+  if (phase.kind !== 'turn') return refused;
+
+  const other = state.units.find((one) => standsOnField(one) && one.side !== phase.side);
+  const elsewhere: Command | undefined = phase.unit === undefined
+    ? other && { kind: 'game', side: other.side, type: 'end-turn' }
+    : other && endTurn(other.id);
+
+  return elsewhere === undefined ? refused : [...refused, [elsewhere, 'kernel:not-your-turn']];
 }
 
 function finished(state: BattleState, current: Drive): BattleState {

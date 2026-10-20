@@ -112,7 +112,7 @@ describe('the field of a state', () => {
       createKernel({ extensions: [flat] }).registries.topologies,
     );
 
-    expect(() => unknown.cells).toThrow('No package declares the topology "acme:hex".');
+    expect(() => unknown.cells).toThrow('No package declares the topology "acme:facing-grid".');
     expect(() => broken.reachable('archers-1', 3)).toThrow('gives a cost of a step below 1');
   });
 
@@ -214,6 +214,27 @@ describe('the field of a state', () => {
     expect(asked).toBe(1);
     expect(createFieldGeometry(elsewhere, CONTENT, registry, cache).cells).toHaveLength(15);
     expect(asked).toBe(2);
+  });
+
+  it('keeps the neighbors of a cell for a body apart from those of a cell without one, whatever the names', () => {
+    const tricky = 'a\u00001\u0000walk\u0000';
+    const params = { height: 1, width: 1 };
+    const odd: TopologyExtension<GridParams> = {
+      ...GRID,
+      cells: () => ['a', tricky, 'b'],
+      name: 'acme:odd',
+      neighbors: (unused, cell, body) => (body === undefined ? [cell === 'a' ? 'b' : 'a'] : [tricky]),
+    };
+    const body = { movement: 'walk', size: 1 } as const;
+    const first = new FieldCache();
+    const second = new FieldCache();
+
+    expect(first.neighborsOf(odd, params, tricky)).toStrictEqual(['a']);
+    expect(first.neighborsOf(odd, params, 'a', body)).toStrictEqual([tricky]);
+    expect(second.neighborsOf(odd, params, 'a', body)).toStrictEqual([tricky]);
+    expect(second.neighborsOf(odd, params, tricky)).toStrictEqual(['a']);
+    expect(second.neighborsOf(odd, params, 'a', { ...body, facing: 'east' })).toStrictEqual([tricky]);
+    expect(second.neighborsOf(odd, params, 'a')).toStrictEqual(['b']);
   });
 
   it('treats a creature with a size below 1 or an unknown movement as an error of content', () => {

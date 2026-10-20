@@ -17,7 +17,7 @@ import type { Registry } from '../names/index.ts';
 import type { AttributeCache } from './attributes/attribute-cache.ts';
 import { attributeValue, sourceActivity, type AttributeInput } from './attributes/attribute-value.ts';
 import { modifierSources, type ModifierSource } from './attributes/sources.ts';
-import { unitTags } from './attributes/unit-tags.ts';
+import { forbiddenTags, unitTags } from './attributes/unit-tags.ts';
 import type { ExpressionEngine } from './engine.ts';
 import { isNode } from './params.ts';
 import { evaluated, outOfRange } from './results.ts';
@@ -185,6 +185,10 @@ class Evaluator implements ExpressionEngine, AttributeInput {
 
       return result;
     }, () => `The tags of the unit ${JSON.stringify(unit)} depend on themselves.`);
+  }
+
+  forbiddenTags(of: SideTarget | UnitTarget): Evaluation<readonly Tag[]> {
+    return forbiddenTags(this, of);
   }
 
   roll(need: RollNeed, allowed: boolean): Evaluation<number> {

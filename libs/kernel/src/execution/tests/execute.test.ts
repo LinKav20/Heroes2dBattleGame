@@ -10,7 +10,7 @@ import { FieldCache } from '../../geometry/index.ts';
 import { canonicalJson } from '../../json/index.ts';
 import { createKernel } from '../../kernel/index.ts';
 import type { AppliedEffect, BattleState, Command, InputValue, Rejection, Unit } from '../../model/index.ts';
-import { accepted, CONTENT, deepFreeze, effect, HEX, SPEED_ORDER, unitOf } from '../../tests/fixtures.ts';
+import { accepted, CONTENT, deepFreeze, effect, FACING_GRID, SPEED_ORDER, unitOf } from '../../tests/fixtures.ts';
 import { runDrafts } from '../../tests/run-drafts.ts';
 import {
   MAX_STACK_DEPTH,
@@ -456,7 +456,7 @@ describe('formulas in steps', () => {
       name: 'acme-duel:count',
       schema: { type: 'object' },
     };
-    const kernel = createKernel({ extensions: [...DUEL_EXTENSIONS, HEX, SPEED_ORDER, counting] });
+    const kernel = createKernel({ extensions: [...DUEL_EXTENSIONS, FACING_GRID, SPEED_ORDER, counting] });
     const counted = effect('acme-duel:counted', {
       duration: { kind: 'battle' },
       modifiers: [{ attribute: 'core:speed', operation: 'add', value: { type: 'acme-duel:count' } }],

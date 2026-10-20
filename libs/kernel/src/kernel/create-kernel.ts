@@ -92,7 +92,8 @@ export interface Kernel {
   /**
    * Checks whether a unit or a side can use an ability or an item now, as the command to use it would check it, and
    * returns why the rules forbid it, or nothing if they allow it, for example to show which abilities are available.
-   * The check has no side effects and rolls no dice.
+   * An open input request and the end of the battle forbid it with the same reasons as the command. The check has no
+   * side effects and rolls no dice.
    *
    * @throws {ContentError} If a definition is wrong, or the requirement or the filter of targets rolls dice.
    * @throws {TypeError} If the content is not the content of the battle, or the unit, the side or the item of the
@@ -108,6 +109,10 @@ export interface Kernel {
 /**
  * Creates a kernel and its registries from the extensions of the point of assembly. The kernel adds its own
  * extensions under the prefix `kernel`.
+ *
+ * The kernel freezes the objects of the extensions it registers, with their migrations, schemas and data, so the
+ * registries and the version of the state format never change; an extension that keeps changing state of its own keeps
+ * it elsewhere.
  *
  * Two extensions must not share a full name or a short name, even if they belong to different registries. The prefix
  * `kernel` belongs to the kernel, and other packages cannot use it. Every kind of event and step needs a version and

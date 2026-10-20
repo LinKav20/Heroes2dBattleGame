@@ -25,7 +25,7 @@ import {
 } from '../model/index.ts';
 import type { ExecutionContext } from './context.ts';
 import { EventRecorder } from './event-recorder.ts';
-import { extensionViolation, ruleViolation, type ExecuteResult } from './result.ts';
+import { extensionViolation, ruleViolation, type ExecuteRejected, type ExecuteResult } from './result.ts';
 import { runSteps } from './step-runner.ts';
 import { StepStack } from './step-stack.ts';
 
@@ -55,11 +55,9 @@ export function startCommand(
 ): ExecuteResult {
   if (command.kind === 'edit') return ruleViolation(REJECTION_REASONS.notAvailable);
 
-  if (state.inputRequest !== undefined) return ruleViolation(REJECTION_REASONS.inputPending);
+  const blocked = battleRejection(state);
 
-  if (state.steps.length > 0) throw new TypeError('The battle has saved steps, but no input request is open.');
-
-  if (state.phase.kind === 'ended') return ruleViolation(REJECTION_REASONS.battleOver);
+  if (blocked !== undefined) return blocked;
 
   const plan = planOf(context, state, command);
 
@@ -86,6 +84,20 @@ export function startCommand(
       throw new TypeError(`The game command ${JSON.stringify(command.type)} has an unknown plan.`);
     }
   }
+}
+
+/**
+ * Returns why no game command can run in a state now: an input request is open, or the battle is over; nothing if the
+ * battle waits for a command.
+ *
+ * @throws {TypeError} If the state has saved steps without an open input request.
+ */
+export function battleRejection(state: BattleState): ExecuteRejected | undefined {
+  if (state.inputRequest !== undefined) return ruleViolation(REJECTION_REASONS.inputPending);
+
+  if (state.steps.length > 0) throw new TypeError('The battle has saved steps, but no input request is open.');
+
+  return state.phase.kind === 'ended' ? ruleViolation(REJECTION_REASONS.battleOver) : undefined;
 }
 
 const PLANNERS: Planners = {
