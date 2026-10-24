@@ -1,10 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { ContentError, type Op } from '../../content/index.ts';
+import {
+  CONTENT as DUEL,
+  KERNEL as DUEL_KERNEL,
+  SCENARIO as DUEL_SCENARIO,
+  withArchers as withDuelArchers,
+} from '../../battle/tests/helpers.ts';
+import { ContentError, type ContentRegistry, type Op } from '../../content/index.ts';
 import type { ExecuteAccepted } from '../../execution/index.ts';
 import type { BattleState, InventoryItem, Unit } from '../../model/index.ts';
+import { withoutKey } from '../../shared/index.ts';
 import { ABILITY_CONTENT, READY, withArchers } from '../../tests/abilities.ts';
 import { ARCHERS, PIKEMEN, run, types } from '../../tests/battle.ts';
-import { node, unitOf } from '../../tests/fixtures.ts';
+import { effect, node, unitOf } from '../../tests/fixtures.ts';
 import { damaged, healed, operationDrafts } from '../index.ts';
 
 describe('kernel:damage and kernel:heal', () => {
@@ -33,6 +40,93 @@ describe('kernel:damage and kernel:heal', () => {
     expect(unitOf(healed2, 'archers-1').health).toBe(9);
     expect(unitOf(full, 'archers-1')).toMatchObject({ count: 10, health: 10 });
     expect(operate(above, node('kernel:heal', { amount: 5, to: 'self' })).events).toStrictEqual([]);
+  });
+
+  it('bring dead creatures back with healing that revives, up to the number the unit started with', () => {
+    const wounded = withPikemen(READY, { count: 15, health: 3 });
+
+    expect(unitOf(operate(wounded, revive(25)).state, 'pikemen-1')).toMatchObject({ count: 17, health: 8 });
+    expect(unitOf(operate(wounded, revive(1000)).state, 'pikemen-1')).toMatchObject({ count: 20, health: 10 });
+    expect(unitOf(operate(DEAD, revive(15)).state, 'pikemen-1')).toMatchObject({ count: 2, health: 5 });
+    expect(health(operate(withPikemen(READY, { count: 20, health: 12 }), revive(5)))).toStrictEqual([]);
+
+    expect(() => operate(READY, node('kernel:heal', { amount: 1, revive: 'yes', to: 'target' })))
+      .toThrow('needs true or false in "revive"');
+  });
+
+  it('give what is left of the healing to the last creature back, and only whole creatures above full health', () => {
+    const full = withPikemen(READY, { count: 15, health: 10 });
+    const above = withPikemen(READY, { count: 15, health: 12 });
+    const almost = withPikemen(READY, { count: 19, health: 12 });
+
+    expect(unitOf(operate(full, revive(25)).state, 'pikemen-1')).toMatchObject({ count: 18, health: 5 });
+    expect(unitOf(operate(above, revive(25)).state, 'pikemen-1')).toMatchObject({ count: 17, health: 12 });
+    expect(unitOf(operate(almost, revive(25)).state, 'pikemen-1')).toMatchObject({ count: 20, health: 12 });
+  });
+
+  it('bring nothing back with healing whose revive is false', () => {
+    const heal = node('kernel:heal', { amount: 25, revive: false, to: 'target' });
+    const wounded = withPikemen(READY, { count: 15, health: 3 });
+
+    expect(operate(DEAD, heal).events).toStrictEqual([]);
+    expect(unitOf(operate(wounded, heal).state, 'pikemen-1')).toMatchObject({ count: 15, health: 10 });
+  });
+
+  it('bring back no more creatures than the options of the battle gave the unit', () => {
+    const created = DUEL_KERNEL.createState({ scenario: 'demo:duel', units: { 'pikemen-1': { count: 5 } } }, DUEL);
+    const { startCount } = unitOf(created, 'pikemen-1');
+
+    expect(startCount).toBe(5);
+
+    expect(unitOf(operate(withPikemen(DEAD, { startCount }), revive(1000)).state, 'pikemen-1'))
+      .toMatchObject({ count: 5, health: 10 });
+  });
+
+  it('bring back the creatures that the effects of the scenario killed before the battle', () => {
+    const onApply = [node('kernel:damage', { amount: 15, to: 'self' })];
+    const wound = effect('demo:wound', { duration: { kind: 'instant' }, onApply });
+    const content = {
+      ...DUEL,
+      effects: { ...DUEL.effects, 'demo:wound': wound },
+      scenarios: { 'demo:duel': { ...DUEL_SCENARIO, ...withDuelArchers(['demo:wound']) } },
+    };
+    const created = DUEL_KERNEL.createState({ scenario: 'demo:duel' }, content);
+    const heal = node('kernel:heal', { amount: 1000, revive: true, to: 'self' });
+    const healed = run(created, content, ...operationDrafts([heal], { subjects: { self: ARCHERS } }));
+
+    expect(unitOf(created, 'archers-1')).toMatchObject({ count: 9, startCount: 10 });
+    expect(unitOf(healed.state, 'archers-1')).toMatchObject({ count: 10, health: 10 });
+  });
+
+  it('bring back no unit without a cell or with any of its cells taken, and roll nothing for it', () => {
+    const dice = node('kernel:dice', { count: 2, name: 'core:damage-roll', sides: 6 });
+    const roll = node('kernel:heal', { amount: dice, revive: true, to: 'target' });
+    const taken = operate(withArchers(DEAD, { cell: '14,5' }), roll);
+
+    expect(taken.events).toStrictEqual([]);
+
+    const away = {
+      ...DEAD,
+      units: DEAD.units.map((unit) => (unit.id === 'pikemen-1' ? withoutKey(unit, 'cell') : unit)),
+    };
+
+    expect(unitOf(away, 'pikemen-1').cell).toBeUndefined();
+    expect(operate(away, roll).events).toStrictEqual([]);
+  });
+
+  it('bring back a large creature only where all of its cells in its direction are free', () => {
+    const pikeman = ABILITY_CONTENT.creatures['demo:pikeman'];
+
+    if (pikeman === undefined) throw new Error('No pikeman');
+
+    const creatures = { ...ABILITY_CONTENT.creatures, 'demo:pikeman': { ...pikeman, size: 2 } };
+    const large = { ...ABILITY_CONTENT, creatures };
+    const west = withPikemen(DEAD, { facing: 'west' });
+    const behind = withArchers(west, { cell: '13,5' });
+
+    expect(unitOf(operateWith(west, large, revive(10)).state, 'pikemen-1')).toMatchObject({ count: 1, health: 10 });
+    expect(operateWith(behind, large, revive(10)).events).toStrictEqual([]);
+    expect(operateWith(DEAD, large, revive(10)).events).toStrictEqual([]);
   });
 
   it('roll nothing for a unit with no creatures left', () => {
@@ -167,12 +261,24 @@ const DEAD: BattleState = {
   units: READY.units.map((unit) => (unit.id === 'pikemen-1' ? { ...unit, count: 0, health: 0 } : unit)),
 };
 
+function revive(amount: number): Op {
+  return node('kernel:heal', { amount, revive: true, to: 'target' });
+}
+
+function withPikemen(state: BattleState, change: Partial<Unit>): BattleState {
+  return { ...state, units: state.units.map((unit) => (unit.id === 'pikemen-1' ? { ...unit, ...change } : unit)) };
+}
+
 function health(result: ExecuteAccepted): readonly unknown[] {
   return result.events.filter(({ type }) => type === 'kernel:health-changed');
 }
 
 function operate(state: BattleState, op: Op): ExecuteAccepted {
-  return run(state, ABILITY_CONTENT, ...operationDrafts([op], { subjects: { self: ARCHERS, target: PIKEMEN } }));
+  return operateWith(state, ABILITY_CONTENT, op);
+}
+
+function operateWith(state: BattleState, content: ContentRegistry, op: Op): ExecuteAccepted {
+  return run(state, content, ...operationDrafts([op], { subjects: { self: ARCHERS, target: PIKEMEN } }));
 }
 
 function potion(id: number, count: number): InventoryItem {

@@ -71,6 +71,21 @@ export function listParam<Item extends JsonValue>(
 }
 
 /**
+ * Returns a parameter of a node that is true or false, or false if it is absent.
+ *
+ * @throws {ContentError} If the parameter is neither true nor false.
+ */
+export function flagParam(node: ExpressionNode, name: string): boolean {
+  const value = node[name];
+
+  if (value !== undefined && typeof value !== 'boolean') {
+    throw contentError(node, `needs true or false in ${JSON.stringify(name)}`);
+  }
+
+  return value === true;
+}
+
+/**
  * Returns a string parameter of a node.
  *
  * @throws {ContentError} If the parameter is not a non-empty string.

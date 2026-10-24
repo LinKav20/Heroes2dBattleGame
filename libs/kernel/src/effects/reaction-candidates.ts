@@ -3,7 +3,7 @@ import { isKernelEvent, KERNEL_EVENTS, RUNNER_EVENTS } from '../events/index.ts'
 import type { StepDraft } from '../extensions/index.ts';
 import type { AppliedEffect, BattleEvent, BattleState } from '../model/index.ts';
 import { KERNEL_STEPS } from '../names/index.ts';
-import { actingEffects } from './holders.ts';
+import { actingEffects, reactsTo } from './holders.ts';
 import type { Reaction, ReactionBatch, ReactionParams } from './params.ts';
 import type { ReactionIndex } from './reaction-index.ts';
 import { EventView, type EventSetup } from './zone-touch.ts';
@@ -68,9 +68,12 @@ function batchOf(
   const about = new EventView(setup, event, before, state);
   const triggers: Candidate[] = [];
   const endings: Candidate[] = [];
+  const target = about.target();
 
   for (const { applied, effect, holder, side } of actingEffects(state, content, reacting)) {
     if (applied !== undefined && aboutItself(event, applied)) continue;
+
+    if (!reactsTo(state, holder, target)) continue;
 
     const definition = effectDefinition(content, effect);
     const base = { effect, holder, ...(applied === undefined ? {} : { applied: applied.id }) };
@@ -98,8 +101,6 @@ function batchOf(
     .map(({ reaction }) => reaction);
 
   if (reactions.length === 0) return undefined;
-
-  const target = about.target();
 
   return { event, reactions, ...(target === undefined ? {} : { target }) };
 }

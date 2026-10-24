@@ -2,12 +2,15 @@ import type { ContentRegistry } from '../content/index.ts';
 import { battlefieldEffects, unitDefinitionEffects } from '../expressions/index.ts';
 import type { ContentName, SideId } from '../ids/index.ts';
 import {
+  battleUnit,
   findHazard,
   findSide,
   findUnit,
   type AppliedEffect,
   type BattleState,
   type EffectHolder,
+  type SideTarget,
+  type UnitTarget,
 } from '../model/index.ts';
 
 /**
@@ -117,6 +120,33 @@ export function actingEffects(
 
     return [...definitions, ...applied];
   });
+}
+
+/**
+ * Tells whether a holder is a unit with no creatures left. The effects of such a unit stay on it but do not act: they
+ * neither count durations nor run operations of every turn, and react only to events about the unit itself, such as
+ * the one that killed it. They act again once the unit comes back.
+ *
+ * @throws {TypeError} If the holder is a unit that is not in the battle.
+ */
+export function isDeadUnit(state: BattleState, holder: EffectHolder): boolean {
+  return holder.kind === 'unit' && battleUnit(state, holder.unit).count === 0;
+}
+
+/**
+ * Tells whether the effects of a holder react to an event with the given target: always, unless the holder is a dead
+ * unit and the event is not about it.
+ *
+ * @throws {TypeError} If the holder is a unit that is not in the battle.
+ */
+export function reactsTo(
+  state: BattleState,
+  holder: EffectHolder,
+  target: SideTarget | UnitTarget | undefined,
+): boolean {
+  if (!isDeadUnit(state, holder)) return true;
+
+  return target?.kind === 'unit' && holder.kind === 'unit' && target.unit === holder.unit;
 }
 
 /**

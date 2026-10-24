@@ -15,6 +15,12 @@ export interface Unit {
   readonly creature: ContentName;
   /** How many creatures are left; 0 for a dead unit. */
   readonly count: number;
+  /**
+   * How many creatures the unit started the battle with or was summoned with: the number of the scenario or of the
+   * options of the battle, which losses to the effects of the scenario do not change. Healing that revives brings
+   * dead creatures back only up to this number, and the unit never has more creatures.
+   */
+  readonly startCount: number;
   /** The health of the creature that takes damage first. */
   readonly health: number;
   /** The cell of the unit; a unit that is not deployed yet has none. */
@@ -42,7 +48,7 @@ export interface Unit {
    */
   readonly tags: Readonly<Record<Tag, number>>;
   /**
-   * The flags of the unit by full name, sorted, for example `rules-stdlib:waited`. Unlike tags, flags have no
+   * The flags of the unit by full name, sorted, for example `acme-frost:frozen`. Unlike tags, flags have no
    * hierarchy and no count of sources.
    */
   readonly flags: readonly string[];

@@ -2,7 +2,7 @@ import { ContentError, creatureDefinition, MOVEMENTS, type ContentRegistry } fro
 import type { TopologyBody } from '../extensions/index.ts';
 import type { CellId } from '../ids/index.ts';
 import type { Unit } from '../model/index.ts';
-import type { MoverField } from './pathfinding.ts';
+import type { MoverField } from './path-finding.ts';
 
 /**
  * What a moving unit needs from the field: the cells it takes in a cell, its steps and their costs, and distances.

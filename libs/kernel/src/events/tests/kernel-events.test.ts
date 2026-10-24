@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { summonedUnitId } from '../../ids/index.ts';
 import { createKernel } from '../../kernel/index.ts';
 import type { AppliedEffect, BattleState, InventoryItem, RollRequest, Unit } from '../../model/index.ts';
+import { withoutKey } from '../../shared/index.ts';
 import { deepFreeze, event, FROZEN_STATE, unitOf } from '../../tests/fixtures.ts';
 import {
   isKernelEvent,
@@ -293,6 +294,31 @@ describe('events of the kernel', () => {
       .toThrow('The next identifier is 8');
   });
 
+  it('kernel:health-changed keeps the count of a unit within the count it started with', () => {
+    const full = apply(KERNEL_EVENTS.healthChanged, { count: 20, health: 10, unit: 'pikemen-1' });
+
+    expect(unitOf(full, 'pikemen-1')).toMatchObject({ count: 20, health: 10, startCount: 20 });
+
+    expect(() => apply(KERNEL_EVENTS.healthChanged, { count: 21, health: 10, unit: 'pikemen-1' }))
+      .toThrow(new RangeError('The unit "pikemen-1" cannot have more than 20 creatures.'));
+  });
+
+  it('kernel:unit-summoned needs a start count that is a whole number of at least the count', () => {
+    const summoned: Unit = { ...unitOf(FROZEN_STATE, 'pikemen-1'), id: summonedUnitId(8), summoned: true };
+    const error = new RangeError('The summoned unit "#8" needs a start count of at least its count.');
+
+    expect(apply(KERNEL_EVENTS.unitSummoned, { unit: { ...summoned, count: 20, startCount: 20 } }).units.at(-1))
+      .toMatchObject({ count: 20, startCount: 20 });
+
+    expect(() => apply(KERNEL_EVENTS.unitSummoned, { unit: { ...summoned, startCount: 19 } })).toThrow(error);
+    expect(() => apply(KERNEL_EVENTS.unitSummoned, { unit: { ...summoned, startCount: 20.5 } })).toThrow(error);
+
+    expect(() => apply(KERNEL_EVENTS.unitSummoned, { unit: { ...summoned, startCount: Number.NaN } }))
+      .toThrow(error);
+
+    expect(() => apply(KERNEL_EVENTS.unitSummoned, { unit: withoutStartCount(summoned) })).toThrow(error);
+  });
+
   it('kernel:unit-summoned rejects an identifier that a unit already has', () => {
     const twin = { ...unitOf(FROZEN_STATE, 'pikemen-1'), id: '#8' };
     const taken = { ...FROZEN_STATE, units: [...FROZEN_STATE.units, twin] };
@@ -427,6 +453,7 @@ const PAYLOADS: { readonly [Type in KernelEventType]: KernelEventPayloads[Type] 
       resources: {},
       side: 'defender',
       spentActions: {},
+      startCount: 3,
       summoned: true,
       tags: {},
       visibleTo: 'all',
@@ -444,6 +471,12 @@ function kernelEvent<Type extends KernelEventType>(type: Type, payload: KernelEv
 
 function apply<Type extends KernelEventType>(type: Type, payload: KernelEventPayloads[Type]): BattleState {
   return KERNEL.applyEvent(FROZEN_STATE, kernelEvent(type, payload));
+}
+
+function withoutStartCount(unit: Unit): Unit {
+  const value: unknown = withoutKey(unit, 'startCount');
+
+  return value as Unit;
 }
 
 function applyKernel(type: string, state: BattleState): BattleState {

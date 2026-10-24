@@ -110,6 +110,16 @@ export interface TargetRule {
   readonly filter?: Predicate;
   /** At most this many different targets, at least one; 1 if not given. An area takes one cell. */
   readonly count?: number;
+  /**
+   * Whether every target must be in sight of the user: a cell of the user must see a cell of the target, as
+   * `FieldGeometry.sees` tells; for an area, the chosen cell.
+   */
+  readonly sight?: boolean;
+  /**
+   * Whether a unit as a target may also be a dead unit that still has a cell, for example for healing that revives;
+   * only for the kind `unit`. Its range and sight count from the cells it would take in its cell.
+   */
+  readonly dead?: boolean;
 }
 
 /**

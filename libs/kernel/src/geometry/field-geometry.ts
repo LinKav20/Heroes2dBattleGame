@@ -12,7 +12,7 @@ import { battleUnit, standsOnField, type BattleState, type Unit } from '../model
 import type { Registry } from '../names/index.ts';
 import { FieldCache, type FieldCells } from './field-cache.ts';
 import { bodyOf, type Ground, UnitMover } from './mover.ts';
-import { cheapestCells, cheapestRoute } from './pathfinding.ts';
+import { cheapestCells, cheapestRoute } from './path-finding.ts';
 
 /**
  * Returns the field of a state as its topology describes it. The topology is looked up when the field is first used,
@@ -113,8 +113,25 @@ class StateGeometry implements FieldGeometry, Ground {
     return best?.cell;
   }
 
+  sees(from: readonly CellId[], to: readonly CellId[]): boolean {
+    const { topology } = this;
+    const { obstacles, params } = this.state.field;
+    const hidden = this.cache.closedBy(obstacles, this.content, 'blocksSight');
+
+    for (const cell of [...from, ...to]) {
+      this.onField(cell);
+    }
+
+    return from.some((start) => to.some((end) => {
+      if (start === end || topology.line === undefined) return true;
+
+      return this.allOnField(topology.line(params, start, end), 'a line').every((cell) => !hidden.has(cell));
+    }));
+  }
+
   area(rule: AreaRule, center: CellId, origin?: CellId): readonly CellId[] {
-    const cells = this.topology.area(this.state.field.params, rule, this.onField(center), origin);
+    const start = origin === undefined ? undefined : this.onField(origin);
+    const cells = this.topology.area(this.state.field.params, rule, this.onField(center), start);
 
     return this.allOnField(cells, 'an area');
   }
@@ -263,7 +280,7 @@ class StateGeometry implements FieldGeometry, Ground {
   }
 
   private blockedFor(unit: Unit): ReadonlySet<CellId> {
-    const closed = this.cache.closedBy(this.state.field.obstacles, this.content);
+    const closed = this.cache.closedBy(this.state.field.obstacles, this.content, 'blocksMovement');
     const units = this.state.units
       .filter((other) => other.id !== unit.id && standsOnField(other))
       .flatMap(({ id }) => this.cellsOf(id));

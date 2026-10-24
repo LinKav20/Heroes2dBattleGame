@@ -7,12 +7,15 @@ import { evaluated } from '../results.ts';
 import { subjectUnit } from '../subjects.ts';
 import { hasTag } from '../tags.ts';
 import { defineCondition, everyHolds, someHolds } from './define.ts';
+import { eventField } from './event-fields.ts';
 import { COMPARISON_OPERATORS, KERNEL_CONDITIONS, SUBJECT_KINDS } from './names.ts';
 import { CONDITION_SCHEMA, FORMULA_SCHEMA, listSchema, NAME_SCHEMA, ROLE_SCHEMA } from './schema.ts';
 
 /**
  * The nodes of conditions that the kernel registers itself: logical connectives, a comparison of numbers, a check of
- * a tag, checks of participants and a check of a scenario variable.
+ * a tag, checks of participants, checks of the event a reaction reacts to and a check of a scenario variable.
+ * `kernel:event-is` tells whether a field of the payload at `path` equals `value`, and `kernel:event-names` whether
+ * it names the unit or the side that is the participant `of`; without an event or the field both are false.
  */
 export const CONDITION_KINDS: readonly ConditionExtension[] = [
   defineCondition(
@@ -62,6 +65,32 @@ export const CONDITION_KINDS: readonly ConditionExtension[] = [
       if (kind === undefined) throw contentError(node, `needs ${SUBJECT_KINDS.join(', ')} in "kind"`);
 
       return evaluated(context.subjects[roleParam(node, 'of')]?.kind === kind);
+    },
+  ),
+  defineCondition(
+    {
+      name: KERNEL_CONDITIONS.eventIs,
+      params: { path: listSchema(NAME_SCHEMA), value: { type: ['boolean', 'integer', 'string'] } },
+    },
+    (node, context) => {
+      const expected = node.value;
+
+      if (!(typeof expected === 'boolean' || typeof expected === 'string' || Number.isSafeInteger(expected))) {
+        throw contentError(node, 'needs a boolean, a safe integer or a string in "value"');
+      }
+
+      return evaluated(eventField(node, context) === expected);
+    },
+  ),
+  defineCondition(
+    { name: KERNEL_CONDITIONS.eventNames, params: { of: ROLE_SCHEMA, path: listSchema(NAME_SCHEMA) } },
+    (node, context) => {
+      const subject = context.subjects[roleParam(node, 'of')];
+      const found = eventField(node, context);
+
+      if (subject?.kind === 'unit') return evaluated(found === subject.unit);
+
+      return evaluated(subject?.kind === 'side' && found === subject.side);
     },
   ),
   defineCondition(

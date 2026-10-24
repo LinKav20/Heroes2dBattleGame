@@ -39,10 +39,10 @@ export interface KernelRejectionParams {
   readonly [REJECTION_REASONS.inputPending]: Readonly<Record<string, never>>;
   readonly [REJECTION_REASONS.invalidAnswer]: { readonly request: number };
   readonly [REJECTION_REASONS.invalidCommand]: {
-    readonly field: 'ability' | 'cell' | 'facing' | 'item' | 'side' | 'to' | 'unit';
+    readonly field: 'ability' | 'cell' | 'facing' | 'from' | 'item' | 'side' | 'target' | 'to' | 'unit';
   };
   readonly [REJECTION_REASONS.invalidTargets]: {
-    readonly ability: ContentName;
+    readonly ability?: ContentName;
     readonly problem: TargetProblem;
     readonly target?: number;
   };
@@ -116,8 +116,9 @@ export const REJECTION_CODES = Object.freeze({
  * - `invalidCommand`: the command refers to a unit, a side, an item, an ability or a cell that is not there, names a
  *   direction the field does not have, misses something it needs, or moves a unit to where it stands without turning
  *   it; `field` names the field of the command;
- * - `invalidTargets`: the targets do not fit the rule of the ability; `ability` names it, `problem` is one of
- *   `TARGET_PROBLEMS`, and `target` is the place of the target in the command unless the number of targets is wrong;
+ * - `invalidTargets`: the targets do not fit the rule of the ability, or the target of an attack or a shot is dead or
+ *   off the field; `ability` names the ability, if there is one, `problem` is one of `TARGET_PROBLEMS`, and `target`
+ *   is the place of the target in the command, 0 for an attack, unless the number of targets is wrong;
  * - `noAbility`: the unit, the side or the item has no such ability; `ability` names it and `item` is the identifier
  *   of the item, if the unit uses one; an item without abilities gives only `item`;
  * - `noCharges`: the item has no charges left; `item` is its identifier;
@@ -125,10 +126,10 @@ export const REJECTION_CODES = Object.freeze({
  *   identifier the answer names;
  * - `notAvailable`: a command the kernel cannot run yet, or one the ruleset does not have, such as `wait` without an
  *   order of turns with waiting; no parameters;
- * - `notEnoughActions`: the unit has spent the actions of the turn that the ability or the move costs; `action`
- *   names the kind;
+ * - `notEnoughActions`: the unit has spent the actions of the turn that the ability, the move or a step that spends
+ *   actions costs; `action` names the kind;
  * - `notOnField`: a formula measures a distance to a unit that does not stand on the field, or a unit that does not
- *   stand there tries to move; `unit` names it;
+ *   stand there tries to move, attack or shoot; `unit` names it;
  * - `notEnoughResource`: the unit has less of a resource than the ability costs; `resource` names it;
  * - `notYourTurn`: the unit or the side does not have the turn; no parameters;
  * - `outOfRange`: a formula or an attribute gets a value out of the safe range; `formula` is the full name of the
@@ -178,7 +179,8 @@ export const REJECTION_REASONS = Object.freeze({
 
 /**
  * The problems of targets: their number, a target named twice, a target of a wrong kind or not in the battle, a dead
- * unit, a unit or a cell off the field, a target out of the range, and a target that the filter does not pass.
+ * unit, a unit or a cell off the field, a target out of the range or out of sight, and a target that the filter does
+ * not pass.
  */
 export const TARGET_PROBLEMS = Object.freeze({
   count: 'count',
@@ -188,6 +190,7 @@ export const TARGET_PROBLEMS = Object.freeze({
   kind: 'kind',
   offField: 'off-field',
   range: 'range',
+  sight: 'sight',
 } as const);
 
 /**
@@ -232,7 +235,8 @@ export function isFormulaReason(reason: string): boolean {
 
 /**
  * Tells whether a rejection has a reason of the kernel, the given one if a reason is given, and narrows its
- * parameters.
+ * parameters. The kernel does not check the parameters of a reason of the kernel that a package gives, so they are
+ * only as reliable as the package.
  */
 export function isKernelRejection<Reason extends RejectionReason = RejectionReason>(
   rejection: Rejection,

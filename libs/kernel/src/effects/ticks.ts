@@ -5,7 +5,7 @@ import type { EffectHolder } from '../model/index.ts';
 import { KERNEL_STEPS } from '../names/index.ts';
 import { kernelStep } from '../operations/index.ts';
 import { removalDraft, turnDraft } from './drafts.ts';
-import { allHolders, definitionEffectsOf, effectsOf, type HeldEffects } from './holders.ts';
+import { allHolders, definitionEffectsOf, effectsOf, isDeadUnit, type HeldEffects } from './holders.ts';
 import type { TickMoment, TickParams } from './params.ts';
 
 /**
@@ -15,6 +15,7 @@ import type { TickMoment, TickParams } from './params.ts';
  * check that the effect is still there and acts: for a counted effect at the moment it ticks, for another effect at
  * the turn of its holder. A unit or a side has its turn at its start, and the field and a hazard zone at the end of a
  * round; the effects of the creature, the items and the battlefield run their operations at the turn of their holder.
+ * The effects of a dead unit neither count down nor run operations.
  */
 export const TICK_STEP: StepKind<TickParams> = kernelStep(KERNEL_STEPS.effectTick, tick);
 
@@ -59,9 +60,11 @@ function tick({ content, params, state }: StepContext<TickParams>): StepResult {
 }
 
 function heldAt(params: TickParams, state: StepContext['state']): readonly HeldEffects[] {
-  if (params.moment === 'round-end') return allHolders(state);
+  const held = params.moment === 'round-end'
+    ? allHolders(state)
+    : [{ effects: effectsOf(state, params.holder), holder: params.holder }];
 
-  return [{ effects: effectsOf(state, params.holder), holder: params.holder }];
+  return held.filter(({ holder }) => !isDeadUnit(state, holder));
 }
 
 function isTurnOf(holder: EffectHolder, moment: TickMoment): boolean {

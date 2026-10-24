@@ -253,6 +253,13 @@ describe('the course of a battle', () => {
     expect(() => spend({ 'core:action': 0.5 })).toThrow(TypeError);
   });
 
+  it('spends nothing of a unit off the field, but still checks the numbers', () => {
+    const dead = withCount(PLACED, 'archers-1', 0);
+
+    expect(spend({ 'core:action': 1 }, dead)).toStrictEqual([]);
+    expect(() => spend({ 'core:action': -1 }, dead)).toThrow('A unit spends -1 of "core:action", not a whole number');
+  });
+
   it('ends the battle in a draw when the rounds run out', () => {
     let state: BattleState = PLACED;
 
@@ -444,8 +451,12 @@ function piled(depth: number): ExecuteResult {
   return PILING.execute(external, { kind: 'game', name: 'acme:pile', payload: { depth }, type: 'extension' }, WATCHED);
 }
 
-function spend(spent: Readonly<Record<string, number>>): unknown {
-  return runOn(PLACED, CONTENT, spendActionsDraft({ spent, unit: 'archers-1' })).events.map(({ payload }) => payload);
+function spend(spent: Readonly<Record<string, number>>, state: BattleState = PLACED): unknown {
+  return runOn(state, CONTENT, spendActionsDraft({ spent, unit: 'archers-1' })).events.map(({ payload }) => payload);
+}
+
+function withCount(state: BattleState, id: string, count: number): BattleState {
+  return { ...state, units: state.units.map((unit) => (unit.id === id ? { ...unit, count } : unit)) };
 }
 
 function tired(

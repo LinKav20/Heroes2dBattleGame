@@ -4,9 +4,10 @@ import type { SideHolder, UnitHolder } from '../model/index.ts';
 /**
  * Checks the parts of the definition of an ability that matter when a unit or a side uses it: the cost and the
  * cooldown are whole numbers from 0, the limits of uses are whole numbers from 1, a side spends neither actions nor
- * resources and has neither a range nor a line or a cone, an ability without targets has no rules for them, an ability
- * with targets chooses from 1 of them, and only an ability that targets an area has an area, of a whole number of
- * cells from 0, and it chooses one cell.
+ * resources and has neither a range, nor sight, nor a line or a cone, an ability without targets has no rules for
+ * them, an ability with targets chooses from 1 of them, `sight` and `dead` are true or false, only an ability that
+ * targets a unit takes dead targets, and only an ability that targets an area has an area, of a whole number of cells
+ * from 0, and it chooses one cell.
  *
  * @throws {ContentError} If the definition breaks any of these rules.
  */
@@ -25,7 +26,9 @@ export function isDirected(area: AreaRule | undefined): boolean {
   return area !== undefined && area.shape !== 'radius';
 }
 
-const TARGETLESS_UNUSED: ReadonlyArray<keyof TargetRule> = ['area', 'count', 'filter', 'range'];
+const TARGETLESS_UNUSED: ReadonlyArray<keyof TargetRule> = ['area', 'count', 'dead', 'filter', 'range', 'sight'];
+
+const FLAGS = ['sight', 'dead'] as const;
 
 function abilityProblem(ability: Ability, user: SideHolder | UnitHolder): string | undefined {
   const { cooldown, cost, limits, target } = ability;
@@ -53,19 +56,29 @@ function abilityProblem(ability: Ability, user: SideHolder | UnitHolder): string
 
   if (target.area !== undefined && target.kind !== 'area') return 'has an area, but its target is not an area';
 
+  const notFlag = FLAGS.find((flag) => !isFlag(target[flag]));
+
+  if (notFlag !== undefined) return `needs true or false in ${notFlag}`;
+
+  if (target.dead === true && target.kind !== 'unit') return 'takes dead targets, but its target is not a unit';
+
   if (target.kind === 'area' && !(target.area !== undefined && isWholeFrom(target.area.size, 0))) {
     return 'targets an area, but has no area of a whole number of cells from 0';
   }
 
   if (target.range !== undefined && !isWholeFrom(target.range, 0)) return 'needs a whole number from 0 in range';
 
-  if (user.kind === 'side' && (target.range !== undefined || isDirected(target.area))) {
-    return 'belongs to a side, which has no cells to count a range or to start a line or a cone from';
+  if (user.kind === 'side' && (target.range !== undefined || target.sight === true || isDirected(target.area))) {
+    return 'belongs to a side, which has no cells to count a range, to see from or to start a line or a cone from';
   }
 
   if (target.count !== undefined && !isWholeFrom(target.count, 1)) return 'needs a whole number from 1 in count';
 
   return target.kind === 'area' && (target.count ?? 1) > 1 ? 'targets an area, which takes one cell' : undefined;
+}
+
+function isFlag(value: unknown): boolean {
+  return value === undefined || typeof value === 'boolean';
 }
 
 function isWholeFrom(value: number, least: number): boolean {

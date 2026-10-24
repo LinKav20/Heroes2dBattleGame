@@ -4,11 +4,12 @@ import { KERNEL_STEPS } from '../names/index.ts';
 import { DONE, operationDrafts, stepsDone, kernelStep } from '../operations/index.ts';
 import { activity, unlessHolds } from './activity.ts';
 import { appliedSubjects, presentEffect } from './applied.ts';
+import { isDeadUnit } from './holders.ts';
 import type { TurnParams } from './params.ts';
 
 /**
  * Runs the operations of every turn of one effect, if the effect is still on its holder, or still in the definition
- * of its holder, and its condition of activity holds.
+ * of its holder, the holder is not a dead unit, and its condition of activity holds.
  */
 export const TURN_STEP: StepKind<TurnParams> = kernelStep(KERNEL_STEPS.effectTurn, turn);
 
@@ -16,7 +17,7 @@ function turn({ content, expressions, params, state }: StepContext<TurnParams>):
   const { holder } = params;
   const present = presentEffect(state, content, holder, params.effect, params.applied);
 
-  if (present === undefined) return DONE;
+  if (present === undefined || isDeadUnit(state, holder)) return DONE;
 
   const { applied } = present;
   const definition = effectDefinition(content, params.effect);

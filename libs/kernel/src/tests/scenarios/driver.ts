@@ -191,7 +191,7 @@ function checkUnits(state: BattleState, { content, kernel }: Drive): void {
   const blocked = new Set(state.field.obstacles.flatMap(({ cells }) => cells));
 
   for (const one of state.units) {
-    expect(Number.isSafeInteger(one.count) && one.count >= 0).toBe(true);
+    expect(Number.isSafeInteger(one.count) && one.count >= 0 && one.count <= one.startCount).toBe(true);
     expect(Number.isSafeInteger(one.health) && one.health >= 0).toBe(true);
     expect(Object.values(one.resources).every((value) => Number.isSafeInteger(value) && value >= 0)).toBe(true);
     expect(Object.values(one.spentActions).every((value) => Number.isSafeInteger(value) && value >= 0)).toBe(true);

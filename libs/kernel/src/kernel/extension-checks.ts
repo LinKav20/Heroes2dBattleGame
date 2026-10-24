@@ -25,6 +25,7 @@ export function extensionProblems(extension: RegisteredExtension): string[] {
 }
 
 const MECHANIC_CHECKS: Readonly<Record<string, readonly Check[]>> = {
+  [KERNEL_MECHANICS.attack]: [needsFunction('attack'), mayHaveFunction('shoot')],
   [KERNEL_MECHANICS.defense]: [needsFunction('defend')],
   [KERNEL_MECHANICS.turnOrder]: [
     needsFunction('next'),
@@ -45,6 +46,7 @@ const KIND_CHECKS: Readonly<Record<KernelExtensionKind, readonly Check[]>> = {
     needsSchema,
     ...['area', 'cells', 'distance', 'footprint', 'moveCost', 'neighbors'].map((name) => needsFunction(name)),
     mayHaveFunction('directions'),
+    mayHaveFunction('line'),
   ],
 };
 

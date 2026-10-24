@@ -205,6 +205,35 @@ describe('reactions of effects', () => {
       .toStrictEqual(['acme:curse']);
   });
 
+  it('let the effects of a dead unit react only to the events about the unit until it comes back', () => {
+    const watching = contentWith(effect('acme:watch', {
+      triggers: [{ on: 'kernel:flags-changed', ops: [markOp('watched')], priority: 0 }],
+    }));
+    const watched = [{ value: true, variable: 'watched' }];
+    const dead = withUnitEffects(withPikemen({ count: 0, health: 0 }), 'pikemen-1', [applied(5, 'acme:watch')]);
+    const back = withUnitEffects(withPikemen({ count: 1, health: 10 }), 'pikemen-1', [applied(5, 'acme:watch')]);
+
+    expect(variables(run(dead, watching, emit([flags('archers-1')])))).toStrictEqual([]);
+    expect(variables(run(dead, watching, emit([flags('pikemen-1')])))).toStrictEqual(watched);
+    expect(variables(run(back, watching, emit([flags('archers-1')])))).toStrictEqual(watched);
+  });
+
+  it('skip the reactions of a unit that an earlier reaction to the same event killed', () => {
+    const kill = node('kernel:damage', { amount: 1000, to: 'self' });
+    const fatal = contentWith(
+      effect('acme:fatal', { triggers: [{ on: 'kernel:flags-changed', ops: [kill], priority: 9 }] }),
+      effect('acme:watch', { triggers: [{ on: 'kernel:flags-changed', ops: [markOp('watched')], priority: 0 }] }),
+    );
+    const state = withUnitEffects(BARE_STATE, 'pikemen-1', [applied(5, 'acme:fatal'), applied(6, 'acme:watch')]);
+    const result = run(state, fatal, emit([flags('archers-1')]));
+
+    expect(unitOf(result.state, 'pikemen-1').count).toBe(0);
+    expect(variables(result)).toStrictEqual([]);
+
+    expect(variables(run(state, fatal, emit([flags('pikemen-1')]))))
+      .toStrictEqual([{ value: true, variable: 'watched' }]);
+  });
+
   it('let an effect ignore the events about itself', () => {
     const named = contentWith(effect('acme:shield', {
       endsOn: [{ on: 'kernel:effect-applied' }],
@@ -336,6 +365,12 @@ function answer(request: number, die: number): Command {
 
 function flags(unit: string): EventDraft {
   return kernelEventDraft(KERNEL_EVENTS.flagsChanged, { flags: [], unit }, 'all');
+}
+
+function withPikemen(change: Partial<Unit>): BattleState {
+  const units = BARE_STATE.units.map((unit) => (unit.id === 'pikemen-1' ? { ...unit, ...change } : unit));
+
+  return { ...BARE_STATE, units };
 }
 
 function troop(id: string): Unit {

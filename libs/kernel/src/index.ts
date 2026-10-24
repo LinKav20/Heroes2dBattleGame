@@ -3,6 +3,8 @@ export {
   type AbilityTargetsParams,
 } from './abilities/index.ts';
 export {
+  actionsLeft,
+  allSpent,
   moveDraft,
   spendActionsDraft,
   turnCheckDraft,
@@ -150,6 +152,7 @@ export {
   enumParam,
   evaluated,
   everyHolds,
+  flagParam,
   FORMULA_SCHEMA,
   formulaParam,
   hasTag,
@@ -202,6 +205,8 @@ export {
 } from './expressions/index.ts';
 export {
   KERNEL_EXTENSION_KINDS,
+  type AttackRequest,
+  type AttackVariant,
   type ChoiceNeed,
   type CommandContext,
   type CommandKind,
@@ -253,6 +258,7 @@ export {
   summonedUnitId,
   VISIBLE_TO_ALL,
   VISIBLE_TO_NONE,
+  visibleToBoth,
   type CellId,
   type ContentName,
   type SideId,

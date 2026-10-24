@@ -288,6 +288,9 @@ describe('formulas', () => {
     expect(expressions.value(node(KERNEL_FORMULAS.eventValue, { default: 2, path: ['hit'] })))
       .toMatchObject({ value: 2 });
 
+    expect(scoped.value(node(KERNEL_FORMULAS.eventValue, { default: 3, path: ['constructor'] })))
+      .toMatchObject({ value: 3 });
+
     expect(() => expressions.value(param)).toThrow('needs the parameter "damage" of an applied effect');
     expect(() => expressions.value(node(KERNEL_FORMULAS.effectStacks))).toThrow('outside of an applied effect');
   });
@@ -397,6 +400,41 @@ describe('conditions', () => {
     expect(() => test(is('reinforcements-arrived', 0.5))).toThrow('needs a boolean, a safe integer or a string');
   });
 
+  it('compare a field of the event of the scope with a value, and false without an event or the field', () => {
+    const scoped = expressionsOf(KERNEL).within({ event: HIT });
+
+    expect(scoped.test(eventIs(['hit', 'kind'], 'melee'))).toStrictEqual({ kind: 'value', value: true });
+    expect(scoped.test(eventIs(['hit', 'kind'], 'ranged'))).toStrictEqual({ kind: 'value', value: false });
+    expect(scoped.test(eventIs(['hit', 'amount'], 12))).toMatchObject({ value: true });
+    expect(scoped.test(eventIs(['hit', 'kind', 'x'], 'melee'))).toMatchObject({ value: false });
+    expect(scoped.test(eventIs(['hit', 'ranged'], false))).toMatchObject({ value: true });
+    expect(scoped.test(eventIs(['hit', 'ranged'], true))).toMatchObject({ value: false });
+    expect(test(eventIs(['hit', 'kind'], 'melee'))).toBe(false);
+
+    expect(() => scoped.test(eventIs(['hit', 'kind'], 0.5)))
+      .toThrow('needs a boolean, a safe integer or a string in "value"');
+
+    expect(() => scoped.test(node(KERNEL_CONDITIONS.eventIs, { path: 'hit', value: 1 }))).toThrow(ContentError);
+  });
+
+  it('tell whether a field of the event of the scope names a participant', () => {
+    const scoped = expressionsOf(KERNEL).within({ event: HIT });
+    const archers = { self: { kind: 'unit', unit: 'archers-1' } } as const;
+    const attacker = { self: { kind: 'side', side: 'attacker' } } as const;
+    const pikemen = { self: { kind: 'unit', unit: 'pikemen-1' } } as const;
+
+    expect(scoped.test(names(['unit']), archers)).toStrictEqual({ kind: 'value', value: true });
+    expect(scoped.test(names(['side']), attacker)).toMatchObject({ value: true });
+    expect(scoped.test(names(['unit']), attacker)).toMatchObject({ value: false });
+    expect(scoped.test(names(['side']), archers)).toMatchObject({ value: false });
+    expect(scoped.test(names(['unit']), pikemen)).toMatchObject({ value: false });
+    expect(scoped.test(names(['unit']))).toMatchObject({ value: false });
+    expect(test(names(['unit']), archers)).toBe(false);
+
+    expect(() => scoped.test(node(KERNEL_CONDITIONS.eventNames, { of: 'enemy', path: ['unit'] }), archers))
+      .toThrow(ContentError);
+  });
+
   it('evaluate a nested condition with other participants', () => {
     const swapped: ConditionExtension = {
       kind: 'condition',
@@ -478,6 +516,14 @@ describe('nodes of extensions', () => {
 
 const KERNEL = createKernel({ extensions: [] });
 
+const HIT: BattleEvent = {
+  id: 0,
+  payload: { hit: { amount: 12, kind: 'melee', ranged: false }, side: 'attacker', unit: 'archers-1' },
+  type: 'acme:hit',
+  version: 1,
+  visibleTo: 'all',
+};
+
 function dice(count: number, sides: number): ExpressionNode {
   return node(KERNEL_FORMULAS.dice, { count, name: 'core:damage', sides });
 }
@@ -488,6 +534,14 @@ function hasTag(tag: string): ExpressionNode {
 
 function is(variable: string, expected: boolean | number | string): ExpressionNode {
   return node(KERNEL_CONDITIONS.variableIs, { value: expected, variable });
+}
+
+function eventIs(path: readonly string[], expected: unknown): ExpressionNode {
+  return node(KERNEL_CONDITIONS.eventIs, { path, value: expected });
+}
+
+function names(path: readonly string[]): ExpressionNode {
+  return node(KERNEL_CONDITIONS.eventNames, { of: 'self', path });
 }
 
 function expressionsOf(kernel: Kernel): Expressions {

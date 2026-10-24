@@ -51,8 +51,9 @@ interface AbilityUser {
  * requirement must hold with the user as `self`. The unit must have enough actions of the turn and resources for the
  * cost. Last, the targets must fit the rule of the ability by their kind and number and pass its filter with the
  * user as `self` and the target as `target`: an ability without targets gets none, and one with targets gets from 1
- * to their number of different targets; a unit as a target must be alive, and a cell must be on the field. A unit and
- * a cell must be within the range of the ability from a cell of the user, if it has a range. The filter of an ability
+ * to their number of different targets; a unit as a target must be alive, or dead with a cell if the ability takes
+ * dead targets, and a cell must be on the field. A unit and a cell must be within the range of the ability from a cell
+ * of the user, if it has a range, and in sight of it, if the ability needs sight. The filter of an ability
  * that targets an area applies to the units in the area when the ability is used. Returns nothing if the ability can be
  * used.
  *

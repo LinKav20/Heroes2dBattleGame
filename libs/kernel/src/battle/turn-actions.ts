@@ -14,14 +14,15 @@ import {
   type UnitHolder,
 } from '../model/index.ts';
 import { KERNEL_STEPS } from '../names/index.ts';
-import { kernelStep } from '../operations/index.ts';
+import { DONE, kernelStep } from '../operations/index.ts';
 import { sortedEntries } from '../shared/index.ts';
 import type { SpendActionsParams } from './params.ts';
 
 /**
  * Spends actions of the turn of a unit with `kernel:actions-changed`, which the sides that see the unit see. A step of
  * a package adds it for the cost of an action, for example an attack or a defense. If the unit has fewer actions of a
- * kind left than it spends, the step rejects the command with `kernel:not-enough-actions`.
+ * kind left than it spends, the step rejects the command with `kernel:not-enough-actions`. A unit that no longer
+ * stands on the field, for example one that died on its way to attack, spends nothing.
  *
  * @throws {TypeError} If the unit is not in the battle or a number of actions is not a whole number from 0.
  */
@@ -29,6 +30,10 @@ export const SPEND_ACTIONS_STEP: StepKind<SpendActionsParams> = kernelStep(
   KERNEL_STEPS.spendActions,
   ({ expressions, params, state }: StepContext<SpendActionsParams>): StepResult => {
     const unit = battleUnit(state, params.unit);
+
+    checkSpent(params.spent);
+
+    if (!standsOnField(unit)) return DONE;
 
     for (const [action, cost] of sortedEntries(params.spent)) {
       const left = actionsLeft(expressions, unit, action);
@@ -52,13 +57,11 @@ export function spentEvents(unit: Unit, spent: Readonly<Record<ContentName, numb
 
   if (costs.length === 0) return [];
 
+  checkSpent(spent);
+
   const total = { ...unit.spentActions };
 
   for (const [action, cost] of costs) {
-    if (!Number.isSafeInteger(cost) || cost < 0) {
-      throw new TypeError(`A unit spends ${String(cost)} of ${JSON.stringify(action)}, not a whole number from 0.`);
-    }
-
     total[action] = (total[action] ?? 0) + cost;
   }
 
@@ -134,4 +137,12 @@ export function allSpent(state: BattleState, expressions: Expressions, unit: Uni
   }
 
   return evaluated(true);
+}
+
+function checkSpent(spent: Readonly<Record<ContentName, number>>): void {
+  for (const [action, cost] of sortedEntries(spent)) {
+    if (!Number.isSafeInteger(cost) || cost < 0) {
+      throw new TypeError(`A unit spends ${String(cost)} of ${JSON.stringify(action)}, not a whole number from 0.`);
+    }
+  }
 }

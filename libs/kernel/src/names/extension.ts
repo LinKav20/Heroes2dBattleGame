@@ -7,9 +7,9 @@ import type { JsonObject } from '../json/index.ts';
  * of the same package are accepted alike.
  */
 export interface Extension {
-  /** The full name `package:name`, for example `rules-stdlib:damage`. */
+  /** The full name `package:name`, for example `rules-stdlib:hex`. */
   readonly name: string;
-  /** The name without the package prefix, for example `damage`, if the extension declares a short name. */
+  /** The name without the package prefix, for example `hex`, if the extension declares a short name. */
   readonly shortName?: string;
   /**
    * The data the extension keeps in the state of a battle under its full name in `BattleState.extensions`, if any.

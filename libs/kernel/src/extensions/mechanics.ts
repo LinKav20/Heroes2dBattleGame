@@ -1,5 +1,5 @@
 import type { ContentRegistry } from '../content/index.ts';
-import type { UnitId } from '../ids/index.ts';
+import type { CellId, UnitId } from '../ids/index.ts';
 import type { JsonObject } from '../json/index.ts';
 import type { BattleState, TurnHolder } from '../model/index.ts';
 import type { Extension, KERNEL_MECHANICS } from '../names/index.ts';
@@ -11,8 +11,9 @@ import type { FieldGeometry } from './topology.ts';
 /**
  * A variant of a mechanic that rulesets choose, such as the order of turns by speed with waiting. A ruleset chooses
  * the variant of every mechanic by the full name of the mechanic and gives it parameters. The kernel itself asks the
- * mechanics `kernel:turn-order` and `kernel:defense`, see {@link TurnOrderVariant} and {@link DefenseVariant}; a
- * package may declare mechanics of its own and ask them in its steps.
+ * mechanics `kernel:turn-order`, `kernel:attack` and `kernel:defense`, see {@link TurnOrderVariant},
+ * {@link AttackVariant} and {@link DefenseVariant}; a package may declare mechanics of its own and ask them in its
+ * steps.
  */
 export interface MechanicExtension extends Extension {
   /** The registry the extension belongs to. */
@@ -113,4 +114,48 @@ export interface DefenseVariant<Params extends JsonObject = JsonObject> extends 
    * after the steps even if the unit could still act, the plan says `endsTurn`.
    */
   defend(context: MechanicContext<Params>, unit: UnitId): CommandPlan;
+}
+
+/**
+ * A variant of the attack, the mechanic `kernel:attack`: what the commands `attack` and `shoot` do, for example a
+ * strike with the damage of a stack, a strike back and luck.
+ */
+export interface AttackVariant<Params extends JsonObject = JsonObject> extends MechanicExtension {
+  /** The mechanic the variant belongs to. */
+  readonly mechanic: typeof KERNEL_MECHANICS.attack;
+  /**
+   * Turns the command `attack` into steps, or tells why the rules forbid it. The kernel has checked that the unit or
+   * its side has the turn, that the unit stands on the field and that the target is another unit that is alive and
+   * stands on the field. If the command names a cell to attack from, the kernel has checked the move there as the
+   * command `move` does and runs it before the steps; the move spends only the actions that count the cost of
+   * movement, not the actions of the turn that every move spends, so the steps spend the action of the strike. The
+   * variant sees the state after the events of the move, with the auras and zones as before it, and the path in the
+   * request. Effects react to the move before the steps run, so
+   * they may kill or move the attacker or the target, and every step checks again that both still stand on the field
+   * and that the strike reaches. To spend the actions of the turn the steps add `kernel:spend-actions`, which spends
+   * nothing for a unit off the field, and to end the turn after the steps even if the unit could still act, the plan
+   * says `endsTurn`.
+   */
+  attack(context: MechanicContext<Params>, attack: AttackRequest): CommandPlan;
+  /**
+   * Turns the command `shoot` into steps, or tells why the rules forbid it, after the same checks as of `attack`.
+   * Without this function units cannot shoot.
+   */
+  shoot?(context: MechanicContext<Params>, shot: AttackRequest): CommandPlan;
+}
+
+/**
+ * Who attacks or shoots at whom, and the way the attacker goes before it strikes, if it does.
+ */
+export interface AttackRequest {
+  /** The unit that attacks or shoots. */
+  readonly unit: UnitId;
+  /** The unit it attacks or shoots at. */
+  readonly target: UnitId;
+  /**
+   * The cells the attacker passes on its way to the cell it attacks from, the last one included. It is given when the
+   * command names a cell to attack from: empty if the unit only turns where it stands, absent if it neither moves nor
+   * turns.
+   */
+  readonly path?: readonly CellId[];
 }

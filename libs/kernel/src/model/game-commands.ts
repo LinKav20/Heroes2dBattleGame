@@ -87,9 +87,9 @@ export interface AttackCommand {
   readonly unit: UnitId;
   /** The unit to attack. */
   readonly target: UnitId;
-  /** The cell to attack from, if the unit has to move first. */
+  /** The cell to attack from: another cell to move to first, or the cell of the unit to turn there to `facing`. */
   readonly from?: CellId;
-  /** The direction to face in that cell, if the topology has directions. */
+  /** The direction to face in the cell `from`, if the topology has directions; it needs `from`. */
   readonly facing?: string;
 }
 

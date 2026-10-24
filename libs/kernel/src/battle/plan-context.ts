@@ -112,10 +112,17 @@ export function asGameAction(state: BattleState, plan: BattlePlan): BattlePlan {
  * that ends the turn, by `endsTurn` or by a step `kernel:turn-check` with `end`, ends it after its steps as `end`
  * says, or as `ended` if it does not say.
  *
- * @throws {TypeError} If the plan forbids the command with a reason that `packageRejection` does not allow, or plans
- * a step that only the kernel adds.
+ * @throws {TypeError} If the plan is neither a rejection nor a list of steps, forbids the command with a reason that
+ * `packageRejection` does not allow, or plans a step that only the kernel adds.
  */
 export function packagePlan(source: string, plan: CommandPlan, end?: ActionEndParams['end']): BattlePlan {
+  const shape: unknown = plan.kind;
+  const listed: unknown = 'steps' in plan ? plan.steps : undefined;
+
+  if (shape !== 'reject' && (shape !== 'steps' || !Array.isArray(listed))) {
+    throw new TypeError(`The extension ${JSON.stringify(source)} returned an unknown plan.`);
+  }
+
   if (plan.kind === 'reject') {
     return { kind: 'forbidden', rejection: packageRejection(source, plan, 'command') };
   }

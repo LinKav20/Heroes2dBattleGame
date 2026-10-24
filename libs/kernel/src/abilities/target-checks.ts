@@ -5,7 +5,6 @@ import {
   findSide,
   findUnit,
   REJECTION_REASONS,
-  standsOnField,
   TARGET_PROBLEMS,
   targetKey,
   type BattleState,
@@ -31,11 +30,12 @@ export interface TargetUser {
 
 /**
  * Checks the targets of an ability. An ability without targets gets none, and one with targets gets from 1 to their
- * number of different targets of its kind; a unit must be alive and a cell must be on the field. A unit and a cell
- * must be within the range from a cell of the user, if the ability has one, and an area that goes from the user needs
- * a user on the field. Each target must pass the filter with the user as `self` and the target as `target`; for an
- * area the filter applies to the units in it when the ability is used. A failed check names the problem and the place
- * of the target.
+ * number of different targets of its kind; a unit must be alive, or dead with a cell if the ability takes dead
+ * targets, and a cell must be on the field. A unit and a cell
+ * must be within the range from a cell of the user, if the ability has one, and in sight of it, if the ability needs
+ * sight, and an area that goes from the user needs a user on the field. Each target must pass the filter with the
+ * user as `self` and the target as `target`; for an area the filter applies to the units in it when the ability is
+ * used. A failed check names the problem and the place of the target.
  *
  * @throws {ContentError} If the filter rolls dice.
  */
@@ -53,7 +53,7 @@ export function targetsCheck(
   if (problem !== undefined) return invalid(ability, problem);
 
   const seen = new Set<string>();
-  const needsCells = rule.range !== undefined || isDirected(rule.area);
+  const needsCells = rule.range !== undefined || rule.sight === true || isDirected(rule.area);
   const from = needsCells && user.unit !== undefined ? field.cellsOf(user.unit.id) : [];
 
   for (const [index, target] of targets.entries()) {
@@ -98,7 +98,7 @@ function targetProblem(
 
       if (rule.kind === 'area' && isDirected(rule.area) && from.length === 0) return TARGET_PROBLEMS.range;
 
-      return outOfRange(field, rule, from, [target.cell]) ? TARGET_PROBLEMS.range : undefined;
+      return reachProblem(field, rule, from, [target.cell]);
     }
 
     case 'side': {
@@ -110,19 +110,38 @@ function targetProblem(
 
       if (rule.kind !== 'unit' || unit === undefined) return TARGET_PROBLEMS.kind;
 
-      if (unit.count === 0) return TARGET_PROBLEMS.dead;
+      if (unit.count === 0 && rule.dead !== true) return TARGET_PROBLEMS.dead;
 
-      if (!standsOnField(unit)) return TARGET_PROBLEMS.offField;
+      if (unit.cell === undefined) return TARGET_PROBLEMS.offField;
 
-      if (rule.range === undefined) return undefined;
+      const cells = unit.count > 0 ? field.cellsOf(unit.id) : deadCells(field, unit, unit.cell);
 
-      return outOfRange(field, rule, from, field.cellsOf(unit.id)) ? TARGET_PROBLEMS.range : undefined;
+      return reachProblem(field, rule, from, cells);
     }
 
     default: {
       return TARGET_PROBLEMS.kind;
     }
   }
+}
+
+function deadCells(field: FieldGeometry, unit: Unit, cell: CellId): readonly CellId[] {
+  const cells = field.cellsAt(unit.id, cell, unit.facing);
+
+  if (cells === undefined) throw new TypeError(`The dead unit ${JSON.stringify(unit.id)} does not fit its cell.`);
+
+  return cells;
+}
+
+function reachProblem(
+  field: FieldGeometry,
+  rule: TargetRule,
+  from: readonly CellId[],
+  to: readonly CellId[],
+): TargetProblem | undefined {
+  if (outOfRange(field, rule, from, to)) return TARGET_PROBLEMS.range;
+
+  return rule.sight === true && !field.sees(from, to) ? TARGET_PROBLEMS.sight : undefined;
 }
 
 function outOfRange(field: FieldGeometry, rule: TargetRule, from: readonly CellId[], to: readonly CellId[]): boolean {

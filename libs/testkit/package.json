@@ -2,7 +2,7 @@
   "name": "@heroes2dgame/testkit",
   "version": "0.0.0",
   "private": true,
-  "description": "Test tools for the battle engine: reference values of the random number generator and the state hash.",
+  "description": "Test tools for the battle engine: contract suites of topologies and reference values of the random number generator and the state hash.",
   "license": "PolyForm-Noncommercial-1.0.0",
   "repository": {
     "type": "git",
@@ -45,6 +45,9 @@
     "prepack": "pnpm run build"
   },
   "devDependencies": {
+    "@heroes2dgame/kernel": "workspace:^"
+  },
+  "peerDependencies": {
     "@heroes2dgame/kernel": "workspace:^"
   }
 }

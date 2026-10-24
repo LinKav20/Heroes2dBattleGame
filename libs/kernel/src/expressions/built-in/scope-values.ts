@@ -1,9 +1,10 @@
 import { contentError, type ExpressionNode } from '../../content/index.ts';
 import type { Evaluation, ExpressionContext, FormulaExtension } from '../../extensions/index.ts';
-import { isRecord, ownValue } from '../../shared/index.ts';
-import { listParam, optionalFormulaParam, stringParam } from '../params.ts';
+import { ownValue } from '../../shared/index.ts';
+import { optionalFormulaParam, stringParam } from '../params.ts';
 import { evaluated } from '../results.ts';
 import { defineFormula } from './define.ts';
+import { eventField, eventPath } from './event-fields.ts';
 import { KERNEL_FORMULAS } from './names.ts';
 import { FORMULA_SCHEMA, listSchema, NAME_SCHEMA } from './schema.ts';
 
@@ -39,13 +40,9 @@ export const SCOPE_KINDS: readonly FormulaExtension[] = [
       params: { default: FORMULA_SCHEMA, path: listSchema(NAME_SCHEMA) },
     },
     (node, context) => {
-      const path = listParam(node, 'path', (value): value is string => typeof value === 'string');
-      const found = path.reduce<unknown>(
-        (current, key) => (isRecord(current) ? ownValue(current, key) : undefined),
-        context.event?.payload,
-      );
+      const what = `the field ${JSON.stringify(eventPath(node).join('.'))} of an event`;
 
-      return orDefault(node, context, found, `the field ${JSON.stringify(path.join('.'))} of an event`);
+      return orDefault(node, context, eventField(node, context), what);
     },
   ),
 ];

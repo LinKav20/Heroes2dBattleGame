@@ -4,7 +4,7 @@ import type { JsonValue } from '../json/index.ts';
  * A node of a behavior tree in content: an operation, a condition or a formula.
  *
  * `type` is the full name `package:name` of the implementation in a kernel registry, for example
- * `rules-stdlib:damage`. Packs may write short names, and the content loader replaces them with full names before the
+ * `kernel:damage`. Packs may write short names, and the content loader replaces them with full names before the
  * kernel gets the definitions. The other fields are the parameters of the node; nested nodes are parameters too.
  */
 export interface ExpressionNode {

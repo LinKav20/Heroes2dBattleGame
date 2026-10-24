@@ -134,7 +134,7 @@ export function placeProblem(
   field: FieldGeometry,
   cell: CellId,
   facing: string | undefined,
-  name: 'cell' | 'to',
+  name: 'cell' | 'from' | 'to',
 ): Forbidden | undefined {
   if (!field.hasCell(cell)) return forbidden(REJECTION_REASONS.invalidCommand, { field: name });
 

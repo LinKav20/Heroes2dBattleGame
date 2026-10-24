@@ -38,7 +38,7 @@ export interface RulesetChanges {
  * apply after the effects of the scenario and win over the values the unit starts with.
  */
 export interface UnitChanges {
-  /** The number of creatures, from 1. */
+  /** The number of creatures, from 1; it is also the most that healing that revives brings the unit back to. */
   readonly count?: number;
   /** The health of the creature that takes damage first, from 1 to the full health of one creature. */
   readonly health?: number;

@@ -7,6 +7,7 @@ import { withoutKey } from '../shared/index.ts';
 import { activity, unlessHolds } from './activity.ts';
 import { appliedSubjects, presentEffect } from './applied.ts';
 import { removalDraft } from './drafts.ts';
+import { reactsTo } from './holders.ts';
 import type { Reaction, ReactionBatch, ReactionParams } from './params.ts';
 
 /**
@@ -73,7 +74,7 @@ function reactOnce(context: StepContext<ReactionParams>, batch: ReactionBatch, r
   const { holder } = reaction;
   const present = presentEffect(state, content, holder, reaction.effect, reaction.applied);
 
-  if (present === undefined) return DONE;
+  if (present === undefined || !reactsTo(state, holder, batch.target)) return DONE;
 
   const { applied } = present;
   const definition = effectDefinition(content, reaction.effect);

@@ -4,7 +4,16 @@ import type { FieldGeometry, TopologyExtension } from '../../extensions/index.ts
 import { createKernel } from '../../kernel/index.ts';
 import type { BattleState, Unit } from '../../model/index.ts';
 import { BARE_STATE } from '../../tests/battle.ts';
-import { CONTENT, counting, GRID, gridCell, gridCells, gridPoint, type GridParams } from '../../tests/fixtures.ts';
+import {
+  CONTENT,
+  counting,
+  GRID,
+  gridCell,
+  gridCells,
+  gridLine,
+  gridPoint,
+  type GridParams,
+} from '../../tests/fixtures.ts';
 import { createFieldGeometry, FieldCache } from '../index.ts';
 
 interface Setup {
@@ -237,6 +246,76 @@ describe('the field of a state', () => {
     expect(second.neighborsOf(odd, params, 'a')).toStrictEqual(['b']);
   });
 
+  it('sees along the lines of the topology past units, but not past obstacles that block sight', () => {
+    const broken: TopologyExtension<GridParams> = { ...LINED, line: () => ['9,9'], name: 'acme:broken' };
+    const picky: TopologyExtension<GridParams> = {
+      ...LINED,
+      line: (params, from, to) => (from === to ? ['9,9'] : gridLine(from, to)),
+      name: 'acme:picky',
+    };
+    const registry = createKernel({ extensions: [LINED, broken, picky] }).registries.topologies;
+    const field = createFieldGeometry(stateOn('acme:lined', {}), CONTENT, registry);
+    const rock = CONTENT.obstacles['demo:rock'];
+
+    if (rock === undefined) throw new Error('No rock');
+
+    const clear = { ...CONTENT, obstacles: { 'demo:rock': { ...rock, blocksSight: false } } };
+
+    expect(geometry().sees(['0,0'], ['4,0'])).toBe(true);
+    expect(field.sees(['0,0'], ['4,0'])).toBe(false);
+    expect(field.sees(['0,0', '0,1'], ['4,0', '4,1'])).toBe(true);
+    expect(createFieldGeometry(stateOn('acme:picky', {}), CONTENT, registry).sees(['0,0'], ['0,0'])).toBe(true);
+    expect(field.sees(['0,0'], ['2,2'])).toBe(true);
+    expect(field.sees([], ['0,0'])).toBe(false);
+    expect(createFieldGeometry(stateOn('acme:lined', {}), clear, registry).sees(['0,0'], ['4,0'])).toBe(true);
+
+    expect(createFieldGeometry(stateOn('acme:lined', { pikemen: { cell: '2,1' } }), CONTENT, registry)
+      .sees(['0,1'], ['4,1'])).toBe(true);
+
+    expect(() => createFieldGeometry(stateOn('acme:broken', {}), CONTENT, registry).sees(['0,0'], ['4,0']))
+      .toThrow('gives a line with cells off the field');
+  });
+
+  it('rejects a cell off the field in either group it is asked to see between, wherever it stands', () => {
+    const lined = createFieldGeometry(stateOn('acme:lined', {}), CONTENT, TOPOLOGIES);
+
+    for (const field of [geometry(), lined]) {
+      expect(() => field.sees(['99,99'], ['99,99'])).toThrow('The cell "99,99" is not on the field.');
+      expect(() => field.sees(['0,0'], ['0,0', '99,99'])).toThrow('The cell "99,99" is not on the field.');
+      expect(() => field.sees([], ['99,99'])).toThrow('The cell "99,99" is not on the field.');
+    }
+  });
+
+  it('keeps the cells closed for sight apart from the cells closed for movement on the same field', () => {
+    const fog = { blocksMovement: false, blocksSight: true, name: 'demo:fog', tags: [] };
+    const wall = { blocksMovement: true, blocksSight: false, name: 'demo:wall', tags: [] };
+    const content = { ...CONTENT, obstacles: { ...CONTENT.obstacles, 'demo:fog': fog, 'demo:wall': wall } };
+    const obstacles = [
+      { cells: ['1,0'], id: 'fog-1', obstacle: 'demo:fog' },
+      { cells: ['0,1'], id: 'wall-1', obstacle: 'demo:wall' },
+    ];
+    const state = stateOn('acme:lined', {});
+    const veiled = { ...state, field: { ...state.field, obstacles } };
+    const movedFirst = createFieldGeometry(veiled, content, TOPOLOGIES, new FieldCache());
+    const seenFirst = createFieldGeometry(veiled, content, TOPOLOGIES, new FieldCache());
+
+    expect(movedFirst.reachable('archers-1', 1)).toStrictEqual([{ cell: '1,0', cost: 1 }]);
+    expect(movedFirst.sees(['0,0'], ['2,0'])).toBe(false);
+    expect(movedFirst.sees(['0,0'], ['0,2'])).toBe(true);
+    expect(seenFirst.sees(['0,0'], ['2,0'])).toBe(false);
+    expect(seenFirst.sees(['0,0'], ['0,2'])).toBe(true);
+    expect(seenFirst.reachable('archers-1', 1)).toStrictEqual([{ cell: '1,0', cost: 1 }]);
+  });
+
+  it('rejects a center or an origin of an area off the field', () => {
+    const field = geometry();
+
+    expect(() => field.area({ shape: 'line', size: 2 }, '1,1', '99,99'))
+      .toThrow('The cell "99,99" is not on the field.');
+
+    expect(() => field.area({ shape: 'radius', size: 1 }, '9,9')).toThrow('The cell "9,9" is not on the field.');
+  });
+
   it('treats a creature with a size below 1 or an unknown movement as an error of content', () => {
     expect(() => geometry({ archer: { size: 0 } }).cellsOf('archers-1')).toThrow(ContentError);
 
@@ -258,7 +337,13 @@ const FACING: TopologyExtension<GridParams> = {
   name: 'acme:facing',
 };
 
-const TOPOLOGIES = createKernel({ extensions: [GRID, FACING] }).registries.topologies;
+const LINED: TopologyExtension<GridParams> = {
+  ...GRID,
+  line: (params, from, to) => gridLine(from, to),
+  name: 'acme:lined',
+};
+
+const TOPOLOGIES = createKernel({ extensions: [GRID, FACING, LINED] }).registries.topologies;
 
 function geometry(setup: Setup = {}): FieldGeometry {
   return createFieldGeometry(stateOn('acme:grid', setup), contentWith(setup), TOPOLOGIES);

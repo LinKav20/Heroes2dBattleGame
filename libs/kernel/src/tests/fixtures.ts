@@ -264,6 +264,7 @@ export const STATE: BattleState = {
       resources: { 'demo:mana': 3 },
       side: 'attacker',
       spentActions: {},
+      startCount: 10,
       summoned: false,
       tags: {},
       visibleTo: 'all',
@@ -283,6 +284,7 @@ export const STATE: BattleState = {
       resources: {},
       side: 'defender',
       spentActions: {},
+      startCount: 20,
       summoned: false,
       tags: {},
       visibleTo: ['defender'],
@@ -365,6 +367,7 @@ export const GRID: TopologyExtension<GridParams> = {
 
 export const FACING_GRID: TopologyExtension<GridParams> = {
   ...GRID,
+  line: (params, from, to) => gridLine(from, to),
   footprint: (params, cell, { facing, size }) => {
     const [x, y] = gridPoint(cell);
     const step = facing === 'west' ? -1 : 1;
@@ -458,6 +461,17 @@ export function gridPoint(cell: string): readonly [number, number] {
   const [x = 0, y = 0] = cell.split(',').map(Number);
 
   return [x, y];
+}
+
+export function gridLine(from: string, to: string): readonly string[] {
+  const [fromX, fromY] = gridPoint(from);
+  const [toX, toY] = gridPoint(to);
+  const steps = Math.max(Math.abs(toX - fromX), Math.abs(toY - fromY));
+
+  return counting(Math.max(0, steps - 1)).map((index) => gridCell(
+    fromX + Math.round(((toX - fromX) * (index + 1)) / steps),
+    fromY + Math.round(((toY - fromY) * (index + 1)) / steps),
+  ));
 }
 
 export function gridDistance(from: string, to: string): number {

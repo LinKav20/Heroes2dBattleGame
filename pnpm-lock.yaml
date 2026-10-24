@@ -213,6 +213,19 @@ importers:
 
   libs/kernel: {}
 
+  libs/rules-stdlib:
+    dependencies:
+      '@heroes2dgame/hex':
+        specifier: workspace:^
+        version: link:../hex
+    devDependencies:
+      '@heroes2dgame/kernel':
+        specifier: workspace:^
+        version: link:../kernel
+      '@heroes2dgame/testkit':
+        specifier: workspace:^
+        version: link:../testkit
+
   libs/testkit:
     devDependencies:
       '@heroes2dgame/kernel':

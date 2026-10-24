@@ -28,6 +28,8 @@ export {
 export type { Migration } from './migration.ts';
 export type { OperationContext, OperationExtension } from './operations.ts';
 export type {
+  AttackRequest,
+  AttackVariant,
   ChosenMechanic,
   DefenseVariant,
   MechanicContext,

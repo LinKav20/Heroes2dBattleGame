@@ -39,7 +39,9 @@ export interface UnitTurnedPayload {
 }
 
 /**
- * The payload of `kernel:health-changed`.
+ * The payload of `kernel:health-changed`. The count is at most the count the unit started with. The event does not
+ * check the field: a step that gives creatures back to a dead unit gives the event only when all of the cells of the
+ * unit are free, as `kernel:heal` with `revive` does.
  */
 export interface HealthChangedPayload {
   /** The unit. */
@@ -110,7 +112,7 @@ export interface ZonesChangedPayload {
 }
 
 /**
- * The payload of `kernel:unit-summoned`.
+ * The payload of `kernel:unit-summoned`. The count the new unit started with is a safe integer of at least its count.
  */
 export interface UnitSummonedPayload {
   /** The new unit; its identifier is `#` followed by the next number of the state. */
@@ -163,7 +165,13 @@ export const UNIT_EVENTS: KernelEventAppliers<UnitEventPayloads> = {
   [KERNEL_EVENTS.unitTurned]: (state, { facing, unit }) =>
     changeUnit(state, unit, (current) => ({ ...current, facing })),
   [KERNEL_EVENTS.healthChanged]: (state, { count, health, unit }) =>
-    changeUnit(state, unit, (current) => ({ ...current, count, health })),
+    changeUnit(state, unit, (current) => {
+      if (count > current.startCount) {
+        throw new RangeError(`The unit "${unit}" cannot have more than ${String(current.startCount)} creatures.`);
+      }
+
+      return { ...current, count, health };
+    }),
   [KERNEL_EVENTS.resourceChanged]: (state, { resource, unit, value }) =>
     changeUnit(state, unit, (current) => ({ ...current, resources: { ...current.resources, [resource]: value } })),
   [KERNEL_EVENTS.flagsChanged]: (state, { flags, unit }) =>
@@ -182,6 +190,10 @@ export const UNIT_EVENTS: KernelEventAppliers<UnitEventPayloads> = {
     const nextId = takeId(state, number);
 
     if (hasId(state.units, unit.id)) throw new RangeError(`The unit "${unit.id}" already exists.`);
+
+    if (!Number.isSafeInteger(unit.startCount) || unit.startCount < unit.count) {
+      throw new RangeError(`The summoned unit "${unit.id}" needs a start count of at least its count.`);
+    }
 
     return { ...state, nextId, units: [...state.units, unit] };
   },

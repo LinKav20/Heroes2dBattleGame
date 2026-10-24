@@ -109,6 +109,8 @@ const VALUES = [
   'VISIBLE_TO_ALL',
   'VISIBLE_TO_NONE',
   'abilityDefinition',
+  'actionsLeft',
+  'allSpent',
   'applicationDraft',
   'areaRefreshDraft',
   'battleSide',
@@ -135,6 +137,7 @@ const VALUES = [
   'findHazard',
   'findSide',
   'findUnit',
+  'flagParam',
   'formulaParam',
   'hasActed',
   'hasTag',
@@ -196,6 +199,7 @@ const VALUES = [
   'turnRejection',
   'unitItem',
   'valuesOf',
+  'visibleToBoth',
 ];
 
 const TYPES = [
@@ -213,6 +217,8 @@ const TYPES = [
   'ApplyEffectEdit',
   'AreaRule',
   'AttackCommand',
+  'AttackRequest',
+  'AttackVariant',
   'Attribute',
   'Aura',
   'AurasChangedPayload',

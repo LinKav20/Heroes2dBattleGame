@@ -31,6 +31,8 @@ export type RollVisibility = (typeof ROLL_VISIBILITIES)[number];
 export const KERNEL_CONDITIONS = Object.freeze({
   and: kernelName('and'),
   compare: kernelName('compare'),
+  eventIs: kernelName('event-is'),
+  eventNames: kernelName('event-names'),
   hasTag: kernelName('has-tag'),
   not: kernelName('not'),
   or: kernelName('or'),

@@ -62,6 +62,13 @@ module.exports = {
       to: { path: ANY_PACKAGE, pathNot: DETERMINISTIC_PACKAGES },
     },
     {
+      name: 'rules-stdlib-depends-only-on-kernel-and-hex',
+      comment: 'rules-stdlib builds its extensions from the kernel interfaces and the hex geometry, and nothing else.',
+      severity: 'error',
+      from: { path: '^libs/rules-stdlib/', pathNot: '/tests/' },
+      to: { path: ANY_PACKAGE, pathNot: ['^libs/rules-stdlib/', '^libs/kernel/', '^libs/hex/'] },
+    },
+    {
       name: 'only-tests-use-testkit',
       comment: 'testkit is a test helper: only tests depend on it.',
       severity: 'error',

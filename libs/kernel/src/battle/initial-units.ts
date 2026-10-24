@@ -52,6 +52,7 @@ export function unitOf(side: SideId, unit: ScenarioUnit, inventory: readonly Inv
     resources: {},
     side,
     spentActions: {},
+    startCount: count,
     summoned: false,
     tags: {},
     visibleTo,
@@ -191,7 +192,13 @@ export function settledUnit(
     throw new TypeError(`The unit ${JSON.stringify(unit.id)} needs a health from 1 to ${String(after.health)}.`);
   }
 
-  return { ...unit, count, health: count > 0 ? health : 0, resources: values };
+  return {
+    ...unit,
+    count,
+    health: count > 0 ? health : 0,
+    resources: values,
+    startCount: changes.count ?? unit.startCount,
+  };
 }
 
 function startsFull(rule: ResourceRule): boolean {

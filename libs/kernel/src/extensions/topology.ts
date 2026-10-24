@@ -53,6 +53,13 @@ export interface TopologyExtension<Params extends JsonObject = JsonObject> exten
    */
   footprint(params: Params, cell: CellId, body: TopologyBody): readonly CellId[] | undefined;
   /**
+   * Returns the cells on the straight line between two different cells of the field, without both of them, in the
+   * order from `from`: none between neighbors, and the same cells in the reverse order from `to` to `from`.
+   * Obstacles that block sight on these cells hide one cell from the other. Without this function every cell sees
+   * every other.
+   */
+  line?(params: Params, from: CellId, to: CellId): readonly CellId[];
+  /**
    * Returns the directions a creature may face on the field, if the topology has directions. Without this function a
    * unit has no direction, and a command that gives one is invalid.
    */
@@ -75,18 +82,21 @@ export interface TopologyBody {
  * The field of a state as the topology of the battle describes it, with the units and obstacles on it.
  *
  * A unit takes the cells of its creature in its cell while it stands on the field, that is while it is alive and has a
- * cell. Walking units cannot pass through obstacles that block movement and the cells of other units on the field,
- * and they stop only where all their cells are free. Flying units pass over them, but stop only in free cells too, and
+ * cell. Walking units cannot pass through obstacles that block movement and the cells of other units on the field, and
+ * they stop only where all their cells are free. Flying units pass over them, but stop only in free cells too, and
  * teleporting units jump straight to a free cell within the distance they may go. A unit keeps its direction on the
  * way. Dijkstra's algorithm finds the reachable cells: of equal costs, it takes the cells in the order it reaches them
  * through the neighbors of the topology. The A* algorithm finds a path: of the cells of equal estimated cost, it takes
  * first the one nearer to the goal, then the one it reached first. So both always find the same result.
  *
- * Every method throws a `TypeError` if a unit it names is not in the battle, if no package declares the topology of
- * the field, or if the topology breaks its contract in a way the kernel sees: a cell off the field among the
- * neighbors, the cells of an area or of a creature, a creature whose cells do not start with its cell, a distance or a
- * cost of a step that is not whole. It throws a `ContentError` if the content has no definition of a creature or an
- * obstacle, or a creature has a size below 1 or an unknown way of movement.
+ * Every method throws a `TypeError` if a unit it names is not in the battle, if no package declares the topology of the
+ * field, or if the topology breaks its contract in a way the kernel sees: a cell off the field among the neighbors, the
+ * cells of an area, a line or a creature, a creature whose cells do not start with its cell, a distance or a cost of a
+ * step that is not whole. A cell the caller gives that is not on the field is a `TypeError` too in `neighbors`,
+ * `distance`, `distanceBetween`, `nearestCell`, `sees` and `area`; `cellsAt` and `path` give nothing for it,
+ * `canStand` false, and `cellsAlong` and `unitsTouching` leave it out. It throws a
+ * `ContentError` if the content has no definition of a creature or an obstacle, or a creature has a size below 1 or an
+ * unknown way of movement.
  */
 export interface FieldGeometry {
   /** Every cell of the field in the order of the topology. */
@@ -103,6 +113,12 @@ export interface FieldGeometry {
   distanceBetween(from: readonly CellId[], to: readonly CellId[]): number | undefined;
   /** Returns the cell of a group that is nearest to a cell, the first of them if several are as near, or nothing. */
   nearestCell(from: readonly CellId[], to: CellId): CellId | undefined;
+  /**
+   * Tells whether a cell of one group sees a cell of the other: they are the same cell, or no obstacle that blocks
+   * sight stands on the line between them, as {@link TopologyExtension.line} gives it. Units do not block sight. An
+   * empty group sees nothing and is not seen. A cell off the field in either group is a `TypeError`.
+   */
+  sees(from: readonly CellId[], to: readonly CellId[]): boolean;
   /** Returns the cells of an area, as {@link TopologyExtension.area} describes. */
   area(rule: AreaRule, center: CellId, origin?: CellId): readonly CellId[];
   /** Returns the cells a unit takes, its own cell first, or none if it does not stand on the field. */

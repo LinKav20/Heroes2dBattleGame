@@ -47,6 +47,7 @@ export { MAX_DICE_PER_ROLL, MAX_DIE_SIDES } from './limits.ts';
 export {
   conditionParam,
   enumParam,
+  flagParam,
   formulaParam,
   isCondition,
   isFormula,

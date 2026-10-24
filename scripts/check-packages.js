@@ -6,7 +6,7 @@ const LICENSE = 'PolyForm-Noncommercial-1.0.0';
 const NODE_ENGINES = '>=22.12';
 const KERNEL = '@heroes2dgame/kernel';
 const NAME_PREFIXES = { libs: '', adapters: 'adapter-', packs: 'pack-' };
-const DETERMINISTIC_CORE_PACKAGES = ['libs/hex', 'libs/kernel'];
+const DETERMINISTIC_CORE_PACKAGES = ['libs/hex', 'libs/kernel', 'libs/rules-stdlib'];
 const WORKSPACE_RANGE = 'workspace:^';
 const FOLDER_GLOB = `{${PACKAGE_FOLDERS.join(',')}}`;
 const KERNEL_FORBIDDEN_IN = ['dependencies', 'optionalDependencies', 'bundleDependencies', 'bundledDependencies'];

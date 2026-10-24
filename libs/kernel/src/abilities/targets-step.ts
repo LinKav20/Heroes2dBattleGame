@@ -11,13 +11,13 @@ import type { AbilityTargetsParams } from './params.ts';
 
 /**
  * Runs the operations of an ability for one target and goes on with the next one in a step of its own kind, so the
- * stack holds the operations of one target at a time and every target is taken when its turn comes, after the
- * reactions to the use. In the operations `self` is the user and `target` is the target. An ability without targets
- * runs them once, and an ability for itself runs them with the user as `target`. A unit as a target that is no longer
- * alive is passed over. An ability that targets an area takes the units in the area when the step first runs: the
- * units on the field with a cell in the area, in the order of units, that pass the filter of the ability; the area goes
- * from the cell of the user nearest to the chosen cell. A unit of the area that died or left the area before its turn
- * is passed over. Only the kernel puts the step on the stack.
+ * stack holds the operations of one target at a time and every target is taken when its turn comes, after the reactions
+ * to the use. In the operations `self` is the user and `target` is the target. An ability without targets runs them
+ * once, and an ability for itself runs them with the user as `target`. A unit as a target that is no longer alive is
+ * passed over, unless the ability takes dead targets. An ability that targets an area takes the units in the area when
+ * the step first runs: the units on the field with a cell in the area, in the order of units, that pass the filter of
+ * the ability; the area goes from the cell of the user nearest to the chosen cell. A unit of the area that died or left
+ * the area before its turn is passed over. Only the kernel puts the step on the stack.
  *
  * @throws {ContentError} If the content has no such ability, or the filter rolls dice.
  */
@@ -63,7 +63,7 @@ function step(
 
   const left = area !== undefined && target.kind === 'unit'
     && !context.field.cellsOf(target.unit).some((cell) => area.has(cell));
-  const passed = !alive(context, target) || left;
+  const passed = (ability.target.dead !== true && !alive(context, target)) || left;
 
   return passed ? { events: [], kind: 'done', steps: next } : runFor(ability, { self, target }, next);
 }

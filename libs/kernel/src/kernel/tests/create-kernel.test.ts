@@ -153,6 +153,12 @@ describe('createKernel', () => {
     { kind: { ...SPEED, next: undefined }, problem: 'needs a function next' },
     { kind: { ...SPEED, wait: 'yes' }, problem: 'needs a function wait or none' },
     { kind: { ...SPEED, mechanic: 'kernel:defense' }, problem: 'needs a function defend' },
+    { kind: { ...SPEED, mechanic: 'kernel:attack' }, problem: 'needs a function attack' },
+    {
+      kind: { ...SPEED, attack: () => DONE, mechanic: 'kernel:attack', shoot: 7 },
+      problem: 'needs a function shoot or none',
+    },
+    { kind: { ...GRID, line: 'nope' }, problem: 'needs a function line or none' },
     {
       kind: { ...SPEED, mechanic: 'kernel:morale' },
       problem: 'names the mechanic "kernel:morale", which the kernel does not have',

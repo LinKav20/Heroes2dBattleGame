@@ -2,6 +2,7 @@ import { contentError, creatureDefinition, itemDefinition, type Op } from '../co
 import { KERNEL_EVENTS, kernelEventDraft } from '../events/index.ts';
 import {
   defineOperation,
+  flagParam,
   FORMULA_SCHEMA,
   formulaParam,
   referenceSchema,
@@ -14,7 +15,7 @@ import type { JsonObject } from '../json/index.ts';
 import { battleUnit, type Unit } from '../model/index.ts';
 import { FULL_NAME_PATTERN, KERNEL_OPERATIONS } from '../names/index.ts';
 import { DONE } from './drafts.ts';
-import { damaged, healed, type UnitHealth } from './health.ts';
+import { damaged, healed, revived, type UnitHealth } from './health.ts';
 import { addedItems, checkItem, removedItems } from './inventory.ts';
 import { MAX_ITEMS_PER_OPERATION } from './limits.ts';
 
@@ -22,13 +23,15 @@ import { MAX_ITEMS_PER_OPERATION } from './limits.ts';
  * The operations on units that the kernel registers itself: damage and heal a unit, change its resource, and add items
  * to its inventory or take them away. Every operation names the unit by the role of a participant in `to` or `from`.
  *
- * Damage and healing take the health of one creature from the attribute that the ruleset names, which must be at
- * least 1. A unit with no creatures left gets neither, and its amount is not even counted; damage or healing below 1
- * does nothing, and healing reaches only the creature that takes damage first. A gain never takes a resource above the
- * attribute that the creature names for it, a loss never takes it below 0, and a resource that is already above a
- * bound that went down keeps its value until it is spent. A resource the creature does not have is an error of
- * content. Items fill the stacks of the same item that are not equipped, then form new ones, and are taken from the
- * last stacks first; `count` is from 1 to {@link MAX_ITEMS_PER_OPERATION}, and 1 if not given.
+ * Damage and healing take the health of one creature from the attribute that the ruleset names, which must be 1 or
+ * more. A unit with no creatures left gets neither, and its amount is not even counted; damage or healing below 1 does
+ * nothing, and healing reaches only the creature that takes damage first. Healing with `revive` brings dead creatures
+ * back with the rest, up to the number the unit started with, and revives a dead unit if it still has a cell and all of
+ * its cells are free there; only then is the amount counted. A gain never takes a resource above the attribute that the
+ * creature names for it, a loss never takes it below 0, and a resource that is already above a bound that went down
+ * keeps its value until it is spent. A resource the creature does not have is an error of content. Items fill the
+ * stacks of the same item that are not equipped, then form new ones, and are taken from the last stacks first; `count`
+ * is from 1 to {@link MAX_ITEMS_PER_OPERATION}, and 1 if not given.
  */
 export const UNIT_OPERATION_KINDS: readonly OperationExtension[] = Object.freeze([
   defineOperation({
@@ -37,8 +40,9 @@ export const UNIT_OPERATION_KINDS: readonly OperationExtension[] = Object.freeze
   }, (node, context) => changeHealth(node, context, damaged)),
   defineOperation({
     name: KERNEL_OPERATIONS.heal,
-    params: { amount: FORMULA_SCHEMA, to: ROLE_SCHEMA },
-  }, (node, context) => changeHealth(node, context, healed)),
+    optional: ['revive'],
+    params: { amount: FORMULA_SCHEMA, revive: { type: 'boolean' }, to: ROLE_SCHEMA },
+  }, heal),
   defineOperation({
     name: KERNEL_OPERATIONS.changeResource,
     params: { amount: FORMULA_SCHEMA, resource: { pattern: FULL_NAME_PATTERN, type: 'string' }, to: ROLE_SCHEMA },
@@ -55,6 +59,16 @@ export const UNIT_OPERATION_KINDS: readonly OperationExtension[] = Object.freeze
   }, removeItem),
 ]);
 
+function heal(node: Op, context: OperationContext): StepResult {
+  if (!flagParam(node, 'revive')) return changeHealth(node, context, healed);
+
+  const unit = unitParam(node, context, 'to');
+
+  if (unit.count > 0 || canRise(unit, context)) return changeHealthOf(unit, node, context, revived);
+
+  return DONE;
+}
+
 function changeHealth(
   node: Op,
   context: OperationContext,
@@ -62,8 +76,15 @@ function changeHealth(
 ): StepResult {
   const unit = unitParam(node, context, 'to');
 
-  if (unit.count === 0) return DONE;
+  return unit.count === 0 ? DONE : changeHealthOf(unit, node, context, change);
+}
 
+function changeHealthOf(
+  unit: Unit,
+  node: Op,
+  context: OperationContext,
+  change: (unit: Unit, maxHealth: number, amount: number) => UnitHealth,
+): StepResult {
   const amount = context.expressions.value(formulaParam(node, 'amount'));
 
   if (amount.kind !== 'value') return amount;
@@ -86,6 +107,10 @@ function changeHealth(
   const event = kernelEventDraft(KERNEL_EVENTS.healthChanged, { count, health, unit: unit.id }, unit.visibleTo);
 
   return { events: [event], kind: 'done' };
+}
+
+function canRise(unit: Unit, context: OperationContext): boolean {
+  return unit.cell !== undefined && context.field.canStand(unit.id, unit.cell, unit.facing);
 }
 
 function changeResource(node: Op, context: OperationContext): StepResult {

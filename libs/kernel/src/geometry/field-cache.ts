@@ -14,6 +14,10 @@ export interface FieldCells {
   readonly set: ReadonlySet<CellId>;
 }
 
+type ClosedFor = 'blocksMovement' | 'blocksSight';
+
+type ClosedCells = WeakMap<readonly FieldObstacle[], WeakMap<ContentRegistry, ReadonlySet<CellId>>>;
+
 interface KnownField {
   readonly cells: FieldCells;
   readonly neighbors: Map<string, readonly CellId[]>;
@@ -21,14 +25,17 @@ interface KnownField {
 
 /**
  * What the kernel has asked topologies about fields: the cells and the neighbors of cells, kept for the object of the
- * parameters of the field and for the topology, and the cells that obstacles close, kept for the list of obstacles and
- * the content. These objects therefore never change in place, so states of one battle share what is known. After a
- * state is read from JSON, its objects are new, and the kernel asks again.
+ * parameters of the field and for the topology, and the cells that obstacles close for movement and for sight, kept
+ * for the list of obstacles and the content. These objects therefore never change in place, so states of one battle
+ * share what is known. After a state is read from JSON, its objects are new, and the kernel asks again.
  */
 export class FieldCache {
   private readonly fields = new WeakMap<JsonObject, Map<string, KnownField>>();
 
-  private readonly closed = new WeakMap<readonly FieldObstacle[], WeakMap<ContentRegistry, ReadonlySet<CellId>>>();
+  private readonly closed: Readonly<Record<ClosedFor, ClosedCells>> = {
+    blocksMovement: new WeakMap(),
+    blocksSight: new WeakMap(),
+  };
 
   /**
    * Returns the cells of a field, asking the topology only the first time.
@@ -63,22 +70,26 @@ export class FieldCache {
   }
 
   /**
-   * Returns the cells that obstacles close for movement.
+   * Returns the cells that obstacles close for movement, or for sight.
    *
    * @throws {ContentError} If the content has no definition of an obstacle.
    */
-  closedBy(obstacles: readonly FieldObstacle[], content: ContentRegistry): ReadonlySet<CellId> {
-    const known = this.closed.get(obstacles) ?? new WeakMap<ContentRegistry, ReadonlySet<CellId>>();
+  closedBy(
+    obstacles: readonly FieldObstacle[],
+    content: ContentRegistry,
+    blocks: ClosedFor,
+  ): ReadonlySet<CellId> {
+    const known = this.closed[blocks].get(obstacles) ?? new WeakMap<ContentRegistry, ReadonlySet<CellId>>();
     const found = known.get(content);
 
     if (found !== undefined) return found;
 
     const cells = new Set(obstacles
-      .filter(({ obstacle }) => definitionOf(content.obstacles, obstacle, 'obstacle').blocksMovement)
+      .filter(({ obstacle }) => definitionOf(content.obstacles, obstacle, 'obstacle')[blocks])
       .flatMap(({ cells: taken }) => taken));
 
     known.set(content, cells);
-    this.closed.set(obstacles, known);
+    this.closed[blocks].set(obstacles, known);
 
     return cells;
   }

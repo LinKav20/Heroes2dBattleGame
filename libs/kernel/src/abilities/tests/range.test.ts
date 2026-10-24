@@ -85,17 +85,58 @@ describe('the range and the area of an ability', () => {
       .toStrictEqual(['kernel:not-on-field', { unit: 'archers-1' }]);
   });
 
+  it('lets a unit target only what it sees, past units but not past obstacles that block sight', () => {
+    const rock = { cells: ['7,5'], id: 'rock-2', obstacle: 'demo:rock' };
+    const open = { ...READY, field: { ...READY.field, hazards: [], obstacles: [] } };
+    const hidden = { ...open, field: { ...open.field, obstacles: [rock] } };
+    const blocker = { ...unitOf(open, 'pikemen-1'), cell: '7,5', id: 'pikemen-2' };
+    const crowded = { ...open, units: [...open.units, blocker] };
+    const aimed = useAbility('demo:aim', [PIKEMEN]);
+
+    expect(reason(execute(hidden, aimed, CONTENT)))
+      .toStrictEqual(['kernel:invalid-targets', { ability: 'demo:aim', problem: 'sight', target: 0 }]);
+
+    expect(unitOf(used(open, aimed, CONTENT).state, 'pikemen-1').health).toBe(9);
+    expect(unitOf(used(crowded, aimed, CONTENT).state, 'pikemen-1').health).toBe(9);
+  });
+
+  it('checks sight for a cell of an area and for an ability without a range, and the range before sight', () => {
+    const rock = { cells: ['7,5'], id: 'rock-2', obstacle: 'demo:rock' };
+    const open = { ...READY, field: { ...READY.field, hazards: [], obstacles: [] } };
+    const hidden = { ...open, field: { ...open.field, obstacles: [rock] } };
+    const behind = useAbility('demo:flare', [{ cell: '10,5', kind: 'cell' }]);
+    const before = useAbility('demo:flare', [{ cell: '5,5', kind: 'cell' }]);
+    const glance = useAbility('demo:glance', [PIKEMEN]);
+    const peek = useAbility('demo:peek', [PIKEMEN]);
+
+    expect(reason(execute(hidden, behind, CONTENT)))
+      .toStrictEqual(['kernel:invalid-targets', { ability: 'demo:flare', problem: 'sight', target: 0 }]);
+
+    expect(execute(hidden, before, CONTENT).ok).toBe(true);
+    expect(used(open, glance, CONTENT).state.variables.glanced).toBe(true);
+
+    expect(reason(execute(hidden, glance, CONTENT)))
+      .toStrictEqual(['kernel:invalid-targets', { ability: 'demo:glance', problem: 'sight', target: 0 }]);
+
+    expect(reason(execute(hidden, peek, CONTENT)))
+      .toStrictEqual(['kernel:invalid-targets', { ability: 'demo:peek', problem: 'range', target: 0 }]);
+  });
+
   it('treats a range of a side, an area target without an area and a distance to a side as errors of content', () => {
     const defender = { kind: 'side', side: 'defender' } as const;
     const ranged = withAbility({ ...ability('demo:rally', { target: { kind: 'side', range: 3 } }) });
     const shapeless = withAbility(ability('demo:fireball', { target: { kind: 'area', range: 10 } }));
     const measured = withAbility(ability('demo:rally', { target: { filter: ADJACENT, kind: 'side' } }));
+    const seeing = withAbility(ability('demo:rally', { target: { kind: 'side', sight: true } }));
 
     expect(() => execute(onGrid('5,5'), useAbility('demo:rally', [defender], { side: 'attacker' }), ranged))
       .toThrow('belongs to a side, which has no cells');
 
     expect(() => execute(onGrid('5,5'), useAbility('demo:fireball', [{ cell: '5,5', kind: 'cell' }]), shapeless))
       .toThrow(ContentError);
+
+    expect(() => execute(onGrid('5,5'), useAbility('demo:rally', [defender], { side: 'attacker' }), seeing))
+      .toThrow('belongs to a side, which has no cells');
 
     expect(() => execute(onGrid('5,5'), useAbility('demo:rally', [defender], { side: 'attacker' }), measured))
       .toThrow('neither a unit nor a cell');
@@ -123,6 +164,15 @@ const CONTENT: ContentRegistry = withAbility(
     },
   }),
   ability('demo:touch', { target: { filter: ADJACENT, kind: 'unit' } }),
+  ability('demo:aim', {
+    ops: [node('kernel:damage', { amount: 1, to: 'target' })],
+    target: { kind: 'unit', range: 20, sight: true },
+  }),
+  ability('demo:flare', {
+    target: { area: { shape: 'radius', size: 0 }, kind: 'area', range: 20, sight: true },
+  }),
+  ability('demo:glance', { ops: [markOp('glanced')], target: { kind: 'unit', sight: true } }),
+  ability('demo:peek', { ops: [markOp('peeked')], target: { kind: 'unit', range: 6, sight: true } }),
   ability('demo:census', {
     ops: [markOp('counted')],
     target: { area: { shape: 'radius', size: 1 }, kind: 'area', range: 10 },
@@ -145,7 +195,18 @@ function withAbility(...added: readonly Ability[]): ContentRegistry {
       ...ABILITY_CONTENT.creatures,
       'demo:archer': {
         ...archer,
-        abilities: [...archer.abilities, 'demo:snipe', 'demo:fireball', 'demo:touch', 'demo:breath', 'demo:census'],
+        abilities: [
+          ...archer.abilities,
+          'demo:snipe',
+          'demo:fireball',
+          'demo:touch',
+          'demo:breath',
+          'demo:census',
+          'demo:aim',
+          'demo:flare',
+          'demo:glance',
+          'demo:peek',
+        ],
       },
     },
   };

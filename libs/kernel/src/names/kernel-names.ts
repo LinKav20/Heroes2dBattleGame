@@ -46,9 +46,11 @@ export const KERNEL_STEPS = Object.freeze({
 
 /**
  * The full names of the mechanics that the kernel itself asks a ruleset about: the order of turns, which a ruleset
- * must choose, and the defense, without which a unit cannot defend.
+ * must choose, the attack, without which units neither attack nor shoot, and the defense, without which a unit cannot
+ * defend.
  */
 export const KERNEL_MECHANICS = Object.freeze({
+  attack: kernelName('attack'),
   defense: kernelName('defense'),
   turnOrder: kernelName('turn-order'),
 });

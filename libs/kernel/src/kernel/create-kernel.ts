@@ -107,8 +107,8 @@ export interface Kernel {
 }
 
 /**
- * Creates a kernel and its registries from the extensions of the point of assembly. The kernel adds its own
- * extensions under the prefix `kernel`.
+ * Creates a kernel and its registries from the extensions of the point of assembly. The kernel adds its own extensions
+ * under the prefix `kernel`.
  *
  * The kernel freezes the objects of the extensions it registers, with their migrations, schemas and data, so the
  * registries and the version of the state format never change; an extension that keeps changing state of its own keeps
@@ -116,15 +116,16 @@ export interface Kernel {
  *
  * Two extensions must not share a full name or a short name, even if they belong to different registries. The prefix
  * `kernel` belongs to the kernel, and other packages cannot use it. Every kind of event and step needs a version and
- * one migration for every older version. A kind of event or command of an extension needs a schema of its payload,
- * and a node of conditions, formulas or operations needs a schema of the node and its function: `test`, `evaluate` or
- * `run`. A kind of event may have a function `target`, and a kind of step a function `migrateEvents`. A topology
- * needs a schema of the parameters of the field and the functions `cells`, `neighbors`, `moveCost`, `distance`, `area`
- * and `footprint`, and may have a function `directions`. A variant of a mechanic needs a schema of its parameters and
- * the full name of its mechanic; a mechanic with the prefix `kernel` must be one the kernel has, a variant of the order
- * of turns needs a function `next`, may have the hooks of the moments of the battle and `wait`, and gives turns to a
- * `side` or a `unit` if it says so, and a variant of the defense needs a function `defend`. An extension may declare
- * the data it keeps in the state with a version from 1 and a schema.
+ * one migration for every older version. A kind of event or command of an extension needs a schema of its payload, and
+ * a node of conditions, formulas or operations needs a schema of the node and its function: `test`, `evaluate` or
+ * `run`. A kind of event may have a function `target`, and a kind of step a function `migrateEvents`. A topology needs
+ * a schema of the parameters of the field and the functions `cells`, `neighbors`, `moveCost`, `distance`, `area` and
+ * `footprint`, and may have the functions `directions` and `line`. A variant of a mechanic needs a schema of its
+ * parameters and the full name of its mechanic; a mechanic with the prefix `kernel` must be one the kernel has, a
+ * variant of the order of turns needs a function `next`, may have the hooks of the moments of the battle and `wait`,
+ * and gives turns to a `side` or a `unit` if it says so, a variant of the defense needs a function `defend`, and a
+ * variant of the attack needs a function `attack` and may have a function `shoot`. An extension may declare the data it
+ * keeps in the state with a version from 1 and a schema.
  *
  * @throws {TypeError} If any extension is invalid or clashes with another one. The message lists every problem found.
  */

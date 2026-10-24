@@ -1,5 +1,6 @@
 import { ContentError, type MechanicChoice, type Ruleset } from '../content/index.ts';
 import type {
+  AttackVariant,
   ChosenMechanic,
   DefenseVariant,
   MechanicContext,
@@ -105,6 +106,18 @@ export function turnOrderOf(
 }
 
 /**
+ * Returns the attack the ruleset chose, or nothing if it chose none.
+ *
+ * @throws {TypeError} If no package of the kernel declares the chosen variant for the attack.
+ */
+export function attackOf(
+  mechanics: Registry<MechanicExtension>,
+  ruleset: Ruleset,
+): ChosenVariant<AttackVariant> | undefined {
+  return chosenOf(mechanics, ruleset, KERNEL_MECHANICS.attack, isAttack);
+}
+
+/**
  * Returns the defense the ruleset chose, or nothing if it chose none.
  *
  * @throws {TypeError} If no package of the kernel declares the chosen variant for the defense.
@@ -193,6 +206,10 @@ function variantOf(
 
 function isTurnOrder(variant: MechanicExtension): variant is TurnOrderVariant {
   return variant.mechanic === KERNEL_MECHANICS.turnOrder;
+}
+
+function isAttack(variant: MechanicExtension): variant is AttackVariant {
+  return variant.mechanic === KERNEL_MECHANICS.attack;
 }
 
 function isDefense(variant: MechanicExtension): variant is DefenseVariant {
