@@ -2,9 +2,10 @@ import type { CellId, ContentName, SideId, UnitId, VisibleTo } from '../ids/inde
 
 /**
  * A mark in the battle state that the kernel needs data from outside: a dice roll, a choice of an option or a choice of
- * targets. The kernel does not know who answers.
+ * targets. The kernel does not know who answers. In a projection a request the actor does not see is a
+ * `HiddenRequest`: only its number and side, and nobody can answer it there.
  */
-export type InputRequest = ChoiceRequest | RollRequest | TargetRequest;
+export type InputRequest = ChoiceRequest | HiddenRequest | RollRequest | TargetRequest;
 
 /**
  * A request for the result of a dice roll, for example of real dice.
@@ -26,6 +27,19 @@ export interface RollRequest {
   readonly side?: SideId;
   /** The unit the request belongs to, if any. */
   readonly unit?: UnitId;
+}
+
+/**
+ * A request that a projection shows in place of one the actor does not see: the battle waits for an answer from the
+ * side of the request. Only a projection has it, and nobody can answer it there.
+ */
+export interface HiddenRequest {
+  /** The kind of request. */
+  readonly kind: 'hidden';
+  /** The identifier of the request. */
+  readonly id: number;
+  /** The side the request belongs to. */
+  readonly side: SideId;
 }
 
 /**

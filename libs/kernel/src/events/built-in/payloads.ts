@@ -4,6 +4,7 @@ import type { EffectEventPayloads } from './effects.ts';
 import type { ExecutionEventPayloads } from './execution.ts';
 import type { FieldEventPayloads } from './field.ts';
 import type { InventoryEventPayloads } from './inventory.ts';
+import type { ProjectionEventPayloads } from './projection.ts';
 import type { ScenarioEventPayloads } from './scenario.ts';
 import type { UnitEventPayloads } from './units.ts';
 
@@ -16,5 +17,6 @@ export type KernelEventPayloads = AbilityEventPayloads
   & ExecutionEventPayloads
   & FieldEventPayloads
   & InventoryEventPayloads
+  & ProjectionEventPayloads
   & ScenarioEventPayloads
   & UnitEventPayloads;

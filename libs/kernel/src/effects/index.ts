@@ -6,6 +6,9 @@ export {
   tickDraft,
   turnDraft,
 } from './drafts.ts';
+export { visibilityOf } from './applied.ts';
+export { auraVisibility, zoneVisibility } from './areas.ts';
+export { effectsOf } from './holders.ts';
 export { EFFECT_STEP_KINDS } from './kinds.ts';
 export { holderParam, KERNEL_OPERATION_KINDS } from './operations.ts';
 export type {

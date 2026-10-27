@@ -167,7 +167,11 @@ describe('createKernel', () => {
     { kind: { ...GRID, directions: 'east' }, problem: 'needs a function directions or none' },
     {
       kind: { ...STRIKE_STEP, data: { schema: { type: 'object' }, version: 0 } },
-      problem: 'needs data with a version that is a whole number from 1 and a JSON Schema, or no data',
+      problem: DATA_PROBLEM,
+    },
+    {
+      kind: { ...SPEED, data: { project: 'nope', schema: { type: 'object' }, version: 1 } },
+      problem: DATA_PROBLEM,
     },
     { kind: { ...SPEED, data: { version: 2 } }, problem: 'needs data with a version that is a whole number from 1' },
     {
@@ -200,6 +204,9 @@ describe('createKernel', () => {
     );
   });
 });
+
+const DATA_PROBLEM = 'needs data with a version that is a whole number from 1, a JSON Schema and, optionally, '
+  + 'a function `project`';
 
 const DAMAGE: OperationExtension = {
   kind: 'operation',

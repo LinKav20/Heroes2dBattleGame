@@ -19,7 +19,7 @@ describe('kernel:damage and kernel:heal', () => {
     const result = operate(READY, node('kernel:damage', { amount: 13, to: 'target' }));
 
     expect(result.events.map(({ payload, visibleTo }) => [payload, visibleTo])).toStrictEqual([
-      [{ count: 19, health: 7, unit: 'pikemen-1' }, ['defender']],
+      [{ count: 19, health: 7, unit: 'pikemen-1' }, ['attacker', 'defender']],
     ]);
   });
 

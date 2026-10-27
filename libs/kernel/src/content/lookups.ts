@@ -1,4 +1,4 @@
-import type { ContentName } from '../ids/index.ts';
+import type { ContentName, UnitId } from '../ids/index.ts';
 import { definitionOf } from './content-error.ts';
 import type { ContentRegistry } from './content-registry.ts';
 import type { Ability, Creature, Item } from './definitions.ts';
@@ -58,4 +58,13 @@ export function rulesetDefinition(content: ContentRegistry, name: ContentName): 
  */
 export function scenarioDefinition(content: ContentRegistry, name: ContentName): Scenario {
   return definitionOf(content.scenarios, name, 'scenario');
+}
+
+/**
+ * Returns the units to which the scenario gives a cell: they stand there from the start and are not placed.
+ */
+export function fixedUnits(scenario: Scenario): ReadonlySet<UnitId> {
+  const units = scenario.sides.flatMap((side) => side.units);
+
+  return new Set(units.filter(({ cell }) => cell !== undefined).map(({ id }) => id));
 }

@@ -11,7 +11,10 @@ export {
   type BattleOptions,
   type MoveParams,
   type RulesetChanges,
+  type SideChanges,
   type SpendActionsParams,
+  type SpentUses,
+  type StartingEffect,
   type TurnCheckParams,
   type UnitChanges,
   plannedMove,
@@ -98,6 +101,7 @@ export {
   type AurasChangedPayload,
   type BattleEndedPayload,
   type CommandAbortedPayload,
+  type DataChangedPayload,
   type EffectAppliedPayload,
   type EffectChangedPayload,
   type EffectNotAppliedPayload,
@@ -107,6 +111,7 @@ export {
   type HazardAddedPayload,
   type HazardRemovedPayload,
   type HealthChangedPayload,
+  type HiddenPayload,
   type InputClosedPayload,
   type InputRequestedPayload,
   type ItemAddedPayload,
@@ -120,6 +125,7 @@ export {
   type MigrationResult,
   type MigrationSuccess,
   type PhaseChangedPayload,
+  type ProjectionEventPayloads,
   type ResourceChangedPayload,
   type RollMadePayload,
   type StepsSavedPayload,
@@ -140,6 +146,7 @@ export {
   type ExecuteAccepted,
   type ExecuteRejected,
   type ExecuteResult,
+  type SimulatedRolls,
 } from './execution/index.ts';
 export {
   COMPARISON_OPERATORS,
@@ -255,19 +262,30 @@ export {
   type TurnOrderVariant,
 } from './extensions/index.ts';
 export {
+  canSee,
+  sideSees,
   summonedUnitId,
   VISIBLE_TO_ALL,
   VISIBLE_TO_NONE,
   visibleToBoth,
   type CellId,
   type ContentName,
+  type FullVisibility,
   type SideId,
+  type SidesVisibility,
   type Tag,
   type UnitId,
+  type Visibility,
   type VisibleTo,
 } from './ids/index.ts';
 export { canonicalJson, hashJson, type JsonArray, type JsonObject, type JsonValue } from './json/index.ts';
-export { createKernel, type Kernel, type KernelOptions, type KernelRegistries } from './kernel/index.ts';
+export {
+  createKernel,
+  type Forecast,
+  type Kernel,
+  type KernelOptions,
+  type KernelRegistries,
+} from './kernel/index.ts';
 export {
   battleSide,
   battleUnit,
@@ -312,6 +330,7 @@ export {
   type GameCommand,
   type Hazard,
   type HazardHolder,
+  type HiddenRequest,
   type InputAnswer,
   type InputRequest,
   type InputValue,
@@ -385,6 +404,7 @@ export {
   KERNEL_OPERATIONS,
   KERNEL_PREFIX,
   KERNEL_STEPS,
+  type DataView,
   type Extension,
   type ExtensionData,
   type KernelOperationType,

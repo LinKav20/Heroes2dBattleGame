@@ -28,7 +28,7 @@ import {
   type UnitId,
 } from '@heroes2dgame/kernel';
 import { chanceHit, chanceNeed, chosenChance } from './chances.ts';
-import { speedData, speedSchema, type SpeedData } from './events.ts';
+import { projectedSpeed, speedData, speedSchema, type SpeedData } from './events.ts';
 import { attributeOf, firstOf, freshUnits, hasAnyTag, holderOf, stepKind } from './helpers.ts';
 import { RULES_STDLIB_MECHANICS, RULES_STDLIB_NAMES, RULES_STDLIB_REASONS } from './names.ts';
 import { FULL_NAME_SCHEMA } from './schemas.ts';
@@ -61,10 +61,11 @@ interface MoraleCheckParams {
  * unit neither put off nor skipped, and a success gives the unit one more turn right away, at most once a round. A
  * success of morale gives `rules-stdlib:morale-rolled`, seen by the sides that see the unit. The variant keeps the
  * unit that gets the turn next, the units that got one this round and the side of the last turn of the last round in
- * its data, seen only by an actor with full visibility, and starts the units anew at the end of the round.
+ * its data and starts the units anew at the end of the round. A projection for sides shows the data without the units
+ * the sides do not see.
  */
 export const SPEED_ORDER: TurnOrderVariant<SpeedParams> = Object.freeze({
-  data: { schema: speedSchema(), version: 1 },
+  data: { project: projectedSpeed, schema: speedSchema(), version: 1 },
   kind: 'mechanic',
   mechanic: KERNEL_MECHANICS.turnOrder,
   name: RULES_STDLIB_NAMES.speed,

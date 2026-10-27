@@ -53,12 +53,17 @@ export class BattleCourse {
   /**
    * Returns the steps a step adds as they go on the stack. A step outside the course of the battle that ends the turn
    * with `kernel:turn-check` does not end it at once: the end of the action below it ends the turn after the rest of
-   * the command.
+   * the command. A step of a state edit, which has no end of an action, ends the turn in the check of the turn after
+   * the edit, so the turn ends as usual, with reactions and triggers.
    */
-  placed(drafts: readonly StepDraft[], flow: boolean, stack: CourseStack): readonly StepDraft[] {
-    if (flow) return drafts;
+  placed(drafts: readonly StepDraft[], step: Pick<Step, 'flow' | 'quiet'>, stack: CourseStack): readonly StepDraft[] {
+    if (step.flow === true) return drafts;
 
-    return drafts.filter((draft) => !(endsTurn(draft) && stack.changeNearest(KERNEL_STEPS.actionEnd, endedAction)));
+    const [type, change] = step.quiet === true
+      ? [KERNEL_STEPS.turnCheck, endedTurn]
+      : [KERNEL_STEPS.actionEnd, endedAction];
+
+    return drafts.filter((draft) => !(endsTurn(draft) && stack.changeNearest(type, change)));
   }
 
   /**
@@ -123,6 +128,10 @@ export function afterAbort(stack: CourseStack): void {
  */
 export function endsTurn(draft: StepDraft): boolean {
   return draft.type === KERNEL_STEPS.turnCheck && (draft.params as TurnCheckParams).end === true;
+}
+
+function endedTurn(params: JsonObject): JsonObject {
+  return { ...params, end: true };
 }
 
 function endedAction(params: JsonObject): JsonObject {

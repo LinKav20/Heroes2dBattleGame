@@ -16,7 +16,7 @@ import {
   type TurnOrderVariant,
   type Unit,
 } from '@heroes2dgame/kernel';
-import { initiativeData, initiativeSchema, type InitiativeData } from './events.ts';
+import { initiativeData, initiativeSchema, projectedInitiative, type InitiativeData } from './events.ts';
 import { attributeOf, firstOf, freshUnits, holderOf, rollNeed, stepKind } from './helpers.ts';
 import { RULES_STDLIB_NAMES } from './names.ts';
 import { DIE_SCHEMA, FULL_NAME_SCHEMA } from './schemas.ts';
@@ -41,11 +41,11 @@ export interface InitiativeParams extends JsonObject {
  * initiative, a die and the attribute `bonus`, and a unit that comes on the field later rolls at the start of the next
  * round; until then it goes after every unit that has rolled. A rolled initiative never changes. The higher
  * initiative goes first, then the higher attribute `tie` at the moment, then the order of the scenario. Units do not
- * wait. The variant keeps the rolls in its data, seen only by an actor with full visibility.
+ * wait. The variant keeps the rolls in its data, and a projection for sides shows the rolls of the units they see.
  */
 export const INITIATIVE_ORDER: TurnOrderVariant<InitiativeParams> = Object.freeze({
   battleStart: (context: MechanicContext<InitiativeParams>) => rollDrafts(context.state),
-  data: { schema: initiativeSchema(), version: 1 },
+  data: { project: projectedInitiative, schema: initiativeSchema(), version: 1 },
   kind: 'mechanic',
   mechanic: KERNEL_MECHANICS.turnOrder,
   name: RULES_STDLIB_NAMES.initiative,

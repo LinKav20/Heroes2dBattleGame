@@ -8,6 +8,7 @@ import { operationDrafts } from '../../operations/index.ts';
 import { asRecord, node, unitOf } from '../../tests/fixtures.ts';
 import { runDrafts } from '../../tests/run-drafts.ts';
 import { spendActionsDraft, turnCheckDraft } from '../index.ts';
+import { turnParticipants } from '../turn-actions.ts';
 import {
   battleWith,
   BRACE,
@@ -215,6 +216,18 @@ describe('a round in which nobody can act', () => {
 
     expect(passed.phase).toStrictEqual({ kind: 'turn', side: 'defender' });
     expect(passed.units.filter(({ health }) => health === 9)).toHaveLength(150);
+  });
+});
+
+describe('the participants of a turn', () => {
+  it('are the side alone in a turn of a side when the ruleset gives turns to units, as a projection shows it', () => {
+    const state = startWith(KERNEL, CONTENT);
+    const side = { kind: 'side', side: 'attacker' } as const;
+    const sides: BattleState = { ...state, ruleset: { ...state.ruleset, turnOwner: 'side' } };
+
+    expect(turnParticipants(state, side)).toStrictEqual([side]);
+    expect(turnParticipants(sides, side)).toStrictEqual([side, ARCHERS]);
+    expect(turnParticipants(state, ARCHERS)).toStrictEqual([ARCHERS, side]);
   });
 });
 

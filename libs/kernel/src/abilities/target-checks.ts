@@ -1,6 +1,6 @@
 import type { Ability, TargetRule } from '../content/index.ts';
 import type { Expressions, FieldGeometry } from '../extensions/index.ts';
-import type { CellId } from '../ids/index.ts';
+import { sideSees, type CellId, type SideId } from '../ids/index.ts';
 import {
   findSide,
   findUnit,
@@ -30,12 +30,12 @@ export interface TargetUser {
 
 /**
  * Checks the targets of an ability. An ability without targets gets none, and one with targets gets from 1 to their
- * number of different targets of its kind; a unit must be alive, or dead with a cell if the ability takes dead
- * targets, and a cell must be on the field. A unit and a cell
+ * number of different targets of its kind; a unit must be alive, or dead with a cell if the ability takes dead targets,
+ * and a cell must be on the field. A unit that the side of the user does not see counts as no unit. A unit and a cell
  * must be within the range from a cell of the user, if the ability has one, and in sight of it, if the ability needs
- * sight, and an area that goes from the user needs a user on the field. Each target must pass the filter with the
- * user as `self` and the target as `target`; for an area the filter applies to the units in it when the ability is
- * used. A failed check names the problem and the place of the target.
+ * sight, and an area that goes from the user needs a user on the field. Each target must pass the filter with the user
+ * as `self` and the target as `target`; for an area the filter applies to the units in it when the ability is used. A
+ * failed check names the problem and the place of the target.
  *
  * @throws {ContentError} If the filter rolls dice.
  */
@@ -55,10 +55,11 @@ export function targetsCheck(
   const seen = new Set<string>();
   const needsCells = rule.range !== undefined || rule.sight === true || isDirected(rule.area);
   const from = needsCells && user.unit !== undefined ? field.cellsOf(user.unit.id) : [];
+  const side = user.unit?.side ?? (user.target.kind === 'side' ? user.target.side : undefined);
 
   for (const [index, target] of targets.entries()) {
     const key = targetKey(target);
-    const found = seen.has(key) ? TARGET_PROBLEMS.duplicate : targetProblem(state, field, rule, target, from);
+    const found = seen.has(key) ? TARGET_PROBLEMS.duplicate : targetProblem(state, field, rule, target, from, side);
 
     seen.add(key);
 
@@ -89,6 +90,7 @@ function targetProblem(
   rule: TargetRule,
   target: Target,
   from: readonly CellId[],
+  side: SideId | undefined,
 ): TargetProblem | undefined {
   switch (target.kind) {
     case 'cell': {
@@ -108,7 +110,7 @@ function targetProblem(
     case 'unit': {
       const unit = findUnit(state, target.unit);
 
-      if (rule.kind !== 'unit' || unit === undefined) return TARGET_PROBLEMS.kind;
+      if (rule.kind !== 'unit' || unit === undefined || !sideSees(side, unit.visibleTo)) return TARGET_PROBLEMS.kind;
 
       if (unit.count === 0 && rule.dead !== true) return TARGET_PROBLEMS.dead;
 

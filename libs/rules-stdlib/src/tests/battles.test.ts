@@ -7,6 +7,7 @@ import {
   type Command,
   type ContentRegistry,
   type FieldGeometry,
+  type ScenarioUnit,
   type Unit,
 } from '@heroes2dgame/kernel';
 import fc from 'fast-check';
@@ -41,9 +42,13 @@ interface Fought {
   readonly state: BattleState;
 }
 
+interface RandomBattle extends Fought {
+  readonly hidden: readonly string[];
+}
+
 type Arena = 'initiative' | 'sides' | 'speed';
 
-describe('whole battles of the standard rules', () => {
+describe('whole battles of the standard rules', { timeout: 60_000 }, () => {
   it.each(ORDERS)('stay the same by the %s order with rolls of the generator', (arena) => {
     expect(trace(arena, false)).toStrictEqual(TRACES[arena].generator);
   });
@@ -58,11 +63,13 @@ describe('whole battles of the standard rules', () => {
     }), { numRuns: 15, seed: 1301 });
   });
 
-  it('reach deaths, later rounds, ends, waiting, defense, morale, luck and every kind of strike', () => {
+  it('reach deaths, later rounds, ends, waiting, defense, morale, luck, every kind of strike and of hiding', () => {
     const seen = new Set<string>();
 
     fc.assert(fc.property(fc.constantFrom(...ORDERS), CHOICES, fc.boolean(), (arena, choices, external) => {
-      seenIn(randomBattle(arena, external, choices)).forEach((mark) => seen.add(mark));
+      const battle = randomBattle(arena, external, choices);
+
+      [...seenIn(battle), ...battle.hidden].forEach((mark) => seen.add(mark));
     }), { numRuns: 30, seed: 1302 });
 
     expect([...seen].sort()).toStrictEqual(expect.arrayContaining(REACHED));
@@ -73,28 +80,19 @@ const ORDERS: readonly Arena[] = ['speed', 'initiative', 'sides'];
 
 const CHOICES = fc.array(fc.nat(), { maxLength: 200, minLength: 40 });
 
-const SPIRITS = withUnits({
+const SPIRITS: Readonly<Record<string, Partial<ScenarioUnit>>> = {
   'archers-1': { effects: ['demo:misfortune'] },
   'griffins-1': { effects: ['demo:despair'] },
   'pikemen-1': { effects: ['demo:bless', 'demo:fortune'] },
-});
-
-const ARENAS: Readonly<Record<Arena, ContentRegistry>> = {
-  initiative: contentWith(SPIRITS, {
-    mechanics: {
-      ...RULESET.mechanics,
-      'kernel:turn-order': {
-        params: { bonus: 'core:speed', roll: 'core:initiative', sides: 20, tie: 'core:attack' },
-        variant: 'rules-stdlib:initiative',
-      },
-    },
-  }),
-  sides: contentWith(SPIRITS, {
-    mechanics: { ...RULESET.mechanics, 'kernel:turn-order': { variant: 'rules-stdlib:sides' } },
-    turnOwner: 'side',
-  }),
-  speed: contentWith(SPIRITS),
 };
+
+const ARENAS = arenas(SPIRITS);
+
+const HIDDEN = arenas({
+  ...SPIRITS,
+  'griffins-1': { ...SPIRITS['griffins-1'], visibleTo: ['defender'] },
+  'pikemen-1': { ...SPIRITS['pikemen-1'], visibleTo: ['attacker'] },
+});
 
 const REACHED = [
   'attacked:melee',
@@ -102,19 +100,25 @@ const REACHED = [
   'attacked:shot',
   'command:defend',
   'command:wait',
+  'data:attacker',
+  'data:defender',
   'death',
   'ended',
+  'hidden:attacker',
+  'hidden:defender',
   'luck:bad',
   'luck:good',
   'morale:bad',
   'morale:good',
   'round-3',
+  'turn:attacker',
+  'turn:defender',
 ];
 
 const TRACES: Readonly<Record<Arena, { readonly external: Trace; readonly generator: Trace }>> = {
   initiative: {
     external: {
-      chain: '4fc5a50aff1effac',
+      chain: '9f8beaf8decac543',
       outcome: victory('rout', 'attacker'),
       seen: [
         'attacked:melee',
@@ -133,7 +137,7 @@ const TRACES: Readonly<Record<Arena, { readonly external: Trace; readonly genera
       steps: 48,
     },
     generator: {
-      chain: 'e9ec4f2291d791eb',
+      chain: '0b8ec9f1c413f1f2',
       outcome: victory('wiped-out', 'defender'),
       seen: [
         'attacked:melee',
@@ -154,7 +158,7 @@ const TRACES: Readonly<Record<Arena, { readonly external: Trace; readonly genera
   },
   sides: {
     external: {
-      chain: '624506a6be59aa10',
+      chain: '9d0e3044682e6f0a',
       outcome: victory('wiped-out', 'defender'),
       seen: [
         'attacked:melee',
@@ -172,7 +176,7 @@ const TRACES: Readonly<Record<Arena, { readonly external: Trace; readonly genera
       steps: 66,
     },
     generator: {
-      chain: 'f6101c873e9732e0',
+      chain: '8cdfe63f7e4d8745',
       outcome: victory('rout', 'attacker'),
       seen: [
         'attacked:melee',
@@ -192,7 +196,7 @@ const TRACES: Readonly<Record<Arena, { readonly external: Trace; readonly genera
   },
   speed: {
     external: {
-      chain: 'd2ca3504dedbc86b',
+      chain: 'ba718d857d4832f2',
       outcome: victory('rout', 'attacker'),
       seen: [
         'attacked:melee',
@@ -212,7 +216,7 @@ const TRACES: Readonly<Record<Arena, { readonly external: Trace; readonly genera
       steps: 43,
     },
     generator: {
-      chain: 'a85de3cd2bf4ee0b',
+      chain: '946be95b52b50fb8',
       outcome: victory('wiped-out', 'defender'),
       seen: [
         'attacked:melee',
@@ -237,7 +241,7 @@ function trace(arena: Arena, external: boolean): Trace {
   const hashes: string[] = [];
   const events: BattleEvent[] = [];
   const commands: Command[] = [];
-  let state = start(arena, external);
+  let state = start(content, external);
 
   while (state.phase.kind !== 'ended' && hashes.length < 500) {
     const before = state;
@@ -265,11 +269,12 @@ function trace(arena: Arena, external: boolean): Trace {
   }
 }
 
-function randomBattle(arena: Arena, external: boolean, choices: readonly number[]): Fought {
-  const content = ARENAS[arena];
+function randomBattle(arena: Arena, external: boolean, choices: readonly number[]): RandomBattle {
+  const content = HIDDEN[arena];
+  const hidden: string[] = [];
   const events: BattleEvent[] = [];
   const commands: Command[] = [];
-  let state = start(arena, external);
+  let state = start(content, external);
 
   for (const choice of choices) {
     if (state.phase.kind === 'ended') break;
@@ -285,6 +290,7 @@ function randomBattle(arena: Arena, external: boolean, choices: readonly number[
 
       if (result.ok) {
         checkInvariants(state, command, result, content);
+        hidden.push(...hiddenIn(state, result.events, content));
         events.push(...result.events);
         commands.push(command);
         state = result.state;
@@ -296,11 +302,32 @@ function randomBattle(arena: Arena, external: boolean, choices: readonly number[
     }
   }
 
-  return { commands, events, state };
+  return { commands, events, hidden: [...new Set(hidden)].sort(), state };
 }
 
-function start(arena: Arena, external: boolean): BattleState {
-  return started(ARENAS[arena], external ? { ruleset: EXTERNAL } : {});
+function arenas(units: Readonly<Record<string, Partial<ScenarioUnit>>>): Readonly<Record<Arena, ContentRegistry>> {
+  const scenario = withUnits(units);
+
+  return {
+    initiative: contentWith(scenario, {
+      mechanics: {
+        ...RULESET.mechanics,
+        'kernel:turn-order': {
+          params: { bonus: 'core:speed', roll: 'core:initiative', sides: 20, tie: 'core:attack' },
+          variant: 'rules-stdlib:initiative',
+        },
+      },
+    }),
+    sides: contentWith(scenario, {
+      mechanics: { ...RULESET.mechanics, 'kernel:turn-order': { variant: 'rules-stdlib:sides' } },
+      turnOwner: 'side',
+    }),
+    speed: contentWith(scenario),
+  };
+}
+
+function start(content: ContentRegistry, external: boolean): BattleState {
+  return started(content, external ? { ruleset: EXTERNAL } : {});
 }
 
 function candidates(state: BattleState, content: ContentRegistry, free: boolean, seed = 0): readonly Command[] {
@@ -368,6 +395,17 @@ function seenIn({ commands, events, state }: Fought): readonly string[] {
   if (state.phase.kind === 'ended') seen.add('ended');
 
   return [...seen].sort();
+}
+
+function hiddenIn(before: BattleState, events: readonly BattleEvent[], content: ContentRegistry): readonly string[] {
+  return before.sides.flatMap(({ id }) => KERNEL.projectEvents(before, events, content, { kind: 'sides', sides: [id] })
+    .flatMap(({ type }, index) => {
+      if (type === 'kernel:hidden') return [`hidden:${id}`];
+
+      if (type === 'kernel:data-changed') return [`data:${id}`];
+
+      return type === 'kernel:phase-changed' && events[index]?.type === 'kernel:turn-ended' ? [`turn:${id}`] : [];
+    }));
 }
 
 function nearest(field: FieldGeometry, cell: string, enemies: readonly Unit[]): number {

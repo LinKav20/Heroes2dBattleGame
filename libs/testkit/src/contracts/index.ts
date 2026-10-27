@@ -1,3 +1,4 @@
+export { projectionProblems } from './projection.ts';
 export {
   checkTopology,
   type ContractExpectation,

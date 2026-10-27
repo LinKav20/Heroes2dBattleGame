@@ -1,6 +1,6 @@
-import { ContentError, type BattleState, type ContentRegistry } from '@heroes2dgame/kernel';
+import { ContentError, type BattleState, type ContentRegistry, type DataView } from '@heroes2dgame/kernel';
 import { describe, expect, it } from 'vitest';
-import type { InitiativeData } from '../index.ts';
+import { INITIATIVE_ORDER, type InitiativeData } from '../index.ts';
 import {
   answer,
   CONTENT,
@@ -8,6 +8,7 @@ import {
   endSide,
   endTurn,
   EXTERNAL,
+  KERNEL,
   order,
   play,
   played,
@@ -112,6 +113,28 @@ describe('the order of turns by a roll of initiative', () => {
     };
 
     expect(() => started(huge)).toThrow(ContentError);
+  });
+});
+
+describe('the order of turns by a roll of initiative in a projection', () => {
+  it('shows a side the rolls of the units it sees', () => {
+    const view: DataView = { seesCell: () => false, seesUnit: (unit) => unit !== 'pikemen-1', sides: ['defender'] };
+
+    expect(INITIATIVE_ORDER.data?.project?.({ rolls: { 'archers-1': 3, 'pikemen-1': 14 } }, view))
+      .toStrictEqual({ rolls: { 'archers-1': 3 } });
+  });
+
+  it('keeps the roll of a hidden unit out of the projection of the other side', () => {
+    const content = initiative({}, withUnits({ 'pikemen-1': { visibleTo: ['attacker'] } }));
+    const state = rolled(content, [10, 3, 7, 5]);
+    const defender = KERNEL.project(state, content, { kind: 'sides', sides: ['defender'] });
+    const attacker = KERNEL.project(state, content, { kind: 'sides', sides: ['attacker'] });
+
+    expect(defender.extensions['rules-stdlib:initiative'])
+      .toStrictEqual({ rolls: { 'archers-1': 7, 'griffins-1': 11, 'skeletons-1': 11 } });
+
+    expect(attacker.extensions['rules-stdlib:initiative']).toStrictEqual(state.extensions['rules-stdlib:initiative']);
+    expect(JSON.stringify(defender)).not.toContain('pikemen-1');
   });
 });
 

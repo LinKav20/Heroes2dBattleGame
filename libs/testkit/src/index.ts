@@ -1,5 +1,6 @@
 export {
   checkTopology,
+  projectionProblems,
   type ContractExpectation,
   type ContractRunner,
   type TopologyChecks,

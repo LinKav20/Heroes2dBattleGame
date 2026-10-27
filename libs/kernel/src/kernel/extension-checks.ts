@@ -90,9 +90,13 @@ function mayHaveData(label: string, extension: Readonly<Record<string, unknown>>
   const fits = isRecord(data)
     && Number.isSafeInteger(data.version)
     && Number(data.version) >= 1
-    && isRecord(data.schema);
+    && isRecord(data.schema)
+    && (data.project === undefined || typeof data.project === 'function');
 
-  return fits ? [] : [`${label} needs data with a version that is a whole number from 1 and a JSON Schema, or no data`];
+  return fits
+    ? []
+    : [`${label} needs data with a version that is a whole number from 1, a JSON Schema and, optionally, `
+      + 'a function `project`'];
 }
 
 function needsSchema(label: string, extension: Readonly<Record<string, unknown>>): string[] {

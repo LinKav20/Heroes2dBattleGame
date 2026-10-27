@@ -17,6 +17,7 @@ import {
   type ScenarioUnit,
   type Unit,
 } from '@heroes2dgame/kernel';
+import { projectionProblems } from '@heroes2dgame/testkit';
 import { expect } from 'vitest';
 import { RULES_STDLIB_EXTENSIONS, type StackParams } from '../index.ts';
 
@@ -231,6 +232,11 @@ export function contentWith(change: Partial<Scenario> = {}, ruleset: Partial<Rul
 }
 
 export function withUnits(change: Readonly<Record<string, Partial<ScenarioUnit>>>): Partial<Scenario> {
+  const known = new Set(SCENARIO.sides.flatMap(({ units }) => units.map(({ id }) => id)));
+  const unknown = Object.keys(change).filter((id) => !known.has(id));
+
+  if (unknown.length > 0) throw new Error(`No units ${unknown.join(', ')} in the scenario`);
+
   return {
     sides: SCENARIO.sides.map((side) => ({
       ...side,
@@ -278,6 +284,7 @@ export function checkInvariants(
   expect(state.round).toBeGreaterThanOrEqual(before.round);
   expect(state.nextId).toBeGreaterThanOrEqual(before.nextId);
   expect(state.nextRequestId).toBeGreaterThanOrEqual(before.nextRequestId);
+  expect(projectionProblems(KERNEL, content, before, events)).toStrictEqual([]);
   checkUnits(state, content);
 }
 
@@ -316,6 +323,10 @@ export function roll(request: number, ...dice: readonly number[]): Command {
   return { kind: 'answer', request, value: { dice, kind: 'roll' } };
 }
 
+export function dice(value: number, count: number): readonly number[] {
+  return Array.from({ length: count }, () => value);
+}
+
 export function attack(unit: string, target: string, from?: string): Command {
   return { kind: 'game', target, type: 'attack', unit, ...(from === undefined ? {} : { from }) };
 }
@@ -335,7 +346,9 @@ export function order(first: BattleState, content: ContentRegistry, turns: numbe
 
     if (holder === undefined) break;
 
-    state = play(state, content, endTurn(holder)).state;
+    const ofSide = state.phase.kind === 'turn' && state.phase.unit === undefined;
+
+    state = play(state, content, ofSide ? endSide(holder) : endTurn(holder)).state;
   }
 
   return holders;

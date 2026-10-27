@@ -10,6 +10,7 @@ import type {
   StepNeed,
   StepResult,
 } from '../../extensions/index.ts';
+import type { VisibleTo } from '../../ids/index.ts';
 import type { JsonValue } from '../../json/index.ts';
 import { createKernel, type Kernel } from '../../kernel/index.ts';
 import type { BattleEvent, BattleState, Command, Unit } from '../../model/index.ts';
@@ -62,7 +63,7 @@ export const DUEL_EXTENSIONS: readonly KernelExtension[] = [
     const retaliation = { params: { attacker: params.target, target: params.attacker }, type: 'acme-duel:retaliate' };
 
     return {
-      events: [healthChanged(params.target, wounded)],
+      events: [healthChanged(params.target, wounded, victim.visibleTo)],
       kind: 'done',
       steps: wounded.count > 0 ? [retaliation] : [],
     };
@@ -74,7 +75,7 @@ export const DUEL_EXTENSIONS: readonly KernelExtension[] = [
 
     return {
       events: [
-        healthChanged(params.target, wound(victim, 1)),
+        healthChanged(params.target, wound(victim, 1), victim.visibleTo),
         { payload: { unit: params.target }, type: 'acme-duel:noted', visibleTo: [] },
       ],
       kind: 'done',
@@ -254,8 +255,14 @@ function listOf(value: unknown): string[] {
   return Array.isArray(value) ? value.map(String) : [];
 }
 
-function healthChanged(unit: string, wounded: { readonly count: number; readonly health: number }): EventDraft {
-  return kernelEventDraft(KERNEL_EVENTS.healthChanged, { count: wounded.count, health: wounded.health, unit }, 'all');
+function healthChanged(
+  unit: string,
+  wounded: { readonly count: number; readonly health: number },
+  visibleTo: VisibleTo = 'all',
+): EventDraft {
+  const { count, health } = wounded;
+
+  return kernelEventDraft(KERNEL_EVENTS.healthChanged, { count, health, unit }, visibleTo);
 }
 
 function variableSet(variable: string, value: boolean | number | string): EventDraft {

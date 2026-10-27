@@ -36,6 +36,7 @@ export const KERNEL_STEPS = Object.freeze({
   roundStart: kernelName('round-start'),
   scenarioCheck: kernelName('scenario-check'),
   spendActions: kernelName('spend-actions'),
+  stateEdit: kernelName('state-edit'),
   turnCheck: kernelName('turn-check'),
   turnCounts: kernelName('turn-counts'),
   turnEnd: kernelName('turn-end'),
@@ -68,11 +69,11 @@ export const BATTLE_MOMENTS = Object.freeze({
 });
 
 /**
- * The kinds of steps that only the kernel puts on the stack: the use of an ability and its operations for every
- * target, which the command checks first, reactions to events, operations of every turn, the refresh of the marks of
- * activity, the counts of durations and uses at the start and the end of turns and rounds, the course of the battle
- * from deployment to its end, and the checks of scenario triggers and outcomes. A step or an operation of a package
- * that adds them breaks the contract.
+ * The kinds of steps that only the kernel puts on the stack: the use of an ability and its operations for every target,
+ * which the command checks first, reactions to events, operations of every turn, the refresh of the marks of activity,
+ * the counts of durations and uses at the start and the end of turns and rounds, the course of the battle from
+ * deployment to its end, the checks of scenario triggers and outcomes, and the change of values by a state edit. A step
+ * or an operation of a package that adds them breaks the contract.
  */
 export const KERNEL_ONLY_STEPS: readonly KernelStepType[] = Object.freeze([
   KERNEL_STEPS.abilityTargets,
@@ -91,6 +92,7 @@ export const KERNEL_ONLY_STEPS: readonly KernelStepType[] = Object.freeze([
   KERNEL_STEPS.roundEnd,
   KERNEL_STEPS.roundStart,
   KERNEL_STEPS.scenarioCheck,
+  KERNEL_STEPS.stateEdit,
   KERNEL_STEPS.turnCounts,
   KERNEL_STEPS.turnEnd,
   KERNEL_STEPS.turnOrderHook,

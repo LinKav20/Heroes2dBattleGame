@@ -7,7 +7,7 @@ const DETERMINISTIC_PACKAGES = `^(${deterministicPackageDirs().map((dir) => dir.
 const DETERMINISTIC = `${DETERMINISTIC_PACKAGES}src/`;
 const KERNEL_LAYERS = [
   'shared', 'crypto', 'json', 'rng', 'names', 'ids', 'content', 'model', 'extensions', 'geometry', 'expressions',
-  'events', 'operations', 'effects', 'abilities', 'battle', 'execution', 'kernel',
+  'events', 'operations', 'effects', 'abilities', 'battle', 'execution', 'projection', 'kernel',
 ];
 const KERNEL_LAYER_RULES = KERNEL_LAYERS.slice(0, -1).map((layer, index) => ({
   name: `kernel-${layer}-imports-only-lower-layers`,

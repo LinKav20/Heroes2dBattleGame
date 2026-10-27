@@ -1,28 +1,33 @@
 import {
+  abilityDefinition,
   ContentError,
   creatureDefinition,
   effectDefinition,
-  RANDOM_SOURCES,
   type ContentRegistry,
   type Ruleset,
   type Scenario,
   type ScenarioTrigger,
 } from '../content/index.ts';
 import { KERNEL_EVENTS, RUNNER_EVENTS } from '../events/index.ts';
-import type { EventKind, FieldGeometry, MechanicExtension } from '../extensions/index.ts';
-import { summonedUnitNumber } from '../ids/index.ts';
+import type { EventKind, FieldGeometry } from '../extensions/index.ts';
+import { summonedUnitNumber, type SideId, type VisibleTo } from '../ids/index.ts';
 import type { BattleState, Unit } from '../model/index.ts';
 import { BATTLE_MOMENTS, KERNEL_OPERATIONS, type Registry } from '../names/index.ts';
 import { sortedEntries } from '../shared/index.ts';
 import { fitsZone, scenarioSide } from './deployment-zones.ts';
-import { checkChoices, checkTurnOwner, rulesetFailure } from './mechanics.ts';
-import type { BattleOptions } from './options.ts';
+import { rulesetFailure } from './mechanics.ts';
+
+/**
+ * The end of the sentence about a unit that its side does not see or that a side the scenario does not have sees.
+ */
+export const UNSEEN = 'needs to be seen by its side and by no side the scenario does not have';
 
 /**
  * Checks a scenario as the kernel needs it: local names are unique, units are not named like summoned units and have
- * creatures, the content has every creature and effect it refers to, a victory or a defeat names a side of the
- * scenario and a draw names none, a trigger waits for a kind of event that can fire it or for a moment of the battle
- * and does not plainly fire itself without end, and deployment zones of different sides do not share cells.
+ * creatures, every unit is seen by its side, units and hazard zones are seen by no side the scenario lacks, the content
+ * has every creature, effect and ability of a side it refers to, a victory or a defeat names a side of the scenario and
+ * a draw names none, a trigger waits for a kind of event that can fire it or for a moment of the battle and does not
+ * plainly fire itself without end, and deployment zones of different sides do not share cells.
  *
  * @throws {ContentError} If it does not.
  */
@@ -39,18 +44,32 @@ export function checkScenario(content: ContentRegistry, events: Registry<EventKi
   unique(scenario, 'outcome', scenario.outcomes.map(({ id }) => id));
   unique(scenario, 'cell of deployment', scenario.sides.flatMap(({ deploymentZone }) => [...new Set(deploymentZone)]));
 
-  for (const unit of units) {
-    const name = JSON.stringify(unit.id);
+  for (const side of scenario.sides) {
+    for (const unit of side.units) {
+      const name = JSON.stringify(unit.id);
 
-    if (summonedUnitNumber(unit.id) !== undefined) throw fail(`The unit ${name} is named like a summoned unit.`);
+      if (summonedUnitNumber(unit.id) !== undefined) throw fail(`The unit ${name} is named like a summoned unit.`);
 
-    if (!Number.isSafeInteger(unit.count) || unit.count < 1) throw fail(`The unit ${name} needs a count from 1.`);
+      if (!Number.isSafeInteger(unit.count) || unit.count < 1) throw fail(`The unit ${name} needs a count from 1.`);
 
-    creatureDefinition(content, unit.creature);
+      if (!seenBySides(scenario, unit.visibleTo, side.id)) throw fail(`The unit ${name} ${UNSEEN}.`);
+
+      creatureDefinition(content, unit.creature);
+    }
+  }
+
+  for (const { id, visibleTo } of scenario.field.hazards) {
+    if (!seenBySides(scenario, visibleTo)) {
+      throw fail(`The hazard zone ${JSON.stringify(id)} is seen by a side the scenario does not have.`);
+    }
   }
 
   for (const effect of [...scenario.sides, ...scenario.field.hazards, ...units].flatMap((holder) => holder.effects)) {
     effectDefinition(content, effect);
+  }
+
+  for (const ability of scenario.sides.flatMap((side) => side.abilities)) {
+    abilityDefinition(content, ability);
   }
 
   for (const { id, outcome, side } of scenario.outcomes) {
@@ -68,6 +87,17 @@ export function checkScenario(content: ContentRegistry, events: Registry<EventKi
 
     if (firesItself(trigger)) throw fail(`The trigger ${name} fires itself again without end; give it a limit.`);
   }
+}
+
+/**
+ * Tells whether the sides that see a part of a battle are sides of the scenario and, if `side` is given, include it.
+ */
+export function seenBySides(scenario: Scenario, visibleTo: VisibleTo, side?: SideId): boolean {
+  if (visibleTo === 'all') return true;
+
+  const known = visibleTo.every((one) => scenarioSide(scenario, one) !== undefined);
+
+  return known && (side === undefined || visibleTo.includes(side));
 }
 
 /**
@@ -102,49 +132,6 @@ export function checkRuleset(content: ContentRegistry, ruleset: Ruleset): void {
     if (!Number.isSafeInteger(cost) || cost < 0) {
       throw fail(`A move costs ${String(cost)} of ${JSON.stringify(action)}, not a whole number from 0.`);
     }
-  }
-}
-
-/**
- * Checks the options of a battle against its scenario and its ruleset: changed units are in the scenario and get
- * numbers in their bounds, chosen variants are declared, belong to their mechanics and give turns to whom the ruleset
- * does, sources of random values are known, and the seed is 64 lowercase hexadecimal digits.
- *
- * @throws {TypeError} If they are wrong.
- */
-export function checkOptions(
-  mechanics: Registry<MechanicExtension>,
-  scenario: Scenario,
-  ruleset: Ruleset,
-  options: BattleOptions,
-): void {
-  const known = new Set(scenario.sides.flatMap((side) => side.units.map(({ id }) => id)));
-  const sources = Object.values<string>(RANDOM_SOURCES);
-  const choices = options.ruleset?.mechanics ?? {};
-
-  for (const [unit, changes] of sortedEntries(options.units ?? {})) {
-    if (!known.has(unit)) throw new TypeError(`The scenario has no unit ${JSON.stringify(unit)} to change.`);
-
-    if (changes.count !== undefined && (!Number.isSafeInteger(changes.count) || changes.count < 1)) {
-      throw new TypeError(`The unit ${JSON.stringify(unit)} needs a count from 1.`);
-    }
-
-    for (const [resource, value] of sortedEntries(changes.resources ?? {})) {
-      if (!Number.isSafeInteger(value) || value < 0) {
-        throw new TypeError(`The resource ${JSON.stringify(resource)} of ${JSON.stringify(unit)} needs a value of 0+.`);
-      }
-    }
-  }
-
-  checkChoices(mechanics, choices, 'The options', (message) => new TypeError(message));
-  checkTurnOwner(mechanics, choices, ruleset, 'The options', (message) => new TypeError(message));
-
-  for (const [value, source] of sortedEntries(options.ruleset?.randomSources ?? {})) {
-    if (!sources.includes(source)) throw new TypeError(`The options give ${JSON.stringify(value)} an unknown source.`);
-  }
-
-  if (options.seed !== undefined && !SEED.test(options.seed)) {
-    throw new TypeError('The seed needs 64 lowercase hexadecimal digits.');
   }
 }
 
@@ -193,8 +180,6 @@ export function checkPlacement(
     };
   }
 }
-
-const SEED = /^[\da-f]{64}$/;
 
 const NEVER_FIRE: readonly string[] = [...RUNNER_EVENTS, KERNEL_EVENTS.battleEnded, KERNEL_EVENTS.unitPlaced];
 

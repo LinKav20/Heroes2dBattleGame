@@ -3,8 +3,8 @@ import {
   battleUnit,
   KERNEL_MECHANICS,
   spendActionsDraft,
+  sideSees,
   standsOnField,
-  VISIBLE_TO_ALL,
   type AttackRequest,
   type AttackVariant,
   type CommandPlan,
@@ -118,5 +118,5 @@ function spendAction(unit: UnitId, { action }: StackParams): ReturnType<typeof s
 }
 
 function seenBy(unit: Unit, side: SideId): boolean {
-  return standsOnField(unit) && (unit.visibleTo === VISIBLE_TO_ALL || unit.visibleTo.includes(side));
+  return standsOnField(unit) && sideSees(side, unit.visibleTo);
 }

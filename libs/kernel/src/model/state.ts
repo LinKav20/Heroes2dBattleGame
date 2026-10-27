@@ -1,5 +1,5 @@
 import type { PackVersion, Ruleset, ScenarioValue } from '../content/index.ts';
-import type { ContentName } from '../ids/index.ts';
+import type { ContentName, Visibility } from '../ids/index.ts';
 import type { JsonValue } from '../json/index.ts';
 import type { RngState } from '../rng/index.ts';
 import type { Field } from './field.ts';
@@ -53,8 +53,13 @@ export interface BattleState {
   readonly inputRequest?: InputRequest;
   /** The data of extensions, by the full name of the extension. */
   readonly extensions: Readonly<Record<string, JsonValue>>;
-  /** The random number generator, if the ruleset has random values. */
+  /** The random number generator, if the ruleset has random values; a projection never has it. */
   readonly rng?: RngState;
+  /**
+   * What the state shows, if it is a projection: the state of the battle as an actor with this visibility sees it. A
+   * full state has no visibility.
+   */
+  readonly visibility?: Visibility;
   /**
    * The number the kernel gives to the next applied effect, item or summoned unit. One counter serves all of them, so
    * a step that gives several such events numbers them in order from this value.

@@ -1,4 +1,4 @@
-import { scenarioDefinition } from '../content/index.ts';
+import { fixedUnits, scenarioDefinition } from '../content/index.ts';
 import { KERNEL_EVENTS, kernelEventDraft } from '../events/index.ts';
 import type { FieldGeometry, StepContext, StepKind } from '../extensions/index.ts';
 import { VISIBLE_TO_ALL, type CellId } from '../ids/index.ts';
@@ -14,7 +14,7 @@ import {
 } from '../model/index.ts';
 import { KERNEL_STEPS } from '../names/index.ts';
 import { kernelStep } from '../operations/index.ts';
-import { fitsZone, fixedUnits, scenarioSide } from './deployment-zones.ts';
+import { fitsZone, scenarioSide } from './deployment-zones.ts';
 import { battleStartDraft, deploymentEndDraft, unitPlaceDraft } from './drafts.ts';
 import type { DeploymentEndParams, UnitPlaceParams } from './params.ts';
 import { plannedSteps, type BattlePlan, type PlanContext } from './plan-context.ts';

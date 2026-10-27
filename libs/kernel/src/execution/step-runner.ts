@@ -34,10 +34,11 @@ interface StepOptions {
  * from outside, or the rules forbid the command. When the battle ends, the remaining steps do not run.
  *
  * After a step the kernel puts on top of the stack one step with the reactions of effects to its events, so they run
- * before the other steps; before the battle starts effects do not react. When the stack is empty and some step gave
- * events since the marks of activity of effects were last brought up to date, or `marksStale` says they are out of
- * date, the kernel brings them up to date, and the reactions to that run as well; what the course of the battle checks
- * then is up to `BattleCourse`. When the battle ends, it brings them up to date once without reactions.
+ * before the other steps; before the battle starts effects do not react, and neither effects nor scenario triggers
+ * react to the steps of a state edit. When the stack is empty and some step gave events since the marks of activity of
+ * effects were last brought up to date by any step, or `marksStale` says they are out of date, the kernel brings them
+ * up to date, and the reactions to that run as well; what the course of the battle checks then is up to `BattleCourse`.
+ * When the battle ends, it brings them up to date once without reactions.
  *
  * A step of the course of the battle cannot reject the command: its rejection is an error of the content if a formula
  * gave it, and of the package otherwise. If the steps of the course of the battle go beyond the limits of steps, for
@@ -82,9 +83,10 @@ export function runSteps(
     if (runs > MAX_STEPS_PER_COMMAND) return beyondLimits(step, recorder.state);
 
     const before = recorder.nextEventId;
-    const outcome = runStep(context, recorder, stack, step, { course, reactions: course.reacts(recorder.state) });
+    const reactions = step.quiet !== true && course.reacts(recorder.state);
+    const outcome = runStep(context, recorder, stack, step, { course, reactions });
 
-    if (step.type !== KERNEL_STEPS.effectRefresh && recorder.nextEventId > before) stale = true;
+    stale = step.type === KERNEL_STEPS.effectRefresh ? false : stale || recorder.nextEventId > before;
 
     if (outcome === 'paused') break;
 
@@ -146,11 +148,12 @@ function runStep(
       const setup = { content: context.content, events, fields: context.fields, index: context.reactions, topologies };
       const reaction = options.reactions ? reactionsAfter(setup, recorded, states, state) : undefined;
       const flow = step.flow === true;
-      const drafts = options.course?.placed(result.steps ?? [], flow, stack) ?? result.steps ?? [];
-      const pushed = stack.pushDrafts(drafts, { cause, flow })
+      const quiet = step.quiet === true;
+      const drafts = options.course?.placed(result.steps ?? [], step, stack) ?? result.steps ?? [];
+      const pushed = stack.pushDrafts(drafts, { cause, flow, quiet })
         && (reaction === undefined || stack.pushDrafts([reaction], { cause: first, flow }));
 
-      options.course?.afterStep(state, recorder.state, recorded, stack);
+      if (!quiet) options.course?.afterStep(state, recorder.state, recorded, stack);
 
       return pushed ? 'continue' : beyondLimits(step, recorder.state);
     }

@@ -1,4 +1,4 @@
-import { RANDOM_SOURCES } from '../content/index.ts';
+import { RANDOM_SOURCES, ROLL_SOURCES } from '../content/index.ts';
 import { KERNEL_EVENTS } from '../events/index.ts';
 import type { RollNeed, StepNeed } from '../extensions/index.ts';
 import { VISIBLE_TO_ALL, VISIBLE_TO_NONE } from '../ids/index.ts';
@@ -8,7 +8,7 @@ import type { ExecutionContext } from './context.ts';
 import type { EventRecorder } from './event-recorder.ts';
 import { ruleViolation, type ExecuteRejected } from './result.ts';
 import { withInput, type StepStack } from './step-stack.ts';
-import { checkNeed } from './values/needs.ts';
+import { checkNeed, checkSeenTargets } from './values/needs.ts';
 import { requestAudience, requestFor } from './values/requests.ts';
 
 /**
@@ -27,8 +27,9 @@ export function pauses(state: BattleState, need: StepNeed): boolean {
 
 /**
  * Gets the value a step needs. A roll from the generator comes at once; any other value makes the kernel open an input
- * request and save the remaining steps. A roll from the generator changes only its counter, so the values of
- * attributes and tags calculated before the roll stay valid.
+ * request and save the remaining steps. A simulation rolls every die at its lowest or highest side at once, from the
+ * generator and from outside alike, and without values it leaves the step that needs one out. A roll from the generator
+ * changes only its counter, so the values of attributes and tags calculated before the roll stay valid.
  *
  * @throws {TypeError} If the need cannot be met, or the ruleset rolls the value with the generator, but the battle
  * has none.
@@ -41,6 +42,21 @@ export function resolveNeed(
   need: StepNeed,
 ): NeedOutcome {
   checkNeed(step.type, need);
+  checkSeenTargets(step.type, need, recorder.state);
+
+  if (context.rolls === 'none') return 'continue';
+
+  if (need.kind === 'roll' && context.rolls !== undefined) {
+    const side = context.rolls === 'lowest' ? 1 : need.sides;
+    const dice = Array.from({ length: need.count }, () => side);
+    const result = side * need.count;
+    const payload = { dice, name: need.name, result, source: ROLL_SOURCES.simulated };
+
+    recorder.kernel(KERNEL_EVENTS.rollMade, payload, need.visibleTo ?? VISIBLE_TO_ALL, step.cause);
+    stack.push(withInput(step, { dice, kind: 'roll', name: need.name, result }));
+
+    return 'continue';
+  }
 
   if (need.kind === 'roll' && !pauses(recorder.state, need)) {
     const before = recorder.state;

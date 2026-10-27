@@ -68,7 +68,7 @@ export interface ScenarioHazard {
   readonly cells: readonly CellId[];
   /** The effects of the zone. */
   readonly effects: readonly ContentName[];
-  /** Which sides see the zone. */
+  /** Which sides see the zone; a list names only sides of the scenario. */
   readonly visibleTo: VisibleTo;
 }
 
@@ -106,7 +106,7 @@ export interface ScenarioUnit {
   readonly effects: readonly ContentName[];
   /** The items the unit starts with. */
   readonly items: readonly ScenarioItem[];
-  /** Which sides see the unit at the start. */
+  /** Which sides see the unit at the start; a list names only sides of the scenario and its own side among them. */
   readonly visibleTo: VisibleTo;
 }
 

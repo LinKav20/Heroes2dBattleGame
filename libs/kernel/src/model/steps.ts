@@ -28,6 +28,11 @@ export interface Step {
    * the end of the action, the start of the next turn and everything they add. Such a step cannot reject the command.
    */
   readonly flow?: true;
+  /**
+   * Marks a step of a state edit and every step it adds: effects do not react to their events, and scenario triggers
+   * do not wait for them.
+   */
+  readonly quiet?: true;
 }
 
 /**

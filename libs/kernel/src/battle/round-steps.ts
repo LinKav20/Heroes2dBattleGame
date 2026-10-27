@@ -1,5 +1,5 @@
 import { abilityTickDraft } from '../abilities/index.ts';
-import { effectDefinition, scenarioDefinition, type ContentRegistry } from '../content/index.ts';
+import { effectDefinition, fixedUnits, scenarioDefinition, type ContentRegistry } from '../content/index.ts';
 import { tickDraft } from '../effects/index.ts';
 import { KERNEL_EVENTS, kernelEventDraft } from '../events/index.ts';
 import type { EventDraft, MechanicExtension, StepContext, StepKind, StepResult } from '../extensions/index.ts';
@@ -8,7 +8,6 @@ import { standsOnField, type ActivePhase, type AppliedEffect, type BattleState }
 import { BATTLE_MOMENTS, KERNEL_STEPS, type Registry } from '../names/index.ts';
 import { DONE, kernelStep, stepsDone } from '../operations/index.ts';
 import { momentSteps } from './boundaries.ts';
-import { fixedUnits } from './deployment-zones.ts';
 import { nextTurnDraft, roundEndDraft, roundStartDraft, turnStartDraft } from './drafts.ts';
 import { battleEnded } from './outcomes.ts';
 import { nextTurnOf, settledValue } from './turn-order.ts';

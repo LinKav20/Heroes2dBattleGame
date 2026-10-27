@@ -292,7 +292,7 @@ function about(unit: string): EventDraft {
 }
 
 function movedAlong(unit: string, path: readonly string[]): EventDraft {
-  return kernelEventDraft(KERNEL_EVENTS.unitMoved, { path, unit }, 'all');
+  return kernelEventDraft(KERNEL_EVENTS.unitMoved, { path, unit }, unitOf(BARE_STATE, unit).visibleTo);
 }
 
 function changed(state: BattleState, id: string, change: Partial<Unit>): BattleState {

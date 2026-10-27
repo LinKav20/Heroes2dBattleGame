@@ -86,3 +86,8 @@ export const RANDOM_SOURCES = Object.freeze({
   external: 'external',
   generator: 'generator',
 } as const);
+
+/**
+ * The sources of rolled values: the sources of random values and the simulation.
+ */
+export const ROLL_SOURCES = Object.freeze({ ...RANDOM_SOURCES, simulated: 'simulated' } as const);

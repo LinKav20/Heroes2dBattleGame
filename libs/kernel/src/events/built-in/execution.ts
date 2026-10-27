@@ -36,8 +36,8 @@ export interface StepsSavedPayload {
 export interface RollMadePayload {
   /** The full name of the random value, for example `core:attack-roll`. */
   readonly name: ContentName;
-  /** Where the value came from. */
-  readonly source: RandomSource;
+  /** Where the value came from; `simulated` only in a simulation, where every die took its lowest or highest side. */
+  readonly source: RandomSource | 'simulated';
   /** The rolled number. */
   readonly result: number;
   /** The value of every die, if the value is a dice roll. */
@@ -77,6 +77,10 @@ export const EXECUTION_EVENTS: KernelEventAppliers<ExecutionEventPayloads> = {
   [KERNEL_EVENTS.inputRequested]: (state, { request }) => {
     if (state.inputRequest !== undefined) {
       throw new RangeError(`The input request ${String(state.inputRequest.id)} is still open.`);
+    }
+
+    if (request.kind === 'hidden' && state.visibility === undefined) {
+      throw new RangeError('Only a projection takes a hidden input request.');
     }
 
     return { ...state, inputRequest: request, nextRequestId: takeRequestId(state, request.id) };

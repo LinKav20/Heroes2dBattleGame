@@ -201,6 +201,23 @@ describe('the course of a battle', () => {
       .toStrictEqual(['kernel:not-available', {}]);
   });
 
+  it('rejects a wait on a projection that hides the unit with the turn for the reason the battle gives', () => {
+    const sides = SCENARIO.sides.map((side) => (side.id === 'attacker'
+      ? { ...side, units: side.units.map((unit) => ({ ...unit, visibleTo: ['attacker'] })) }
+      : side));
+    const content = withScenario({ sides });
+    const state = [place('archers-1', '0,1'), finish()].reduce<BattleState>(
+      (current, command) => play(current, command, content).state,
+      KERNEL.createState({ scenario: 'demo:duel' }, content),
+    );
+    const projection = KERNEL.project(state, content, { kind: 'sides', sides: ['defender'] });
+    const wait = { kind: 'game', type: 'wait', unit: 'pikemen-1' } as const;
+
+    expect(projection.phase).toStrictEqual({ kind: 'turn', side: 'attacker' });
+    expect(reason(KERNEL.execute(state, wait, content))).toStrictEqual(['kernel:not-your-turn', {}]);
+    expect(reason(KERNEL.simulate(projection, wait, content, 'lowest'))).toStrictEqual(['kernel:not-your-turn', {}]);
+  });
+
   it('ends the battle by an outcome of the scenario, a retreat or a surrender', () => {
     const units = PLACED.units.map((unit) => (unit.id === 'pikemen-1' ? { ...unit, count: 0 } : unit));
     const won = play({ ...PLACED, units }, endTurn('archers-1'));

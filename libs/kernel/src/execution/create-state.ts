@@ -3,7 +3,7 @@ import { ContentError, type ContentRegistry } from '../content/index.ts';
 import { areaRefreshDraft } from '../effects/index.ts';
 import type { StepDraft } from '../extensions/index.ts';
 import type { BattleState, StateFormatVersion } from '../model/index.ts';
-import type { ExecutionCaches, ExecutionContext, ExecutionRegistries } from './context.ts';
+import { commandSetup, type ExecutionCaches, type ExecutionContext, type ExecutionRegistries } from './context.ts';
 import { EventRecorder } from './event-recorder.ts';
 import { runSteps } from './step-runner.ts';
 import { StepStack } from './step-stack.ts';
@@ -27,10 +27,10 @@ export function createState(
   options: BattleOptions,
   content: ContentRegistry,
 ): BattleState {
-  const setup = { attributes: caches.attributes, content, fields: caches.fields, format, registries };
+  const setup = { ...commandSetup(registries, caches, content), format, registries };
   const context: ExecutionContext = { ...caches, content, registries };
-  const checked = checkedState(setup, options);
-  const drafts = [areaRefreshDraft(), ...scenarioEffects(content, checked), areaRefreshDraft()];
+  const { scenario, state: checked } = checkedState(setup, options);
+  const drafts = [areaRefreshDraft(), ...scenarioEffects(scenario, options), areaRefreshDraft()];
   const state = drafts.reduce((current, draft) => applied(context, current, draft), checked);
 
   return withStartingValues(setup, checked, state, options);

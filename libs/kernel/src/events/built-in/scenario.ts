@@ -28,7 +28,7 @@ export interface TriggerFiredPayload {
 export interface ScenarioEventPayloads {
   /** A scenario variable got a new value. */
   readonly [KERNEL_EVENTS.variableSet]: VariableSetPayload;
-  /** A scenario trigger fired. */
+  /** A scenario trigger fired; a projection for sides keeps no counts of fired triggers, so there it does nothing. */
   readonly [KERNEL_EVENTS.triggerFired]: TriggerFiredPayload;
 }
 
@@ -40,8 +40,7 @@ export const SCENARIO_EVENTS: KernelEventAppliers<ScenarioEventPayloads> = {
     ...state,
     variables: { ...state.variables, [variable]: value },
   }),
-  [KERNEL_EVENTS.triggerFired]: (state, { fired, trigger }) => ({
-    ...state,
-    triggers: { ...state.triggers, [trigger]: { fired } },
-  }),
+  [KERNEL_EVENTS.triggerFired]: (state, { fired, trigger }) => (state.visibility?.kind === 'sides'
+    ? state
+    : { ...state, triggers: { ...state.triggers, [trigger]: { fired } } }),
 };

@@ -15,6 +15,7 @@ export const KERNEL_EVENTS = Object.freeze({
   aurasChanged: kernelName('auras-changed'),
   battleEnded: kernelName('battle-ended'),
   commandAborted: kernelName('command-aborted'),
+  dataChanged: kernelName('data-changed'),
   effectApplied: kernelName('effect-applied'),
   effectChanged: kernelName('effect-changed'),
   effectNotApplied: kernelName('effect-not-applied'),
@@ -23,6 +24,7 @@ export const KERNEL_EVENTS = Object.freeze({
   hazardAdded: kernelName('hazard-added'),
   hazardRemoved: kernelName('hazard-removed'),
   healthChanged: kernelName('health-changed'),
+  hidden: kernelName('hidden'),
   inputClosed: kernelName('input-closed'),
   inputRequested: kernelName('input-requested'),
   itemAdded: kernelName('item-added'),
@@ -55,10 +57,13 @@ export const COURSE_EVENTS: readonly KernelEventType[] = Object.freeze([
 ]);
 
 /**
- * The events that only the kernel gives while it runs a command; steps cannot give them.
+ * The events that only the kernel gives while it runs a command or builds a projection; steps cannot give them, and
+ * effects do not react to them.
  */
 export const RUNNER_EVENTS: readonly KernelEventType[] = Object.freeze([
   KERNEL_EVENTS.commandAborted,
+  KERNEL_EVENTS.dataChanged,
+  KERNEL_EVENTS.hidden,
   KERNEL_EVENTS.inputClosed,
   KERNEL_EVENTS.inputRequested,
   KERNEL_EVENTS.rollMade,

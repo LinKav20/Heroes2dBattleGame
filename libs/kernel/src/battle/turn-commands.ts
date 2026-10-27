@@ -15,8 +15,9 @@ import { allSpent } from './turn-actions.ts';
 
 /**
  * Checks a command that a unit waits and plans it with the order of turns of the ruleset. The battle must be in a
- * turn, the order of turns must let units wait in turns of units, and the unit must have the turn. After the steps of
- * the order of turns the turn ends as put off.
+ * turn, the unit must have the turn, as `turnRejection` tells, and the order of turns must let units wait in turns of
+ * units. A projection that hides the unit with the turn rejects the command for the same reason as the full state.
+ * After the steps of the order of turns the turn ends as put off.
  *
  * @throws {ContentError} If the ruleset chooses no order of turns.
  * @throws {TypeError} If no package declares the order of turns, or it forbids the command with a reason that
@@ -28,14 +29,17 @@ export function planWait(context: PlanContext, command: WaitCommand): BattlePlan
 
   if (unit === undefined) return forbidden(REJECTION_REASONS.invalidCommand, { field: 'unit' });
 
-  if (state.phase.kind !== 'turn') return forbidden(REJECTION_REASONS.wrongPhase);
+  const turn = turnRejection(state, { kind: 'unit', unit: unit.id });
+
+  if (turn !== undefined) return turn;
 
   const { params, variant } = turnOrderOf(mechanics, state.ruleset);
 
-  if (variant.wait === undefined || state.phase.unit === undefined) return forbidden(REJECTION_REASONS.notAvailable);
+  if (variant.wait === undefined || state.phase.kind !== 'turn' || state.phase.unit === undefined) {
+    return forbidden(REJECTION_REASONS.notAvailable);
+  }
 
-  return turnRejection(state, { kind: 'unit', unit: unit.id })
-    ?? packagePlan(variant.name, variant.wait(mechanicContext(context, params), unit.id), 'waited');
+  return packagePlan(variant.name, variant.wait(mechanicContext(context, params), unit.id), 'waited');
 }
 
 /**

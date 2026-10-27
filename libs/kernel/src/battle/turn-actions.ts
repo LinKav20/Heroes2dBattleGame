@@ -82,7 +82,8 @@ export function actionsLeft(expressions: Expressions, unit: Unit, action: Conten
 
 /**
  * Returns who takes part in a turn: the unit and its side for the turn of a unit, the side and its units on the field
- * for the turn of a side. The counts of durations and uses of the turn go for all of them.
+ * for the turn of a side. The counts of durations and uses of the turn go for all of them. If the ruleset gives turns
+ * to units, a turn of a side is the turn of a unit a projection hides, and only the side takes part in it.
  *
  * @throws {TypeError} If the unit is not in the battle.
  */
@@ -92,6 +93,8 @@ export function turnParticipants(state: BattleState, holder: TurnHolder): readon
 
     return [holder, side];
   }
+
+  if (state.ruleset.turnOwner === 'unit') return [holder];
 
   return [holder, ...fieldUnitsOf(state, holder.side).map(({ id }): UnitHolder => ({ kind: 'unit', unit: id }))];
 }

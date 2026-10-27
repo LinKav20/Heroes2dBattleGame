@@ -29,6 +29,12 @@ export interface EventKind<Payload = unknown> extends Extension {
    * object, for example `{ ...state, extensions: { ...state.extensions, [key]: value } }`. The kernel compares the
    * parts by reference to check that an event of an extension changes only the data of its package. The order of keys
    * in the records of the state is not part of the state, so the function must not depend on it.
+   *
+   * The function runs on projections too. A copy of the battle applies the event to its projection, which has no
+   * random number generator, no unit and no part the actor does not see, and the data of extensions as their
+   * `ExtensionData.project` shows them. The kernel sends an actor the event as it is only if it applies to the copy the
+   * actor will have and gives there exactly the data the actor sees after it; otherwise the actor gets
+   * `kernel:data-changed` or `kernel:hidden` in its place.
    */
   apply(state: BattleState, payload: Payload): BattleState;
   /**

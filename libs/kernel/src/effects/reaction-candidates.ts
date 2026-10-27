@@ -29,7 +29,8 @@ interface Candidate {
  * event the reacting effects are those in place right after it, in this order: triggers of the side that has the turn
  * first, then by priority, then the effects of definitions before the applied ones, which go in the order they were
  * applied; after the triggers come the endings of effects by the event. An applied effect does not react to the events
- * about itself, and no effect reacts to the events of the runner. A trigger of an effect of a hazard zone fires only on
+ * about itself, and no effect reacts to the events of the runner. The effects of a dead unit react only to the events
+ * about the unit itself, such as the one that killed it. A trigger of an effect of a hazard zone fires only on
  * an event about a unit that stands in the zone, and on `kernel:unit-moved` only if the path of the unit, its last
  * cell included, touches the zone, or for a flying unit only if it stops there. On the way the unit keeps the direction
  * it had before the move, and in the last cell it has the direction it ends with.

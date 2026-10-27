@@ -7,6 +7,17 @@ interface SquareParams extends JsonObject {
   readonly height: number;
 }
 
+interface Broken {
+  readonly breaks: string;
+  readonly tests: readonly string[];
+  readonly topology: TopologyExtension<SquareParams>;
+}
+
+type Change = (
+  square: TopologyExtension<SquareParams>,
+  again: () => boolean,
+) => TopologyExtension<SquareParams>;
+
 checkTopology(squareTopology(), [{ height: 3, width: 4 }, { height: 1, width: 1 }], { describe, expect, it });
 
 describe('checkTopology', () => {
@@ -39,41 +50,15 @@ const FOOTPRINTS = 'gives the cells of a creature from its cell, on the field, d
 const DIRECTIONS = 'gives different directions';
 const LINES = 'gives lines without both ends, on the field, empty between neighbors and the same both ways';
 
-function brokenTopologies(): ReadonlyArray<{
-  readonly breaks: string;
-  readonly tests: readonly string[];
-  readonly topology: TopologyExtension<SquareParams>;
-}> {
+const FIELD: SquareParams = { height: 3, width: 3 };
+
+const CHECKS = { areas: [0, 1], sizes: [1, 2] };
+
+function brokenTopologies(): readonly Broken[] {
   const square = squareTopology();
-  const neighborCalls = counter();
-  const lineSweeps = counter();
-  let sweep = 0;
 
   return [
-    {
-      breaks: 'answers neighbors differently when asked again',
-      tests: [REPEATS],
-      topology: {
-        ...square,
-        neighbors: (params, cell, body) => {
-          const near = square.neighbors(params, cell, body);
-
-          return neighborCalls() % 2 === 0 ? [...near].reverse() : near;
-        },
-      },
-    },
-    {
-      breaks: 'answers lines differently when asked again',
-      tests: [REPEATS],
-      topology: {
-        ...square,
-        line: (params, from, to) => {
-          if (from === '0,0' && to === '1,0') sweep = lineSweeps();
-
-          return sweep === 2 ? [] : square.line?.(params, from, to) ?? [];
-        },
-      },
-    },
+    ...askedAgain(),
     { breaks: 'has no cells', tests: [CELLS], topology: { ...square, cells: () => [] } },
     {
       breaks: 'repeats a cell',
@@ -282,7 +267,7 @@ function failures(topology: TopologyExtension<SquareParams>, checks = {}): reado
     },
   };
 
-  checkTopology(topology, [{ height: 3, width: 3 }], runner, { areas: [0, 1], sizes: [1, 2], ...checks });
+  checkTopology(topology, [FIELD], runner, { ...CHECKS, ...checks });
 
   return failed;
 }
@@ -327,14 +312,78 @@ function squareTopology(): TopologyExtension<SquareParams> {
   };
 }
 
-function counter(): () => number {
-  let calls = 0;
+function askedAgain(): readonly Broken[] {
+  const changes: ReadonlyArray<readonly [string, Change]> = [
+    ['areas', (square, again) => ({
+      ...square,
+      area: (params, rule, center, origin) => {
+        const area = square.area(params, rule, center, origin);
 
-  return () => {
-    calls += 1;
+        return again() ? area.toReversed() : area;
+      },
+    })],
+    ['cells', (square, again) => ({
+      ...square,
+      cells: (params) => (again() ? cellsOf(params).toReversed() : cellsOf(params)),
+    })],
+    ['costs', (square, again) => ({ ...square, moveCost: () => (again() ? 2 : 1) })],
+    ['directions', (square, again) => ({ ...square, directions: () => (again() ? ['west'] : ['east']) })],
+    ['distances', (square, again) => ({
+      ...square,
+      distance: (params, from, to) => distanceOf(from, to) * (again() ? 2 : 1),
+    })],
+    ['footprints', (square, again) => ({
+      ...square,
+      footprint: (params, cell, body) => (again() ? undefined : square.footprint(params, cell, body)),
+    })],
+    ['lines', (square, again) => ({
+      ...square,
+      line: (params, from, to) => (again() ? [] : square.line?.(params, from, to) ?? []),
+    })],
+    ['neighbors', (square, again) => ({
+      ...square,
+      neighbors: (params, cell, body) => {
+        const near = square.neighbors(params, cell, body);
 
-    return calls;
+        return again() ? near.toReversed() : near;
+      },
+    })],
+  ];
+
+  return changes.map(([answer, change]) => ({
+    breaks: `answers ${answer} differently when asked again`,
+    tests: [REPEATS],
+    topology: changedWhenAskedAgain(change),
+  }));
+}
+
+function changedWhenAskedAgain(change: Change): TopologyExtension<SquareParams> {
+  const sweep = { calls: 0, from: Number.POSITIVE_INFINITY, to: 0 };
+  const topology = change(squareTopology(), () => {
+    sweep.calls += 1;
+
+    return sweep.calls > sweep.from && sweep.calls <= sweep.to;
+  });
+  const runner: ContractRunner = {
+    describe: (name, body) => {
+      body();
+    },
+    expect,
+    it: (name, body) => {
+      if (name !== REPEATS) return;
+
+      const start = sweep.calls;
+
+      body();
+      sweep.from = start + (sweep.calls - start) / 2;
+      sweep.to = sweep.calls;
+    },
   };
+
+  checkTopology(topology, [FIELD], runner, CHECKS);
+  sweep.calls = 0;
+
+  return topology;
 }
 
 function directed(

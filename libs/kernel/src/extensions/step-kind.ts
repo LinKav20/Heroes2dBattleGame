@@ -45,7 +45,10 @@ export interface StepKind<Params extends object = object> extends Extension {
 export interface StepContext<Params extends object = object> {
   /**
    * The state with all events of the command so far. The step does not read `steps` and `inputRequest`: they belong
-   * to the kernel.
+   * to the kernel. In a simulation, a forecast, the list of available actions and the queue of turns the state may be
+   * a projection for sides without its mark: it has no random number generator, no unit the actor does not see, and
+   * the data of an extension only as its `ExtensionData.project` shows it, or none, so a step takes missing data for
+   * the data it starts with.
    */
   readonly state: BattleState;
   /** The content of the battle. */

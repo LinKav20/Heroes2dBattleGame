@@ -1,3 +1,4 @@
+import type { CommandSetup } from '../battle/index.ts';
 import type { ContentRegistry } from '../content/index.ts';
 import type { ReactionIndex } from '../effects/index.ts';
 import type { AttributeCache } from '../expressions/index.ts';
@@ -48,11 +49,31 @@ export interface ExecutionCaches {
 }
 
 /**
- * What does not change while a command runs: the registries, the content of the battle and what the kernel keeps.
+ * How a simulation gets the values steps need: every die at its lowest or highest side, or no values at all, so that a
+ * step that needs a value is left out.
+ */
+export type SimulatedRolls = 'highest' | 'lowest' | 'none';
+
+/**
+ * What does not change while a command runs: the registries, the content of the battle, what the kernel keeps and,
+ * in a simulation, how the steps get their rolls.
  */
 export interface ExecutionContext extends ExecutionCaches {
   /** The registries of the kernel. */
   readonly registries: ExecutionRegistries;
   /** The content of the battle. */
   readonly content: ContentRegistry;
+  /** How a simulation rolls; a command that really runs has none. */
+  readonly rolls?: SimulatedRolls;
+}
+
+/**
+ * Returns what planning a command needs besides the state: the registries, the caches and the content.
+ */
+export function commandSetup(
+  registries: ExecutionRegistries,
+  caches: ExecutionCaches,
+  content: ContentRegistry,
+): CommandSetup {
+  return { attributes: caches.attributes, content, fields: caches.fields, registries };
 }

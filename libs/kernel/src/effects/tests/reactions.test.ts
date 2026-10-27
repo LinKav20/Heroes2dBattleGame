@@ -65,11 +65,11 @@ describe('reactions of effects', () => {
         effects: [applied(100 + index, 'acme:thorns')],
       })),
     };
-    const hits = state.units.map(({ id }) => kernelEventDraft(KERNEL_EVENTS.healthChanged, {
+    const hits = state.units.map(({ id, visibleTo }) => kernelEventDraft(KERNEL_EVENTS.healthChanged, {
       count: 1,
       health: 1,
       unit: id,
-    }, 'all'));
+    }, visibleTo));
     const result = run(state, content, emit(hits));
 
     expect(variables(result)).toHaveLength(state.units.length);
@@ -98,7 +98,7 @@ describe('reactions of effects', () => {
     const state = withUnitEffects(BARE_STATE, 'pikemen-1', [applied(5, 'acme:fragile'), applied(6, 'acme:thorns')]);
     const result = run(state, content, emit([
       HEALTH,
-      kernelEventDraft(KERNEL_EVENTS.effectApplied, { effect: applying, holder: PIKEMEN }, 'all'),
+      kernelEventDraft(KERNEL_EVENTS.effectApplied, { effect: applying, holder: PIKEMEN }, SEEN_PIKEMEN),
     ]));
 
     expect(variables(result)).toStrictEqual([{ value: true, variable: 'thorns' }]);
@@ -197,7 +197,7 @@ describe('reactions of effects', () => {
     );
     const hexed = withUnitEffects(BARE_STATE, 'pikemen-1', [applied(5, 'acme:hex')]);
     const welcoming = withUnitEffects(BARE_STATE, 'pikemen-1', [applied(5, 'acme:welcome')]);
-    const summon = kernelEventDraft(KERNEL_EVENTS.unitSummoned, { unit: summonedUnit }, 'all');
+    const summon = kernelEventDraft(KERNEL_EVENTS.unitSummoned, { unit: summonedUnit }, summonedUnit.visibleTo);
 
     expect(() => run(hexed, named, emit([], [markOp('any')]))).toThrow(ContentError);
 
@@ -279,7 +279,7 @@ describe('reactions of effects', () => {
     );
     const restless = withUnitEffects(calm, 'pikemen-1', [applied(4, 'acme:poison'), applied(5, 'acme:calm')]);
     const payload = { resource: 'demo:mana', unit: 'pikemen-1', value: 1 };
-    const mana = kernelEventDraft(KERNEL_EVENTS.resourceChanged, payload, 'all');
+    const mana = kernelEventDraft(KERNEL_EVENTS.resourceChanged, payload, SEEN_PIKEMEN);
 
     expect(run(calm, named, emit([flags('archers-1')])).state.variables.calm).toBe(true);
     expect('calm' in run(restless, named, emit([flags('archers-1')])).state.variables).toBe(false);
@@ -345,10 +345,12 @@ describe('reactions of effects', () => {
 
 const SELF_IS_TARGET = node('kernel:same', { left: 'self', right: 'target' });
 
+const SEEN_PIKEMEN = unitOf(BARE_STATE, 'pikemen-1').visibleTo;
+
 const HEALTH: EventDraft = kernelEventDraft(
   KERNEL_EVENTS.healthChanged,
   { count: 19, health: 10, unit: 'pikemen-1' },
-  'all',
+  SEEN_PIKEMEN,
 );
 
 const CURSE_TARGET = node('kernel:apply-effect', { effect: 'acme:curse', to: 'target' });
@@ -364,7 +366,7 @@ function answer(request: number, die: number): Command {
 }
 
 function flags(unit: string): EventDraft {
-  return kernelEventDraft(KERNEL_EVENTS.flagsChanged, { flags: [], unit }, 'all');
+  return kernelEventDraft(KERNEL_EVENTS.flagsChanged, { flags: [], unit }, unitOf(BARE_STATE, unit).visibleTo);
 }
 
 function withPikemen(change: Partial<Unit>): BattleState {

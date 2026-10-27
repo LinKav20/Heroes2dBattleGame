@@ -1,8 +1,15 @@
 import type { ContentRegistry, Effect } from '../content/index.ts';
 import { appliedSource } from '../expressions/index.ts';
 import type { Subjects } from '../extensions/index.ts';
-import { VISIBLE_TO_ALL, VISIBLE_TO_NONE, type ContentName, type VisibleTo } from '../ids/index.ts';
-import { holderTarget, type AppliedEffect, type BattleState, type EffectHolder } from '../model/index.ts';
+import { VISIBLE_TO_ALL, VISIBLE_TO_NONE, visibleToBoth, type ContentName, type VisibleTo } from '../ids/index.ts';
+import {
+  findHazard,
+  findUnit,
+  holderTarget,
+  type AppliedEffect,
+  type BattleState,
+  type EffectHolder,
+} from '../model/index.ts';
 import { definitionEffectsOf, effectsOf, sideOf } from './holders.ts';
 
 /**
@@ -48,14 +55,12 @@ export function presentEffect(
 }
 
 /**
- * Returns who sees an effect on a holder: everybody, the side of the holder, or nobody but full visibility.
+ * Returns who sees an effect on a holder: the sides that see the holder, a unit or a hazard zone, and of them the
+ * sides the effect shows itself to, everybody, the side of the holder, or nobody but full visibility. A unit or a
+ * hazard zone that is not in the state is seen by nobody but full visibility.
  */
 export function visibilityOf(effect: Effect, state: BattleState, holder: EffectHolder): VisibleTo {
-  if (effect.visibility === 'all') return VISIBLE_TO_ALL;
-
-  const side = effect.visibility === 'owner' ? sideOf(state, holder) : undefined;
-
-  return side === undefined ? VISIBLE_TO_NONE : [side];
+  return visibleToBoth(holderVisibility(state, holder), ownVisibility(effect, state, holder));
 }
 
 /**
@@ -65,4 +70,20 @@ export function remainingOf(effect: Effect): { readonly remaining?: number } {
   const { duration } = effect;
 
   return duration.kind === 'rounds' || duration.kind === 'turns' ? { remaining: duration.count } : {};
+}
+
+function ownVisibility(effect: Effect, state: BattleState, holder: EffectHolder): VisibleTo {
+  if (effect.visibility === 'all') return VISIBLE_TO_ALL;
+
+  const side = effect.visibility === 'owner' ? sideOf(state, holder) : undefined;
+
+  return side === undefined ? VISIBLE_TO_NONE : [side];
+}
+
+function holderVisibility(state: BattleState, holder: EffectHolder): VisibleTo {
+  if (holder.kind === 'unit') return findUnit(state, holder.unit)?.visibleTo ?? VISIBLE_TO_NONE;
+
+  if (holder.kind === 'hazard') return findHazard(state, holder.hazard)?.visibleTo ?? VISIBLE_TO_NONE;
+
+  return VISIBLE_TO_ALL;
 }

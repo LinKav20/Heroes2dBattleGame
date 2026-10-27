@@ -1,5 +1,6 @@
-import type { Command } from '@heroes2dgame/kernel';
+import type { Command, DataView, Visibility } from '@heroes2dgame/kernel';
 import { describe, expect, it } from 'vitest';
+import { SPEED_ORDER } from '../index.ts';
 import {
   answer,
   CONTENT,
@@ -8,6 +9,7 @@ import {
   eventsOf,
   EXTERNAL,
   holderOf,
+  KERNEL,
   order,
   play,
   played,
@@ -208,6 +210,39 @@ describe('morale in the order of turns by speed', () => {
       ['rules-stdlib:morale-rolled', ['attacker']],
       ['rules-stdlib:speed-changed', []],
       ['rules-stdlib:speed-changed', []],
+    ]);
+  });
+});
+
+describe('the order of turns by speed in a projection', () => {
+  it('shows a side its data without the units it does not see and with the side of the last turn', () => {
+    const view: DataView = { seesCell: () => false, seesUnit: (unit) => unit !== 'pikemen-1', sides: ['defender'] };
+    const data = { extra: 'pikemen-1', granted: ['pikemen-1', 'skeletons-1'], last: 'attacker' };
+
+    expect(SPEED_ORDER.data?.project?.(data, view)).toStrictEqual({ granted: ['skeletons-1'], last: 'attacker' });
+
+    expect(SPEED_ORDER.data?.project?.({ ...data, extra: 'skeletons-1' }, view))
+      .toStrictEqual({ extra: 'skeletons-1', granted: ['skeletons-1'], last: 'attacker' });
+  });
+
+  it('brings the morale of a hidden unit to the other side without naming the unit', () => {
+    const content = contentWith(withUnits({ 'pikemen-1': { effects: ['demo:bless'], visibleTo: ['attacker'] } }));
+    const state = played(started(content, { ruleset: EXTERNAL }), content, endTurn('griffins-1'));
+    const asked = play(state, content, endTurn('pikemen-1')).state;
+    const rolled = answer(asked, content, 24);
+    const defender: Visibility = { kind: 'sides', sides: ['defender'] };
+    const attacker: Visibility = { kind: 'sides', sides: ['attacker'] };
+    const unseen = KERNEL.projectEvents(asked, rolled.events, content, defender);
+    const seen = KERNEL.projectEvents(asked, rolled.events, content, attacker);
+
+    expect(JSON.stringify([unseen, KERNEL.project(rolled.state, content, defender)])).not.toContain('pikemen-1');
+    expect(unseen.filter(({ type }) => !type.startsWith('kernel:'))).toStrictEqual([]);
+    expect(unseen.map(({ type }) => type)).toContain('kernel:hidden');
+    expect(seen.map(({ type }) => type)).toContain('rules-stdlib:morale-rolled');
+
+    expect(eventsOf(seen, 'kernel:data-changed').map(({ payload }) => payload)).toStrictEqual([
+      { changed: { 'rules-stdlib:speed': { extra: 'pikemen-1', granted: ['pikemen-1'] } }, removed: [] },
+      { changed: { 'rules-stdlib:speed': { granted: ['pikemen-1'] } }, removed: [] },
     ]);
   });
 });

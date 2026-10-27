@@ -35,13 +35,14 @@ import {
 import { created, PASS, SKIRMISH, WORLD, worldWith } from './world.ts';
 
 interface Played {
+  readonly batches: ReadonlyArray<{ readonly before: BattleState; readonly events: readonly BattleEvent[] }>;
   readonly events: readonly BattleEvent[];
   readonly state: BattleState;
 }
 
 type Arena = 'brawl' | 'pass' | 'sides' | 'skirmish';
 
-describe('random battles', () => {
+describe('random battles', { timeout: 60_000 }, () => {
   it.each(ARENAS)('at the %s keep every invariant, whatever the players try', (arena) => {
     fc.assert(fc.property(CHOICES, fc.boolean(), (choices, external) => {
       play(start(arena, external), choices, drive(arena));
@@ -126,6 +127,25 @@ describe('random battles', () => {
       'victory:wiped-out',
     ]));
   });
+
+  it('at the brawl hide the ghosts from the attacker, so the invariants are checked on the hidden events', () => {
+    const seen = new Set<string>();
+
+    fc.assert(fc.property(CHOICES, fc.boolean(), (choices, external) => {
+      const { batches } = play(start('brawl', external), choices, drive('brawl'));
+
+      for (const { before, events } of batches) {
+        DRIVE.kernel.projectEvents(before, events, BRAWL, { kind: 'sides', sides: ['attacker'] })
+          .forEach(({ type }, index) => {
+            const hiddenTurn = type === 'kernel:phase-changed' && events[index]?.type === 'kernel:turn-ended';
+
+            seen.add(hiddenTurn ? 'hidden-turn' : type);
+          });
+      }
+    }), { numRuns: 10, seed: seedOf(6) });
+
+    expect([...seen]).toStrictEqual(expect.arrayContaining(['hidden-turn', 'kernel:hidden']));
+  });
 });
 
 const ARENAS: readonly Arena[] = ['pass', 'brawl', 'skirmish', 'sides'];
@@ -156,6 +176,7 @@ const BRAWL: ContentRegistry = worldWith({
       ...unit,
       cell: BRAWL_CELLS[unit.id] ?? unit.cell ?? '',
       effects: unit.id === 'golem-1' ? ['demo:bleed'] : unit.effects,
+      ...(unit.id === 'ghosts-1' ? { visibleTo: ['defender'] } : {}),
     })),
   })),
 }, { mechanics: { ...SKIRMISH.mechanics, 'kernel:turn-order': { variant: 'acme:tide' } } });
@@ -199,6 +220,7 @@ function seedOf(offset: number): number {
 
 function play(first: BattleState, choices: readonly number[], current: Drive, check = true): Played {
   let state = first;
+  const batches: Array<Played['batches'][number]> = [];
   const events: BattleEvent[] = [];
 
   for (const choice of choices) {
@@ -214,11 +236,12 @@ function play(first: BattleState, choices: readonly number[], current: Drive, ch
 
     if (check) checkInvariants(state, command, result, current);
 
+    batches.push({ before: state, events: result.events });
     events.push(...result.events);
     state = result.state;
   }
 
-  return { events, state };
+  return { batches, events, state };
 }
 
 function checkLegality(state: BattleState, choice: number, current: Drive): number {

@@ -6,8 +6,9 @@ import type { Target } from '../model/index.ts';
  *
  * A need that cannot be met is an error of the extension, and the kernel throws a `TypeError`: a roll without dice,
  * with more than `MAX_DICE_PER_ROLL` dice or with dice of more than `MAX_DIE_SIDES` sides, a choice without options
- * or with repeated ones, a choice of targets without targets, with repeated targets or with a count outside 1 to the
- * number of targets.
+ * or with repeated ones, a choice of targets without targets, with repeated targets, with a count outside 1 to the
+ * number of targets, or with a unit that is not in the battle or that the choosing side does not see; without a side,
+ * each unit target must be marked as seen by all.
  */
 export type StepNeed = ChoiceNeed | RollNeed | TargetNeed;
 
@@ -56,7 +57,10 @@ export interface TargetNeed {
   readonly kind: 'target';
   /** The full name of the choice, for example `core:spell-target`; the user interface shows its text by it. */
   readonly name: ContentName;
-  /** The targets to choose from, all different. */
+  /**
+   * The targets to choose from, all different. A unit must be one the side that chooses sees, or, without a side, one
+   * marked as seen by all, so the request never names a unit hidden from whoever sees it.
+   */
   readonly targets: readonly Target[];
   /** How many different targets to choose, from 1 to the number of targets. */
   readonly count: number;

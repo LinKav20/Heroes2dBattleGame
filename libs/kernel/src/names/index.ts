@@ -8,7 +8,7 @@ export {
   kernelName,
   prefixOf,
 } from './extension-names.ts';
-export type { Extension, ExtensionData } from './extension.ts';
+export type { DataView, Extension, ExtensionData } from './extension.ts';
 export {
   BATTLE_MOMENTS,
   isFlowStep,

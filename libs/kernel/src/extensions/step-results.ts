@@ -61,7 +61,11 @@ export interface EventDraft<Payload = unknown> {
   readonly type: string;
   /** What happened, in the current version of the format. */
   readonly payload: Payload;
-  /** Which sides see the event. */
+  /**
+   * Which sides see the event. An event of the kernel that a step of a package gives is seen by no side that does
+   * not see what it changes: the unit of the event, a summoned unit included; the holder of an effect and the effect
+   * itself; the hazard zone it adds or removes. A wider mark is an error of the extension.
+   */
   readonly visibleTo: VisibleTo;
 }
 

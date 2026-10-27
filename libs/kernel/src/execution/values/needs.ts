@@ -1,6 +1,7 @@
 import { MAX_DICE_PER_ROLL, MAX_DIE_SIDES } from '../../expressions/index.ts';
 import type { StepNeed } from '../../extensions/index.ts';
-import { allDifferent } from '../../model/index.ts';
+import { sideSees } from '../../ids/index.ts';
+import { allDifferent, findUnit, type BattleState } from '../../model/index.ts';
 
 /**
  * Checks that a value a step needs can be given: a roll has from 1 to {@link MAX_DICE_PER_ROLL} dice of 1 to
@@ -13,6 +14,29 @@ export function checkNeed(step: string, need: StepNeed): void {
   const problem = needProblem(need);
 
   if (problem !== undefined) throw new TypeError(`The step ${JSON.stringify(step)} needs ${problem}.`);
+}
+
+/**
+ * Checks that a choice of targets offers only units that the side that chooses sees, or, without a side, units marked
+ * as seen by all, so the request never names a unit hidden from whoever sees it: a request without a side reaches
+ * every actor, an actor who sees what no side sees included, and a unit marked with a list of sides is hidden from
+ * such an actor even if the list names every side.
+ *
+ * @throws {TypeError} If a target is a unit that is not in the battle or that the choosing sides do not see; it is an
+ * error of the extension that declares the step.
+ */
+export function checkSeenTargets(step: string, need: StepNeed, state: BattleState): void {
+  if (need.kind !== 'target') return;
+
+  const unseen = need.targets.find((target) => target.kind === 'unit'
+    && !sideSees(need.side, findUnit(state, target.unit)?.visibleTo ?? []));
+
+  if (unseen?.kind === 'unit') {
+    throw new TypeError(
+      `The step ${JSON.stringify(step)} offers the unit ${JSON.stringify(unseen.unit)}, `
+      + 'which the choosing sides do not see.',
+    );
+  }
 }
 
 function needProblem(need: StepNeed): string | undefined {

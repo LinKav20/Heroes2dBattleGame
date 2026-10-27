@@ -52,6 +52,22 @@ describe('the commands attack and shoot', () => {
       .toStrictEqual(['kernel:invalid-targets', { problem: 'off-field', target: 0 }]);
   });
 
+  it('reject an attack and a shot at a unit the side of the attacker does not see as at no unit', () => {
+    const hidden = withUnit(STARTED, 'pikemen-1', { visibleTo: ['defender'] });
+
+    expect(reason(KERNEL.execute(hidden, attack('pikemen-1'), CONTENT)))
+      .toStrictEqual(['kernel:invalid-command', { field: 'target' }]);
+
+    expect(reason(KERNEL.execute(hidden, attack('pikemen-1', '1,1'), CONTENT)))
+      .toStrictEqual(reason(KERNEL.execute(hidden, attack('nobody-1', '1,1'), CONTENT)));
+
+    expect(reason(KERNEL.execute(hidden, shoot('pikemen-1'), CONTENT)))
+      .toStrictEqual(reason(KERNEL.execute(hidden, shoot('nobody-1'), CONTENT)));
+
+    expect(reason(KERNEL.execute(hidden, shoot('pikemen-1'), CONTENT)))
+      .toStrictEqual(['kernel:invalid-command', { field: 'target' }]);
+  });
+
   it('check the attacker before the attack plans anything: in the battle, alive, on the field, and in a turn', () => {
     const created = KERNEL.createState({ scenario: 'demo:duel' }, CONTENT);
     const dead = withUnit(STARTED, 'archers-1', { count: 0, health: 0 });

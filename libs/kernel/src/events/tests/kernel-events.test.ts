@@ -30,7 +30,7 @@ describe('events of the kernel', () => {
   });
 
   it.each(Object.keys(PAYLOADS))('%s changes no input', (type) => {
-    const state = type === KERNEL_EVENTS.inputRequested ? WITHOUT_REQUEST : FROZEN_STATE;
+    const state = inputOf(type);
 
     expect(() => applyKernel(type, state)).not.toThrow();
   });
@@ -401,6 +401,8 @@ const REQUEST: RollRequest = { count: 1, id: 8, kind: 'roll', name: 'core:morale
 
 const OUTCOME = { kind: 'victory', side: 'attacker', winners: ['attacker'] } as const;
 
+const PROJECTION: BattleState = deepFreeze({ ...FROZEN_STATE, visibility: { kind: 'full' } });
+
 const ENDED = deepFreeze(KERNEL.applyEvent(FROZEN_STATE, kernelEvent(KERNEL_EVENTS.battleEnded, { outcome: OUTCOME })));
 
 const POISON: AppliedEffect = { active: true, effect: 'core:poison', id: 8, params: {}, stacks: 1, visibleTo: 'all' };
@@ -417,6 +419,7 @@ const PAYLOADS: { readonly [Type in KernelEventType]: KernelEventPayloads[Type] 
   'kernel:auras-changed': { added: ['core:poison'], removed: [], unit: 'archers-1' },
   'kernel:battle-ended': { outcome: { kind: 'draw', winners: [] } },
   'kernel:command-aborted': { rejection: { code: 'rule-violation', params: {}, reason: 'acme-duel:failed' } },
+  'kernel:data-changed': { changed: { 'acme:data': { level: 2 } }, removed: [] },
   'kernel:effect-applied': { effect: POISON, holder: { kind: 'field' } },
   'kernel:effect-changed': { effect: { ...POISON, id: 3 }, holder: { kind: 'unit', unit: 'archers-1' } },
   'kernel:effect-not-applied': { effect: 'core:poison', holder: { kind: 'field' }, reason: 'immune' },
@@ -425,6 +428,7 @@ const PAYLOADS: { readonly [Type in KernelEventType]: KernelEventPayloads[Type] 
   'kernel:hazard-added': { cells: ['6,6'], hazard: 'fire-wall', visibleTo: 'all' },
   'kernel:hazard-removed': { hazard: 'swamp' },
   'kernel:health-changed': { count: 1, health: 1, unit: 'archers-1' },
+  'kernel:hidden': { nextRequestId: 999 },
   'kernel:input-closed': { request: 7 },
   'kernel:input-requested': { request: REQUEST },
   'kernel:item-added': { item: { count: 1, id: 8, item: 'demo:healing-potion' }, unit: 'pikemen-1' },
@@ -477,6 +481,12 @@ function withoutStartCount(unit: Unit): Unit {
   const value: unknown = withoutKey(unit, 'startCount');
 
   return value as Unit;
+}
+
+function inputOf(type: string): BattleState {
+  if (type === KERNEL_EVENTS.inputRequested) return WITHOUT_REQUEST;
+
+  return type === KERNEL_EVENTS.hidden || type === KERNEL_EVENTS.dataChanged ? PROJECTION : FROZEN_STATE;
 }
 
 function applyKernel(type: string, state: BattleState): BattleState {

@@ -15,8 +15,8 @@ import {
   variables,
   withUnitEffects,
 } from '../../tests/battle.ts';
-import { applied, effect, node, unitOf } from '../../tests/fixtures.ts';
-import { applicationDraft, removalDraft } from '../index.ts';
+import { applied, effect, node, STATE, unitOf } from '../../tests/fixtures.ts';
+import { applicationDraft, removalDraft, visibilityOf } from '../index.ts';
 
 describe('applying an effect', () => {
   it('stores it with the next number, its duration, strength, parameters and visibility and runs operations', () => {
@@ -74,10 +74,10 @@ describe('applying an effect', () => {
       ['defender'],
     ]]);
 
-    expect(reason('acme:late')).toMatchObject([['kernel:effect-not-applied', { reason: 'condition' }, 'all']]);
+    expect(reason('acme:late')).toMatchObject([['kernel:effect-not-applied', { reason: 'condition' }, ['defender']]]);
 
     expect(reason('acme:once', withUnitEffects(BARE_STATE, 'pikemen-1', [applied(7, 'acme:once')])))
-      .toMatchObject([['kernel:effect-not-applied', { reason: 'stacking' }, 'all']]);
+      .toMatchObject([['kernel:effect-not-applied', { reason: 'stacking' }, ['defender']]]);
   });
 
   it('checks immunity by the tags of the creature and of every effect acting on the unit', () => {
@@ -306,3 +306,18 @@ const SPEED_PLUS_1 = { attribute: 'core:speed', operation: 'add', value: 1 } as 
 function existing(name: string, extra: Partial<AppliedEffect> = {}): BattleState {
   return withUnitEffects({ ...BARE_STATE, nextId: 20 }, 'pikemen-1', [applied(7, name, { remaining: 1, ...extra })]);
 }
+
+describe('who sees an effect', () => {
+  it.each([
+    { holder: ARCHERS, name: 'a unit every side sees', seen: ['all', ['attacker'], []] },
+    { holder: PIKEMEN, name: 'a unit only its side sees', seen: [['defender'], ['defender'], []] },
+    { holder: { hazard: 'swamp', kind: 'hazard' }, name: 'a hidden hazard zone', seen: [['defender'], [], []] },
+    { holder: { kind: 'side', side: 'attacker' }, name: 'a side', seen: ['all', ['attacker'], []] },
+    { holder: { kind: 'field' }, name: 'the field', seen: ['all', [], []] },
+  ] as const)('on $name: the sides that see the holder and the effect shows itself to', ({ holder, seen }) => {
+    const shown = ['all', 'owner', 'none'] as const;
+
+    expect(shown.map((visibility) => visibilityOf(effect('acme:mark', { visibility }), STATE, holder)))
+      .toStrictEqual(seen);
+  });
+});

@@ -49,6 +49,7 @@ export {
 export type {
   CellTarget,
   ChoiceRequest,
+  HiddenRequest,
   InputRequest,
   RollRequest,
   SideTarget,

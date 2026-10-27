@@ -14,6 +14,8 @@ export interface Placing {
   readonly cause?: number | undefined;
   /** Whether the steps belong to the course of the battle. */
   readonly flow?: boolean;
+  /** Whether the steps belong to a state edit, whose events nothing reacts to. */
+  readonly quiet?: boolean;
 }
 
 /**
@@ -45,8 +47,8 @@ export class StepStack {
 
   /**
    * Puts new steps on top so that they run in the order of the list, each with the cause of `placing`. A step belongs
-   * to the course of the battle if its kind does or `placing.flow` says so. Puts nothing and returns `false` if the
-   * stack would grow deeper than {@link MAX_STACK_DEPTH}.
+   * to the course of the battle if its kind does or `placing.flow` says so, and to a state edit if `placing.quiet`
+   * says so. Puts nothing and returns `false` if the stack would grow deeper than {@link MAX_STACK_DEPTH}.
    *
    * @throws {TypeError} If the kernel has no kind of one of the steps.
    */
@@ -54,7 +56,7 @@ export class StepStack {
     if (this.steps.length + drafts.length > MAX_STACK_DEPTH) return false;
 
     for (const draft of drafts.toReversed()) {
-      this.steps.push(this.stepOf(draft, placing.cause, placing.flow === true));
+      this.steps.push(this.stepOf(draft, placing));
     }
 
     return true;
@@ -72,7 +74,7 @@ export class StepStack {
 
     const index = this.steps.findLastIndex((step) => step.flow === true) + 1;
 
-    this.steps.splice(index, 0, ...drafts.toReversed().map((draft) => this.stepOf(draft, undefined, true)));
+    this.steps.splice(index, 0, ...drafts.toReversed().map((draft) => this.stepOf(draft, { flow: true })));
 
     return true;
   }
@@ -121,7 +123,7 @@ export class StepStack {
     return this.steps.map((step) => withoutKey(step, 'cause'));
   }
 
-  private stepOf(draft: StepDraft, cause: number | undefined, flow: boolean): Step {
+  private stepOf(draft: StepDraft, { cause, flow = false, quiet = false }: Placing): Step {
     const kind = this.kinds.get(draft.type);
 
     if (kind === undefined) throw new TypeError(`The kernel has no kind of step ${JSON.stringify(draft.type)}.`);
@@ -132,6 +134,7 @@ export class StepStack {
       version: kind.version,
       ...(cause === undefined ? {} : { cause }),
       ...(flow || isFlowStep(draft.type) ? { flow: true } : {}),
+      ...(quiet ? { quiet: true } : {}),
     };
 
     return step;

@@ -1,5 +1,7 @@
 import { expect } from 'vitest';
 import {
+  canonicalJson,
+  canSee,
   standsOnField,
   turnHolderOf,
   turnRecordsOf,
@@ -14,6 +16,7 @@ import {
   type Kernel,
   type Target,
   type Unit,
+  type Visibility,
 } from '../../index.ts';
 import { created, FRESH_KERNEL, WORLD, WORLD_KERNEL } from './world.ts';
 
@@ -75,6 +78,7 @@ export function checkInvariants(before: BattleState, command: Command, result: E
   expect(state.nextRequestId).toBeGreaterThanOrEqual(before.nextRequestId);
   checkUnits(state, drive);
   checkPhase(state);
+  checkProjections(before, result, drive);
 }
 
 export function frozen<Value>(value: Value): Value {
@@ -181,8 +185,67 @@ export function begin(content: ContentRegistry, options: Partial<BattleOptions> 
   return { drive, state };
 }
 
+const STAND_INS: readonly string[] = [
+  'kernel:data-changed',
+  'kernel:hidden',
+  'kernel:input-closed',
+  'kernel:input-requested',
+];
+
 function again(result: ExecuteResult): unknown {
   return result.ok ? { events: result.events, state: result.state } : result.rejection;
+}
+
+function checkProjections(before: BattleState, { events, state }: ExecuteAccepted, { content, kernel }: Drive): void {
+  const subsets = state.sides.reduce<ReadonlyArray<readonly string[]>>(
+    (all, { id }) => [...all, ...all.map((subset) => [...subset, id])],
+    [[]],
+  );
+  const views: readonly Visibility[] = [
+    { kind: 'full' },
+    ...subsets.map((sides): Visibility => ({ kind: 'sides', sides })),
+  ];
+
+  for (const visibility of views) {
+    const projected = kernel.projectEvents(before, events, content, visibility);
+    const after = kernel.project(state, content, visibility);
+    const applied = projected.reduce(
+      (current, event) => kernel.applyEvent(current, event),
+      kernel.project(before, content, visibility),
+    );
+
+    expect(applied).toStrictEqual(after);
+    expect(() => canonicalJson(after)).not.toThrow();
+    expect(projected.slice(0, events.length).map(({ id }) => id)).toStrictEqual(events.map(({ id }) => id));
+
+    expect(projected.slice(events.length).map(({ id, type }) => [id, type]))
+      .toStrictEqual(projected.length > events.length ? [[events.length, 'kernel:data-changed']] : []);
+
+    expect(projected.filter(({ type }) => type === 'kernel:hidden')
+      .every(({ payload }) => Object.keys(payload as object).every((key) => ['nextId', 'nextRequestId'].includes(key))))
+      .toBe(true);
+
+    expect(after.rng).toBeUndefined();
+
+    if (visibility.kind === 'sides') {
+      const text = JSON.stringify([after, projected]);
+      const unseen = state.units.filter((unit) => !canSee(visibility, unit.visibleTo)).map(({ id }) => id);
+
+      expect(unseen.filter((id) => text.includes(JSON.stringify(id)))).toStrictEqual([]);
+      expect(projected.every(({ visibleTo }) => canSee(visibility, visibleTo))).toBe(true);
+
+      const replaced = events
+        .filter((event, index) => !canSee(visibility, event.visibleTo) && !standsIn(event, projected[index]));
+
+      expect(replaced).toStrictEqual([]);
+    }
+  }
+}
+
+function standsIn(original: BattleEvent, shown: BattleEvent | undefined): boolean {
+  if (shown?.type === 'kernel:phase-changed') return original.type === 'kernel:turn-ended';
+
+  return shown !== undefined && STAND_INS.includes(shown.type);
 }
 
 function checkUnits(state: BattleState, { content, kernel }: Drive): void {

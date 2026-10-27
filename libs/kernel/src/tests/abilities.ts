@@ -79,7 +79,11 @@ export const ABILITY_CONTENT: ContentRegistry = (() => {
 export const READY: BattleState = {
   ...BARE_STATE,
   sides: BARE_STATE.sides.map((side) => (side.id === 'attacker' ? { ...side, abilities: ['demo:rally'] } : side)),
-  units: BARE_STATE.units.map((unit) => ({ ...unit, abilityUses: [] })),
+  units: BARE_STATE.units.map((unit) => ({
+    ...unit,
+    abilityUses: [],
+    ...(unit.id === 'pikemen-1' ? { visibleTo: ['attacker', 'defender'] } : {}),
+  })),
 };
 
 export function ability(name: string, extra: Partial<Ability> = {}): Ability {

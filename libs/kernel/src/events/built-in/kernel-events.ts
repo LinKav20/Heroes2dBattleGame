@@ -11,6 +11,7 @@ import { FIELD_EVENTS } from './field.ts';
 import { INVENTORY_EVENTS } from './inventory.ts';
 import { KERNEL_EVENTS, type KernelEventType } from './names.ts';
 import type { KernelEventPayloads } from './payloads.ts';
+import { PROJECTION_EVENTS } from './projection.ts';
 import { SCENARIO_EVENTS } from './scenario.ts';
 import { KERNEL_EVENT_TARGETS, type KernelEventTargets } from './targets.ts';
 import { UNIT_EVENTS } from './units.ts';
@@ -33,6 +34,7 @@ export const KERNEL_EVENT_KINDS: readonly EventKind[] = kernelEventKinds({
   ...EXECUTION_EVENTS,
   ...FIELD_EVENTS,
   ...INVENTORY_EVENTS,
+  ...PROJECTION_EVENTS,
   ...SCENARIO_EVENTS,
   ...UNIT_EVENTS,
 }, KERNEL_EVENT_TARGETS);

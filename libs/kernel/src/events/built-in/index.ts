@@ -46,6 +46,7 @@ export {
 } from './kernel-events.ts';
 export { COURSE_EVENTS, KERNEL_EVENTS, RUNNER_EVENTS, type KernelEventType } from './names.ts';
 export type { KernelEventPayloads } from './payloads.ts';
+export type { DataChangedPayload, HiddenPayload, ProjectionEventPayloads } from './projection.ts';
 export type {
   ScenarioEventPayloads,
   TriggerFiredPayload,

@@ -32,7 +32,10 @@ export interface MechanicExtension extends Extension {
  * `JsonObject`, for example `interface SpeedParams extends JsonObject { readonly waiting: boolean }`.
  */
 export interface MechanicContext<Params extends JsonObject = JsonObject> {
-  /** The state of the battle now. */
+  /**
+   * The state of the battle now. As in `StepContext.state`, it may be a projection for sides without its mark, with
+   * missing data of extensions taken for the data they start with.
+   */
   readonly state: BattleState;
   /** The content of the battle. */
   readonly content: ContentRegistry;

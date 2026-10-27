@@ -1,5 +1,6 @@
 import { applyEventOfKind, KERNEL_EVENT_KINDS } from '../events/index.ts';
 import type { AttackRequest, AttackVariant } from '../extensions/index.ts';
+import { sideSees } from '../ids/index.ts';
 import {
   findUnit,
   forbidden,
@@ -30,7 +31,8 @@ interface CheckedAttack<Plan> {
 /**
  * Checks a command that a unit attacks another one and plans it with the attack of the ruleset. The battle must be in
  * a turn, the ruleset must choose an attack, the unit or its side must have the turn, the unit must stand on the field,
- * and the target must be another unit of the battle that is alive and stands on the field. A direction without a cell
+ * and the target must be another unit of the battle that the side of the unit sees, alive and standing on the field; a
+ * target the side does not see is rejected as a unit that is not in the battle. A direction without a cell
  * to attack from is invalid. A cell to attack from is checked as the command `move` checks it, and a rejection names
  * the field `from`, unless the unit already stands there facing that way. The move before the strike spends only the
  * actions that count the cost of movement, not the actions of the turn that every move spends, because the approach
@@ -104,7 +106,9 @@ function checkedAttack<Plan>(
 
   const target = findUnit(state, command.target);
 
-  if (target === undefined || target.id === unit.id) {
+  const unseen = target !== undefined && !sideSees(unit.side, target.visibleTo);
+
+  if (target === undefined || target.id === unit.id || unseen) {
     return forbidden(REJECTION_REASONS.invalidCommand, { field: 'target' });
   }
 

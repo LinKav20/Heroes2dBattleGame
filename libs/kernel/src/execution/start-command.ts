@@ -5,6 +5,7 @@ import {
   planAttack,
   planContext,
   planDefend,
+  planEdit,
   planEndTurn,
   planFinishDeployment,
   planGiveUp,
@@ -14,8 +15,8 @@ import {
   planStartBattle,
   planWait,
   type BattlePlan,
-  type CommandSetup,
   type PlanContext,
+  type PlannedEdit,
 } from '../battle/index.ts';
 import type { StepDraft } from '../extensions/index.ts';
 import {
@@ -26,7 +27,8 @@ import {
   type GameCommand,
   type StateEditCommand,
 } from '../model/index.ts';
-import type { ExecutionContext } from './context.ts';
+import { KERNEL_STEPS } from '../names/index.ts';
+import { commandSetup, type ExecutionContext } from './context.ts';
 import { EventRecorder } from './event-recorder.ts';
 import { extensionViolation, ruleViolation, type ExecuteRejected, type ExecuteResult } from './result.ts';
 import { runSteps } from './step-runner.ts';
@@ -44,9 +46,10 @@ type Planners = { readonly [Type in KernelCommand['type']]: Planner<Extract<Kern
 /**
  * Starts a game command or a state edit: checks that the battle goes on and nothing waits for an answer, turns the
  * command into steps and runs them. A game command of the kernel goes to its planner, and a command of an extension to
- * its kind; state edits are not available. A game action in a turn, such as a move, the use of an ability or a
- * command of an extension, ends with the step that brings auras and zones up to date, checks scenario triggers and
- * outcomes and ends the turn of its holder as the plan says or if it is over.
+ * its kind. A game action in a turn, such as a move, the use of an ability or a command of an extension, ends with the
+ * step that brings auras and zones up to date, checks scenario triggers and outcomes and ends the turn of its holder
+ * as the plan says or if it is over. A state edit runs its steps, which nothing reacts to, and then the checks of the
+ * outcomes and of the end of the turn, as `planEdit` tells.
  *
  * @throws {TypeError} If the state has saved steps without an open input request, a plan is unknown, or a command of
  * an extension plans a step that only the kernel adds or rejects with a reason it may not give.
@@ -56,11 +59,11 @@ export function startCommand(
   state: BattleState,
   command: GameCommand | StateEditCommand,
 ): ExecuteResult {
-  if (command.kind === 'edit') return ruleViolation(REJECTION_REASONS.notAvailable);
-
   const blocked = battleRejection(state);
 
   if (blocked !== undefined) return blocked;
+
+  if (command.kind === 'edit') return startEdit(context, state, command);
 
   const plan = planOf(context, state, command);
 
@@ -114,7 +117,7 @@ const PLANNERS: Planners = {
 };
 
 function planOf(context: ExecutionContext, state: BattleState, command: GameCommand): BattlePlan {
-  const plan = planContext(setupOf(context), state);
+  const plan = planContext(commandSetup(context.registries, context, context.content), state);
 
   if (command.type === 'extension') return extensionPlan(context, plan, command);
 
@@ -139,8 +142,26 @@ function extensionPlan(
   return asGameAction(state, packagePlan(command.name, planned));
 }
 
-function setupOf({ attributes, content, fields, registries }: ExecutionContext): CommandSetup {
-  return { attributes, content, fields, registries };
+function startEdit(context: ExecutionContext, state: BattleState, command: StateEditCommand): ExecuteResult {
+  const plan = planEdit(planContext(commandSetup(context.registries, context, context.content), state), command.edit);
+
+  if (plan.kind === 'forbidden') return { ok: false, rejection: plan.rejection };
+
+  if (plan.kind === 'reject') return extensionViolation(KERNEL_STEPS.stateEdit, plan);
+
+  return runEdit(context, state, plan);
+}
+
+function runEdit(context: ExecutionContext, state: BattleState, plan: PlannedEdit): ExecuteResult {
+  const stack = new StepStack(context.registries.steps, []);
+
+  const pushed = stack.pushDrafts(plan.checks, { flow: true })
+    && stack.pushDrafts(plan.tail, { flow: true, quiet: true })
+    && stack.pushDrafts(plan.steps, { quiet: true });
+
+  if (!pushed) return ruleViolation(REJECTION_REASONS.stepLimit);
+
+  return runSteps(context, new EventRecorder(context.registries.events, state), stack);
 }
 
 function runPlanned(context: ExecutionContext, state: BattleState, steps: readonly StepDraft[]): ExecuteResult {

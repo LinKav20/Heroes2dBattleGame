@@ -30,7 +30,7 @@ describe('using an ability', () => {
     ]);
 
     expect(result.events[0]?.payload).toStrictEqual({ holder: ARCHERS, targets: [PIKEMEN], use });
-    expect(result.events[3]?.visibleTo).toStrictEqual(['defender']);
+    expect(result.events[3]?.visibleTo).toStrictEqual(['attacker', 'defender']);
     expect(archers.abilityUses).toStrictEqual([use]);
     expect(archers.spentActions).toStrictEqual({ 'core:action': 1 });
     expect(archers.resources).toStrictEqual({ 'demo:mana': 0 });
@@ -237,6 +237,33 @@ describe('using an ability', () => {
       .toStrictEqual(['kernel:invalid-targets', { ability: 'demo:rally', problem: 'count' }]);
   });
 
+  it('rejects a unit the side of the user does not see as a target exactly as a unit not in the battle', () => {
+    const units = READY.units.map((unit) => (unit.id === 'pikemen-1' ? { ...unit, visibleTo: ['defender'] } : unit));
+    const hidden = { ...READY, units };
+    const nobody = { kind: 'unit', unit: 'nobody-1' } as const;
+
+    expect(reason(execute(hidden, useAbility('demo:fire-arrow', [PIKEMEN]))))
+      .toStrictEqual(['kernel:invalid-targets', { ability: 'demo:fire-arrow', problem: 'kind', target: 0 }]);
+
+    expect(reason(execute(hidden, useAbility('demo:fire-arrow', [PIKEMEN]))))
+      .toStrictEqual(reason(execute(hidden, useAbility('demo:fire-arrow', [nobody]))));
+  });
+
+  it('lets an ability of a side target the units its side sees, and rejects others as units not in the battle', () => {
+    const rally = withAbility({ ...RALLY, cost: { actions: {}, resources: {} }, target: { kind: 'unit' } });
+    const command = useAbility('demo:rally', [PIKEMEN], { side: 'attacker' });
+    const nobody = useAbility('demo:rally', [{ kind: 'unit', unit: 'nobody-1' }], { side: 'attacker' });
+
+    expect(used(pikemenSeenBy(['attacker']), command, rally).events.map(({ type }) => type))
+      .toContain('kernel:ability-used');
+
+    expect(reason(execute(pikemenSeenBy(['defender']), command, rally)))
+      .toStrictEqual(['kernel:invalid-targets', { ability: 'demo:rally', problem: 'kind', target: 0 }]);
+
+    expect(reason(execute(pikemenSeenBy(['defender']), command, rally)))
+      .toStrictEqual(reason(execute(READY, nobody, rally)));
+  });
+
   it.each<{ readonly name: string; readonly change: Partial<Ability>; readonly problem: string }>([
     { change: { cost: { actions: { 'core:action': -1 }, resources: {} } }, name: 'a negative cost', problem: 'cost' },
     { change: { cooldown: 0.5 }, name: 'a fractional cooldown', problem: 'cooldown' },
@@ -290,12 +317,24 @@ describe('using an ability', () => {
 
   it('lets a side have a cost of zero, and a unit act in the turn of its side', () => {
     const free = withAbility({ ...RALLY, cost: { actions: { 'core:action': 0 }, resources: {} } });
-    const sideTurn = { ...READY, phase: { kind: 'turn', side: 'attacker' } } as const;
+    const ruleset = { ...READY.ruleset, turnOwner: 'side' } as const;
+    const sideTurn = { ...READY, phase: { kind: 'turn', side: 'attacker' }, ruleset } as const;
 
     const rallied = used(READY, useAbility('demo:rally', [DEFENDER], { side: 'attacker' }), free);
 
     expect(rallied.state.variables.rallied).toBe(true);
     expect(used(sideTurn, useAbility('demo:fire-arrow', [PIKEMEN])).events).toHaveLength(4);
+  });
+
+  it('lets only the side act in a turn of a side without a unit where the ruleset gives turns to units', () => {
+    const free = withAbility({ ...RALLY, cost: { actions: { 'core:action': 0 }, resources: {} } });
+    const hidden = { ...READY, phase: { kind: 'turn', side: 'attacker' } } as const;
+
+    expect(reason(execute(hidden, useAbility('demo:fire-arrow', [PIKEMEN]))))
+      .toStrictEqual(['kernel:not-your-turn', {}]);
+
+    expect(used(hidden, useAbility('demo:rally', [DEFENDER], { side: 'attacker' }), free).state.variables.rallied)
+      .toBe(true);
   });
 
   it('checks the cost of an ability of an item like the cost of any other ability', () => {
@@ -318,6 +357,10 @@ function silencing(): ContentRegistry {
   const silence = effect('demo:silence', { grantsTags: ['Debuff.Silence'] });
 
   return { ...ABILITY_CONTENT, effects: { [silence.name]: silence } };
+}
+
+function pikemenSeenBy(visibleTo: readonly string[]): BattleState {
+  return { ...READY, units: READY.units.map((unit) => (unit.id === 'pikemen-1' ? { ...unit, visibleTo } : unit)) };
 }
 
 function withAbility(changed: Ability): ContentRegistry {

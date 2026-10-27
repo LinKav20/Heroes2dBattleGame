@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { ContentError, type ScenarioSide, type ScenarioUnit, type TurnRule } from '../../content/index.ts';
+import {
+  ContentError,
+  type ContentRegistry,
+  type ScenarioSide,
+  type ScenarioUnit,
+  type TurnRule,
+} from '../../content/index.ts';
+import type { VisibleTo } from '../../ids/index.ts';
 import { createKernel } from '../../kernel/index.ts';
 import { DONE, MAX_ITEMS_PER_OPERATION } from '../../operations/index.ts';
 import { effect, node, unitOf } from '../../tests/fixtures.ts';
@@ -79,7 +86,9 @@ describe('creating a battle', () => {
   });
 
   it('rejects wrong options', () => {
-    expect(() => create({ units: { 'ghosts-1': {} } })).toThrow('The scenario has no unit "ghosts-1" to change.');
+    expect(() => create({ units: { 'ghosts-1': {} } }))
+      .toThrow('The battle has no unit "ghosts-1" to change; it is removed or unknown.');
+
     expect(() => create({ units: { 'archers-1': { count: 0 } } })).toThrow('needs a count from 1');
     expect(() => create({ units: { 'archers-1': { health: 11 } } })).toThrow('needs a health from 1 to 10');
     expect(() => create({ units: { 'pikemen-1': { resources: { 'demo:mana': 1 } } } })).toThrow('has no resource');
@@ -138,6 +147,25 @@ describe('creating a battle', () => {
       { scenario: 'demo:duel' },
       withScenario({ field: { ...SCENARIO.field, topology: 'acme:hex' } }),
     )).toThrow('No package declares the topology "acme:hex".');
+  });
+
+  it.each<readonly [VisibleTo, VisibleTo, string]>([
+    [['defender'], 'all', UNSEEN],
+    [[], 'all', UNSEEN],
+    [['attacker', 'atacker'], 'all', UNSEEN],
+    [['attacker'], ['defender', 'atacker'], 'The hazard zone "embers" is seen by a side the scenario does not have.'],
+  ])('rejects a scenario with a unit seen by %j and a zone seen by %j as an error of content', (unit, zone, text) => {
+    const content = withVisibility(unit, zone);
+
+    expect(() => KERNEL.createState({ scenario: 'demo:duel' }, content)).toThrow(ContentError);
+    expect(() => KERNEL.createState({ scenario: 'demo:duel' }, content)).toThrow(text);
+  });
+
+  it('accepts units hidden from the other side and hazard zones seen by some sides of the scenario', () => {
+    const state = KERNEL.createState({ scenario: 'demo:duel' }, withVisibility(['attacker'], []));
+
+    expect(unitOf(state, 'archers-1').visibleTo).toStrictEqual(['attacker']);
+    expect(state.field.hazards.map(({ visibleTo }) => visibleTo)).toStrictEqual([[]]);
   });
 
   it('checks the outcomes, triggers, zones and items of the scenario', () => {
@@ -298,6 +326,8 @@ describe('the checks of a new battle', () => {
   });
 });
 
+const UNSEEN = 'The unit "archers-1" needs to be seen by its side and by no side the scenario does not have.';
+
 function create(options: object): unknown {
   return KERNEL.createState({ scenario: 'demo:duel', ...options }, CONTENT);
 }
@@ -314,4 +344,10 @@ function created(sides: readonly ScenarioSide[]): unknown {
 
 function withTurn(turn: TurnRule): unknown {
   return KERNEL.createState({ scenario: 'demo:duel' }, withScenario({}, { turn }));
+}
+
+function withVisibility(unit: VisibleTo, zone: VisibleTo): ContentRegistry {
+  const hazards = SCENARIO.field.hazards.map((hazard) => ({ ...hazard, visibleTo: zone }));
+
+  return withScenario({ field: { ...SCENARIO.field, hazards }, sides: withArchers({ visibleTo: unit }) });
 }

@@ -4,7 +4,7 @@ import type { FieldGeometry } from '../extensions/index.ts';
 import { createFieldGeometry } from '../geometry/index.ts';
 import type { BattleState, Command, Rejection } from '../model/index.ts';
 import { answerRequest } from './answer-request.ts';
-import type { ExecutionCaches, ExecutionRegistries } from './context.ts';
+import { commandSetup, type ExecutionCaches, type ExecutionRegistries } from './context.ts';
 import { extensionViolation, type ExecuteResult } from './result.ts';
 import { battleRejection, startCommand } from './start-command.ts';
 
@@ -16,11 +16,11 @@ import { battleRejection, startCommand } from './start-command.ts';
  * same step. The function has no observable side effects; it treats the state and the content as never changing.
  *
  * @throws {ContentError} If the content describes a definition, a node or a value wrongly; see `Expressions`.
- * @throws {TypeError} If the content is not the content of the battle, or an extension breaks the contract of the
- * kernel: a step, an event or a command refers to a kind the kernel does not know, a step is not in the current
- * version, a step needs a value that cannot be given, gives an event only the kernel gives or one that does not fit
- * the state, adds a step only the kernel adds, or a reason of a rejection is not allowed. Such errors are bugs of the
- * point of assembly, not violations of the rules.
+ * @throws {TypeError} If the state is a projection, which only `simulate` runs commands on, the content is not the
+ * content of the battle, or an extension breaks the contract of the kernel: a step, an event or a command refers to a
+ * kind the kernel does not know, a step is not in the current version, a step needs a value that cannot be given,
+ * gives an event only the kernel gives or one that does not fit the state, adds a step only the kernel adds, or a
+ * reason of a rejection is not allowed. Such errors are bugs of the point of assembly, not violations of the rules.
  */
 export function execute(
   registries: ExecutionRegistries,
@@ -29,6 +29,8 @@ export function execute(
   command: Command,
   content: ContentRegistry,
 ): ExecuteResult {
+  if (state.visibility !== undefined) throw new TypeError('A projection does not run commands.');
+
   checkContent(state, content);
 
   const context = { ...caches, content, registries };
@@ -58,7 +60,7 @@ export function checkAbility(
 
   if (blocked !== undefined) return blocked.rejection;
 
-  const setup = { attributes: caches.attributes, content, fields: caches.fields, registries };
+  const setup = commandSetup(registries, caches, content);
   const result = checkRequest(setup, state, request);
 
   if (result === undefined) return undefined;
@@ -82,7 +84,12 @@ export function battleField(
   return createFieldGeometry(state, content, registries.topologies, caches.fields);
 }
 
-function checkContent(state: BattleState, content: ContentRegistry): void {
+/**
+ * Checks that the content is the content the battle was started with.
+ *
+ * @throws {TypeError} If the hash of the content differs from the hash in the state.
+ */
+export function checkContent(state: BattleState, content: ContentRegistry): void {
   if (content.contentHash !== state.contentHash) {
     throw new TypeError(
       `The content has the hash ${content.contentHash}, but the battle was started with ${state.contentHash}.`,

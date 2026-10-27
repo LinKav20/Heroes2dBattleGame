@@ -16,12 +16,13 @@ import {
   type ScenarioUnit,
 } from '@heroes2dgame/kernel';
 import { describe, expect, it } from 'vitest';
-import { RULES_STDLIB_EXTENSIONS } from '../index.ts';
+import { RULES_STDLIB_EXTENSIONS, STACK_ATTACK } from '../index.ts';
 import {
   answered,
   attack,
   CONTENT,
   contentWith,
+  dice,
   endTurn,
   eventsOf,
   EXTERNAL,
@@ -47,8 +48,8 @@ describe('the damage of a strike', () => {
   it('rolls the damage of every creature, and the target strikes back once', () => {
     const { content, state } = near();
     const asked = play(state, content, attack('pikemen-1', 'skeletons-1')).state;
-    const struck = play(asked, content, roll(asked.inputRequest?.id ?? 0, ...twos(10)));
-    const back = play(struck.state, content, roll(struck.state.inputRequest?.id ?? 0, ...ones(9)));
+    const struck = play(asked, content, roll(asked.inputRequest?.id ?? 0, ...dice(2, 10)));
+    const back = play(struck.state, content, roll(struck.state.inputRequest?.id ?? 0, ...dice(1, 9)));
 
     expect(asked.inputRequest).toMatchObject({ count: 10, name: 'core:damage-roll', sides: 3, unit: 'pikemen-1' });
     expect(attacked(struck.events)).toStrictEqual([strikeOf('pikemen-1', 20, 'melee')]);
@@ -109,7 +110,7 @@ describe('the damage of a strike', () => {
   ])('changes the damage by the difference of attack and defense: $name', (row) => {
     const { content, state } = near(row.units);
     const turn = played(state, content, ...row.endTurns.map(endTurn));
-    const struck = answered(turn, content, attack(row.attacker, row.target, row.from), twos(10));
+    const struck = answered(turn, content, attack(row.attacker, row.target, row.from), dice(2, 10));
 
     expect(attacked(struck.events)[0]).toStrictEqual(strikeOf(row.attacker, row.damage, 'melee', row.target));
   });
@@ -201,7 +202,7 @@ describe('the damage of a strike', () => {
 
   it('reaches a big creature through any of its cells', () => {
     const { content, state } = near({ 'griffins-1': { cell: '7,3', facing: 'east' }, 'pikemen-1': { cell: '5,3' } });
-    const struck = answered(state, content, attack('pikemen-1', 'griffins-1'), twos(10));
+    const struck = answered(state, content, attack('pikemen-1', 'griffins-1'), dice(2, 10));
 
     expect(attacked(struck.events)).toHaveLength(1);
     expect(struck.state.inputRequest).toMatchObject({ name: 'core:damage-roll', unit: 'griffins-1' });
@@ -218,15 +219,35 @@ describe('the damage of a strike', () => {
     expect(attacked(result.events)).toStrictEqual([]);
     expect(result.state.inputRequest).toBeUndefined();
   });
+
+  it('is a step of the attack of stacks only, and throws under an attack of another package', () => {
+    const mechanics: Ruleset['mechanics'] = {
+      ...RULESET.mechanics,
+      'kernel:attack': { params: STACK_PARAMS, variant: 'acme:stacks' },
+    };
+    const content = contentWith(withUnits(NEAR), { mechanics });
+    const created = FOREIGN.createState({ ruleset: EXTERNAL, scenario: 'demo:field', seed: '5'.repeat(64) }, content);
+    const commands: readonly Command[] = [{ kind: 'game', type: 'start-battle' }, endTurn('griffins-1')];
+    const state = commands.reduce((current, command) => {
+      const result = FOREIGN.execute(current, command, content);
+
+      if (!result.ok) throw new Error(`${JSON.stringify(command)} is rejected.`);
+
+      return result.state;
+    }, created);
+
+    expect(() => FOREIGN.execute(state, attack('pikemen-1', 'skeletons-1'), content))
+      .toThrow('The steps of rules-stdlib:stacks need it as the attack of the ruleset.');
+  });
 });
 
 describe('luck', () => {
   it('doubles the damage with good luck and halves it with bad luck, on the highest and the lowest sides', () => {
     const lucky = near({ 'pikemen-1': { cell: '3,1', effects: ['demo:fortune'] } });
     const unlucky = near({ 'pikemen-1': { cell: '3,1', effects: ['demo:misfortune'] } });
-    const good = answered(lucky.state, lucky.content, attack('pikemen-1', 'skeletons-1'), twos(10), [22]);
-    const missed = answered(lucky.state, lucky.content, attack('pikemen-1', 'skeletons-1'), twos(10), [21]);
-    const bad = answered(unlucky.state, unlucky.content, attack('pikemen-1', 'skeletons-1'), twos(10), [3]);
+    const good = answered(lucky.state, lucky.content, attack('pikemen-1', 'skeletons-1'), dice(2, 10), [22]);
+    const missed = answered(lucky.state, lucky.content, attack('pikemen-1', 'skeletons-1'), dice(2, 10), [21]);
+    const bad = answered(unlucky.state, unlucky.content, attack('pikemen-1', 'skeletons-1'), dice(2, 10), [3]);
 
     expect(attacked(good.events)[0]).toStrictEqual({ ...strikeOf('pikemen-1', 40, 'melee'), luck: 'good' });
     expect(attacked(missed.events)[0]).toStrictEqual(strikeOf('pikemen-1', 20, 'melee'));
@@ -238,9 +259,9 @@ describe('luck', () => {
       'archers-1': { cell: '0,3', effects: ['demo:fortune'] },
       'skeletons-1': { cell: '5,3' },
     }));
-    const shot = shotAt(shooter, 'skeletons-1', twos(5), [24]);
+    const shot = shotAt(shooter, 'skeletons-1', dice(2, 5), [24]);
     const { content, state } = near({ 'skeletons-1': { cell: '4,1', effects: ['demo:fortune'] } });
-    const back = answered(state, content, attack('pikemen-1', 'skeletons-1'), twos(10), ones(9), [24]);
+    const back = answered(state, content, attack('pikemen-1', 'skeletons-1'), dice(2, 10), dice(1, 9), [24]);
 
     expect(attacked(shot.events)).toStrictEqual([{ ...strikeOf('archers-1', 32, 'shot'), luck: 'good' }]);
 
@@ -254,7 +275,7 @@ describe('luck', () => {
       mechanics: { ...RULESET.mechanics, 'kernel:attack': { params: rules, variant: 'rules-stdlib:stacks' } },
     });
     const state = played(started(content, { ruleset: EXTERNAL }), content, endTurn('griffins-1'));
-    const struck = answered(state, content, attack('pikemen-1', 'skeletons-1'), twos(10));
+    const struck = answered(state, content, attack('pikemen-1', 'skeletons-1'), dice(2, 10));
 
     expect(luck).toBeDefined();
     expect(attacked(struck.events)[0]).toStrictEqual(strikeOf('pikemen-1', 20, 'melee'));
@@ -264,22 +285,37 @@ describe('luck', () => {
 describe('who sees a strike', () => {
   it.each([
     { name: 'a hidden attacker', pikemen: ['attacker'], skeletons: 'all', strike: ['attacker'] },
-    { name: 'a hidden target', pikemen: 'all', skeletons: ['defender'], strike: ['defender'] },
-    { name: 'units hidden from different sides', pikemen: ['attacker'], skeletons: ['defender'], strike: [] },
+    { name: 'units both sides see', pikemen: 'all', skeletons: 'all', strike: 'all' },
   ] as const)('shows the strike and the strike back only to the sides that see both: $name', (row) => {
     const { content, state } = near({
       'pikemen-1': { cell: '3,1', visibleTo: row.pikemen },
       'skeletons-1': { cell: '4,1', visibleTo: row.skeletons },
     });
-    const struck = answered(state, content, attack('pikemen-1', 'skeletons-1'), twos(10), ones(9));
+    const struck = answered(state, content, attack('pikemen-1', 'skeletons-1'), dice(2, 10), dice(1, 9));
 
     expect(eventsOf(struck.events, 'rules-stdlib:attacked').map(({ visibleTo }) => visibleTo))
       .toStrictEqual([row.strike, row.strike]);
   });
 
+  it.each([
+    { name: 'a target the side of the attacker does not see', pikemen: 'all', skeletons: ['defender'] },
+    { name: 'units hidden from different sides', pikemen: ['attacker'], skeletons: ['defender'] },
+  ] as const)('rejects a strike at a unit not in the battle and at $name alike', (row) => {
+    const { content, state } = near({
+      'pikemen-1': { cell: '3,1', visibleTo: row.pikemen },
+      'skeletons-1': { cell: '4,1', visibleTo: row.skeletons },
+    });
+
+    expect(refusal(state, content, attack('pikemen-1', 'skeletons-1')))
+      .toStrictEqual(refusal(state, content, attack('pikemen-1', 'nobody-1')));
+
+    expect(refusal(state, content, attack('pikemen-1', 'skeletons-1')))
+      .toStrictEqual(['kernel:invalid-command', { field: 'target' }]);
+  });
+
   it('shows the roll of the damage to the sides that see the unit that strikes', () => {
     const { content, state } = near({ 'pikemen-1': { cell: '3,1', visibleTo: ['attacker'] } });
-    const struck = answered(state, content, attack('pikemen-1', 'skeletons-1'), twos(10));
+    const struck = answered(state, content, attack('pikemen-1', 'skeletons-1'), dice(2, 10));
 
     expect(eventsOf(struck.events, 'kernel:roll-made').map(({ visibleTo }) => visibleTo)).toStrictEqual([['attacker']]);
   });
@@ -287,7 +323,7 @@ describe('who sees a strike', () => {
   it('lets a reaction tell the attacker and the kind of strike from the event', () => {
     const watched = { 'pikemen-1': { cell: '3,1', effects: ['demo:watcher'] } };
     const { content, state } = near(watched, {}, { variables: { struck: false } });
-    const struck = answered(state, content, attack('pikemen-1', 'skeletons-1'), twos(10), ones(9));
+    const struck = answered(state, content, attack('pikemen-1', 'skeletons-1'), dice(2, 10), dice(1, 9));
 
     expect(struck.state.variables.struck).toBe(true);
   });
@@ -306,14 +342,14 @@ describe('the strike back', () => {
   it('comes from a shooter with the penalty of melee', () => {
     const { content, state } = near({ 'archers-1': { cell: '4,2' } });
     const skeletons = played(state, content, endTurn('pikemen-1'));
-    const struck = answered(skeletons, content, attack('skeletons-1', 'archers-1', '5,2'), twos(10), twos(3));
+    const struck = answered(skeletons, content, attack('skeletons-1', 'archers-1', '5,2'), dice(2, 10), dice(2, 3));
 
     expect(attacked(struck.events)[1]).toStrictEqual(strikeOf('archers-1', 4, 'retaliation', 'skeletons-1'));
   });
 
   it('never comes from a dead target, which keeps its strikes back', () => {
     const { content, state } = near({}, { units: { 'skeletons-1': { count: 1 } } });
-    const killed = answered(state, content, attack('pikemen-1', 'skeletons-1'), twos(10));
+    const killed = answered(state, content, attack('pikemen-1', 'skeletons-1'), dice(2, 10));
     const changed = eventsOf(killed.events, 'kernel:resource-changed');
 
     expect(attacked(killed.events)).toHaveLength(1);
@@ -324,12 +360,12 @@ describe('the strike back', () => {
 
   it('comes once for every strike back left and again in the next round', () => {
     const { content, state } = near({ 'archers-1': { cell: '4,2' } });
-    const first = answered(state, content, attack('pikemen-1', 'skeletons-1'), twos(10), ones(9)).state;
+    const first = answered(state, content, attack('pikemen-1', 'skeletons-1'), dice(2, 10), dice(1, 9)).state;
     const archers = played(first, content, endTurn('skeletons-1'));
-    const second = answered(archers, content, attack('archers-1', 'skeletons-1'), twos(5));
+    const second = answered(archers, content, attack('archers-1', 'skeletons-1'), dice(2, 5));
     const round = played(second.state, content, endTurn('griffins-1'));
     const third = play(round, content, attack('pikemen-1', 'skeletons-1')).state;
-    const again = play(third, content, roll(third.inputRequest?.id ?? 0, ...twos(10))).state;
+    const again = play(third, content, roll(third.inputRequest?.id ?? 0, ...dice(2, 10))).state;
 
     expect(attacked(second.events)).toHaveLength(1);
     expect(second.state.inputRequest).toBeUndefined();
@@ -339,7 +375,7 @@ describe('the strike back', () => {
 
   it('counts the strikes back of a creature that has more than one', () => {
     const { content, state } = near({ 'pikemen-1': { cell: '6,3' } });
-    const struck = answered(state, content, attack('pikemen-1', 'griffins-1'), twos(10), twos(2));
+    const struck = answered(state, content, attack('pikemen-1', 'griffins-1'), dice(2, 10), dice(2, 2));
 
     expect(attacked(struck.events)).toHaveLength(2);
     expect(unitOf(struck.state, 'griffins-1').resources['core:retaliations']).toBe(1);
@@ -347,14 +383,14 @@ describe('the strike back', () => {
 
   it('is not given to an attacker that has none coming', () => {
     const { content, state } = near({ 'pikemen-1': { cell: '3,1', effects: ['demo:unanswered'] } });
-    const struck = answered(state, content, attack('pikemen-1', 'skeletons-1'), twos(10));
+    const struck = answered(state, content, attack('pikemen-1', 'skeletons-1'), dice(2, 10));
 
     expect(struck.state.inputRequest).toBeUndefined();
   });
 
   it('is lost when its damage goes beyond the safe integers', () => {
     const { content, state } = near({ 'skeletons-1': { cell: '4,1', effects: ['demo:titan'] } });
-    const struck = answered(state, content, attack('pikemen-1', 'skeletons-1'), twos(10));
+    const struck = answered(state, content, attack('pikemen-1', 'skeletons-1'), dice(2, 10));
 
     expect(attacked(struck.events)).toStrictEqual([strikeOf('pikemen-1', 20, 'melee')]);
     expect(struck.state.inputRequest).toBeUndefined();
@@ -362,7 +398,7 @@ describe('the strike back', () => {
 
   it('comes through any cell of a big creature', () => {
     const { content, state } = near({ 'griffins-1': { cell: '7,3', facing: 'east' }, 'pikemen-1': { cell: '5,3' } });
-    const struck = answered(state, content, attack('pikemen-1', 'griffins-1'), twos(10), twos(2));
+    const struck = answered(state, content, attack('pikemen-1', 'griffins-1'), dice(2, 10), dice(2, 2));
 
     expect(attacked(struck.events).map((strike) => (strike as { readonly kind: string }).kind))
       .toStrictEqual(['melee', 'retaliation']);
@@ -375,7 +411,7 @@ describe('shots', () => {
     { cell: '6,3', damage: 8, name: 'beyond the far distance' },
   ])('spend a shot and lose half of the damage only beyond the far distance: $name', ({ cell, damage }) => {
     const content = contentWith(withUnits({ 'skeletons-1': { cell } }));
-    const shot = shotAt(content, 'skeletons-1', twos(5));
+    const shot = shotAt(content, 'skeletons-1', dice(2, 5));
 
     expect(attacked(shot.events)).toStrictEqual([strikeOf('archers-1', damage, 'shot')]);
     expect(unitOf(shot.state, 'archers-1').resources['core:shots']).toBe(11);
@@ -384,7 +420,7 @@ describe('shots', () => {
 
   it('measure the far distance to the nearest cell of a big creature', () => {
     const content = contentWith(withUnits({ 'griffins-1': { cell: '6,3', facing: 'east' } }));
-    const shot = shotAt(content, 'griffins-1', twos(5));
+    const shot = shotAt(content, 'griffins-1', dice(2, 5));
 
     expect(attacked(shot.events)).toStrictEqual([strikeOf('archers-1', 14, 'shot', 'griffins-1')]);
   });
@@ -392,7 +428,7 @@ describe('shots', () => {
   it('lose half of the damage from afar with the last shot too', () => {
     const content = contentWith(withUnits({ 'skeletons-1': { cell: '6,3' } }));
     const lastShot = { ruleset: EXTERNAL, units: { 'archers-1': { resources: { 'core:shots': 1 } } } };
-    const last = answered(atArchers(content, lastShot), content, shoot('archers-1', 'skeletons-1'), twos(5));
+    const last = answered(atArchers(content, lastShot), content, shoot('archers-1', 'skeletons-1'), dice(2, 5));
 
     expect(attacked(last.events)[0]).toMatchObject({ damage: 8 });
     expect(unitOf(last.state, 'archers-1').resources['core:shots']).toBe(0);
@@ -406,7 +442,7 @@ describe('shots', () => {
     const units = { 'archers-1': { resources: { 'core:shots': shots } } };
     const { content, state } = near({ 'archers-1': { cell: '4,2', effects } }, { units });
     const turn = played(state, content, endTurn('pikemen-1'), endTurn('skeletons-1'));
-    const struck = answered(turn, content, attack('archers-1', 'skeletons-1'), twos(5));
+    const struck = answered(turn, content, attack('archers-1', 'skeletons-1'), dice(2, 5));
 
     expect(attacked(struck.events)[0]).toStrictEqual(strikeOf('archers-1', damage, 'melee'));
   });
@@ -416,7 +452,7 @@ describe('shots', () => {
       'archers-1': { cell: '0,3', effects: ['demo:sharp'] },
       'skeletons-1': { cell: '6,3' },
     }));
-    const shot = shotAt(content, 'skeletons-1', twos(5));
+    const shot = shotAt(content, 'skeletons-1', dice(2, 5));
 
     expect(attacked(shot.events)[0]).toMatchObject({ damage: 16 });
   });
@@ -496,7 +532,7 @@ describe('shots', () => {
 
   it('may hit a target out of sight when the ruleset allows it', () => {
     const content = withAttack({ shots: { ...STACK_PARAMS.shots, sight: false } }, {}, { obstacles: [ROCK] });
-    const shot = shotAt(content, 'griffins-1', twos(5));
+    const shot = shotAt(content, 'griffins-1', dice(2, 5));
 
     expect(attacked(shot.events)).toHaveLength(1);
   });
@@ -506,7 +542,7 @@ describe('shots', () => {
       'archers-1': { cell: '3,3' },
       'griffins-1': { cell: '4,3' },
     });
-    const shot = shotAt(content, 'griffins-1', twos(5));
+    const shot = shotAt(content, 'griffins-1', dice(2, 5));
 
     expect(attacked(shot.events)).toHaveLength(1);
     expect(shot.state.inputRequest).toBeUndefined();
@@ -544,6 +580,8 @@ const PUSH: OperationExtension = Object.freeze({
 });
 
 const PUSHING = createKernel({ extensions: [...RULES_STDLIB_EXTENSIONS, PUSH] });
+
+const FOREIGN = createKernel({ extensions: [...RULES_STDLIB_EXTENSIONS, { ...STACK_ATTACK, name: 'acme:stacks' }] });
 
 function near(
   change: Units = {},
@@ -622,12 +660,4 @@ function attacked(events: readonly BattleEvent[]): readonly unknown[] {
 
 function strikeOf(attacker: string, damage: number, kind: string, target = 'skeletons-1'): object {
   return { attacker, damage, kind, target };
-}
-
-function twos(count: number): readonly number[] {
-  return Array.from({ length: count }, () => 2);
-}
-
-function ones(count: number): readonly number[] {
-  return Array.from({ length: count }, () => 1);
 }

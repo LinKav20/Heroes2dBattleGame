@@ -37,6 +37,7 @@ export {
   abilityDefinition,
   creatureDefinition,
   effectDefinition,
+  fixedUnits,
   itemDefinition,
   rulesetDefinition,
   scenarioDefinition,
@@ -49,6 +50,7 @@ export type {
 } from './expressions.ts';
 export {
   RANDOM_SOURCES,
+  ROLL_SOURCES,
   type MechanicChoice,
   type MovementRule,
   type RandomSource,

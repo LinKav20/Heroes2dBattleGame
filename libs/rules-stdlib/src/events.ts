@@ -1,6 +1,7 @@
 import {
   NAME_SCHEMA,
   type BattleState,
+  type DataView,
   type ExtensionEventKind,
   type JsonObject,
   type JsonValue,
@@ -126,6 +127,30 @@ export function speedData(state: BattleState): SpeedData {
  */
 export function initiativeData(state: BattleState): InitiativeData {
   return (dataOf(state, RULES_STDLIB_NAMES.initiative) as InitiativeData | undefined) ?? { rolls: {} };
+}
+
+/**
+ * Returns the data of the order of turns by speed as an actor sees it who sees only what some sides see: without the
+ * units the actor does not see.
+ */
+export function projectedSpeed(data: JsonValue, view: DataView): JsonValue {
+  const { extra, granted, last } = data as SpeedData;
+
+  return {
+    granted: granted.filter((unit) => view.seesUnit(unit)),
+    ...(extra !== undefined && view.seesUnit(extra) ? { extra } : {}),
+    ...(last === undefined ? {} : { last }),
+  };
+}
+
+/**
+ * Returns the data of the order of turns by initiative as an actor sees it who sees only what some sides see: the
+ * rolls of the units the actor sees.
+ */
+export function projectedInitiative(data: JsonValue, view: DataView): JsonValue {
+  const { rolls } = data as InitiativeData;
+
+  return { rolls: Object.fromEntries(Object.entries(rolls).filter(([unit]) => view.seesUnit(unit))) };
 }
 
 function dataOf(state: BattleState, name: string): JsonValue | undefined {

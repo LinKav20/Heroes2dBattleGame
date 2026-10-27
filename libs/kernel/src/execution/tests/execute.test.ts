@@ -193,7 +193,7 @@ describe('execute', () => {
   it('asks for a choice and a target and checks the answers', () => {
     const choosing = accepted(KERNEL.execute(duelState('generator'), sequence('acme-duel:choose'), CONTENT)).state;
     const chosen = accepted(KERNEL.execute(choosing, answer(8, { kind: 'choice', option: 'right' }), CONTENT));
-    const aiming = accepted(KERNEL.execute(duelState('generator'), sequence('acme-duel:aim'), CONTENT)).state;
+    const aiming = accepted(KERNEL.execute(seenDuel(), sequence('acme-duel:aim'), CONTENT)).state;
     const target = { kind: 'unit', unit: 'pikemen-1' } as const;
     const aimed = accepted(KERNEL.execute(aiming, answer(8, { kind: 'target', targets: [target] }), CONTENT));
 
@@ -261,13 +261,8 @@ describe('execute', () => {
 
   it.each<{ readonly name: string; readonly command: Command; readonly rejection: Rejection }>([
     {
-      command: { kind: 'game', target: 'pikemen-1', type: 'attack', unit: 'archers-1' },
+      command: { kind: 'game', target: 'archers-1', type: 'attack', unit: 'pikemen-1' },
       name: 'a command of the kernel without a planner',
-      rejection: rule('kernel:not-available'),
-    },
-    {
-      command: { edit: { count: 1, health: 1, type: 'set-health', unit: 'archers-1' }, kind: 'edit' },
-      name: 'a state edit',
       rejection: rule('kernel:not-available'),
     },
     {
@@ -377,8 +372,13 @@ describe('execute', () => {
     expect(state.steps).toStrictEqual([ACTION_END, { params: {}, type: 'acme-duel:choose', version: 1 }]);
   });
 
+  it('refuses a choice of targets that offers a unit the choosing side does not see', () => {
+    expect(() => KERNEL.execute(duelState('generator'), sequence('acme-duel:aim'), CONTENT))
+      .toThrow('offers the unit "pikemen-1", which the choosing sides do not see');
+  });
+
   it('checks the number of targets and repeated targets', () => {
-    const aiming = accepted(KERNEL.execute(duelState('generator'), sequence('acme-duel:aim-two'), CONTENT)).state;
+    const aiming = accepted(KERNEL.execute(seenDuel(), sequence('acme-duel:aim-two'), CONTENT)).state;
     const archers = { kind: 'unit', unit: 'archers-1' } as const;
     const pikemen = { kind: 'unit', unit: 'pikemen-1' } as const;
 
@@ -712,4 +712,10 @@ function thrown(run: () => unknown): unknown {
   }
 
   return undefined;
+}
+
+function seenDuel(): BattleState {
+  const state = duelState('generator');
+
+  return { ...state, units: state.units.map((unit) => ({ ...unit, visibleTo: 'all' })) };
 }

@@ -15,7 +15,7 @@ import {
 import { DEFAULT_ROLLED, type BonusParams, type StackParams } from './attack-params.ts';
 import { chanceHit, chanceNeed, chosenChance } from './chances.ts';
 import type { AttackedPayload } from './events.ts';
-import { taggedWith } from './helpers.ts';
+import { rollNeed, taggedWith } from './helpers.ts';
 import { RULES_STDLIB_MECHANICS, RULES_STDLIB_NAMES } from './names.ts';
 
 /**
@@ -139,18 +139,7 @@ function rolledDamage(
   const roll = context.inputs[0];
 
   if (roll?.kind !== 'roll') {
-    return {
-      kind: 'need',
-      need: {
-        count: rolled,
-        kind: 'roll',
-        name: rules.damage.roll,
-        side: attacker.side,
-        sides: greatest - least + 1,
-        unit: attacker.id,
-        visibleTo: attacker.visibleTo,
-      },
-    };
+    return { kind: 'need', need: rollNeed(attacker, rules.damage.roll, greatest - least + 1, rolled) };
   }
 
   return valueOf(BigInt(roll.result) + BigInt(rolled) * BigInt(least - 1));

@@ -10,15 +10,6 @@ export function scenarioSide(scenario: Scenario, side: SideId): ScenarioSide | u
 }
 
 /**
- * Returns the units to which the scenario gives a cell: they stand there from the start and are not placed.
- */
-export function fixedUnits(scenario: Scenario): ReadonlySet<UnitId> {
-  const units = scenario.sides.flatMap((side) => side.units);
-
-  return new Set(units.filter(({ cell }) => cell !== undefined).map(({ id }) => id));
-}
-
-/**
  * Tells whether a unit can stand in a cell with a direction and keep all its cells in a deployment zone.
  */
 export function fitsZone(

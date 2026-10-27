@@ -39,7 +39,22 @@ export interface KernelRejectionParams {
   readonly [REJECTION_REASONS.inputPending]: Readonly<Record<string, never>>;
   readonly [REJECTION_REASONS.invalidAnswer]: { readonly request: number };
   readonly [REJECTION_REASONS.invalidCommand]: {
-    readonly field: 'ability' | 'cell' | 'facing' | 'from' | 'item' | 'side' | 'target' | 'to' | 'unit';
+    readonly field:
+      | 'ability'
+      | 'cell'
+      | 'count'
+      | 'effect'
+      | 'facing'
+      | 'from'
+      | 'health'
+      | 'item'
+      | 'resource'
+      | 'side'
+      | 'target'
+      | 'to'
+      | 'type'
+      | 'unit'
+      | 'value';
   };
   readonly [REJECTION_REASONS.invalidTargets]: {
     readonly ability?: ContentName;
@@ -113,8 +128,9 @@ export const REJECTION_CODES = Object.freeze({
  *   unit does not fit there or the cell is taken; `cell` names it;
  * - `inputPending`: a game command while an input request is open; no parameters;
  * - `invalidAnswer`: an answer that does not fit the open request; `request` is its identifier;
- * - `invalidCommand`: the command refers to a unit, a side, an item, an ability or a cell that is not there, names a
- *   direction the field does not have, misses something it needs, or moves a unit to where it stands without turning
+ * - `invalidCommand`: the command refers to a unit, a side, an item, an ability, an effect, a resource or a cell that
+ *   is not there, names a direction the field does not have, misses something it needs, is a state edit of a type the
+ *   kernel does not know or gives it a value the state cannot hold, or moves a unit to where it stands without turning
  *   it; `field` names the field of the command;
  * - `invalidTargets`: the targets do not fit the rule of the ability, or the target of an attack or a shot is dead or
  *   off the field; `ability` names the ability, if there is one, `problem` is one of `TARGET_PROBLEMS`, and `target`
